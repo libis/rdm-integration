@@ -72,7 +72,7 @@ func generateFileName() string {
 
 func generateStorageIdentifier(fileName string) string {
 	b := ""
-	if awsBucket != "" {
+	if defaultDriver == "s3" {
 		b = awsBucket + ":"
 	}
 	return fmt.Sprintf("%s://%s%s", defaultDriver, b, fileName)

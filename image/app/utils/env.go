@@ -8,7 +8,7 @@ var defaultDriver = "file"
 var awsRegion = "libis-cloud"
 var awsEndpoint = "http://s3.libis.cloud"
 var awsPathstyle = true
-var awsBucket = ""
+var awsBucket = "dataverse"
 var defaultHash = Md5
 
 func init() {
