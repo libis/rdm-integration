@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Data synchronizer</title>
+    <link type="text/css" href="resources/css/style.css" rel="stylesheet">
+    <link rel="shortcut icon" href="favicon.ico">
+    <script type="text/javascript" src="resources/js/tree.js"></script>
+    <script type="text/javascript" src="resources/js/github.js"></script>
+</head>
+
+<body style="min-width: 1100px;">
+    <div id="main">
+        <form id="frm1">
+            <p>
+                <label for="owner">Owner: <span aria-label="required">*</span></label>
+                <input type="text"name="owner"><br>
+            </p>
+            <p>
+                <label for="repo">Repo: <span aria-label="required">*</span></label>
+                <input type="text" name="repo"><br>
+            </p>
+            <p>
+                <label for="ref">Ref (branch or tag or release): <span aria-label="required">*</span></label>
+                <input type="text" name="ref"><br>
+            </p>
+            <p>
+                <label for="token">Github token: <span aria-label="required">*</span></label>
+                <input type="text" name="token"><br>
+            </p>
+            <p>
+                <label for="doi">DOI: <span aria-label="required">*</span></label>
+                <input type="text" name="doi"><button onclick="showContent()">New</button><br>
+            </p>
+            <p>
+                <label for="apiKey">Dataverse token: <span aria-label="required">*</span></label>
+                <input type="text" name="apiKey"><br>
+            </p>
+        </form>
+        <button onclick="showContent()">Compare</button>
+        <div id="saver"></div>
+        <div><button onclick="myTree.expandAll()">Expand</button><button onclick="myTree.collapseAll()">Collaps</button></div>
+        <div id="content"></div>
+    </div>
+</body>
+
+</html>
