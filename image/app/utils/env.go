@@ -2,7 +2,7 @@ package utils
 
 import "os"
 
-var pathToFilesDir = "/home/eryk/projects/rdm-deployment/data/dv/files/"
+var pathToFilesDir = "../../rdm-deployment/data/dv/files/"
 var dataverseServer = "https://localhost:7000"
 var defaultDriver = "file"
 var awsRegion = "libis-cloud"
