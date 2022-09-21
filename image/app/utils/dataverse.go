@@ -195,7 +195,7 @@ func writeToDV(dataverseKey, doi string, jsonData JsonData) error {
 
 //TODO: fixme
 func checkPermission(dataverseKey, doi string) error {
-	url := fmt.Sprintf("%s/api/admin/permissions/%v?unblock-key=%v", dataverseServer, url.PathEscape("doi:" + doi), "N86aBF6MrY4HIEGF4MT0")
+	url := fmt.Sprintf("%s/api/admin/permissions/%v?unblock-key=%v", dataverseServer, url.PathEscape("doi:" + doi), unblockKey)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err

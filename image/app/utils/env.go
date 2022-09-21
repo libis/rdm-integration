@@ -10,6 +10,8 @@ var awsEndpoint = "http://s3.libis.cloud"
 var awsPathstyle = true
 var awsBucket = "dataverse"
 var defaultHash = Md5
+var pathToUnblockKey = "../../rdm-deployment/data/.secrets/api/key"
+var unblockKey = "" //will be read from pathToUnblockKey
 
 func init() {
 	files := os.Getenv("FILES_PATH")
@@ -20,6 +22,7 @@ func init() {
 	style := os.Getenv("AWS_PATH_STYLE_ACCESS")
 	bucket := os.Getenv("AWS_BUCKET")
 	hash := os.Getenv("HASH_TYPE")
+	pathUK := os.Getenv("PATH_TO_UNBLOCK_KEY")
 	// Environment variables used for credentials:
 	// * Access Key ID:     AWS_ACCESS_KEY_ID or AWS_ACCESS_KEY
 	// * Secret Access Key: AWS_SECRET_ACCESS_KEY or AWS_SECRET_KEY
@@ -47,4 +50,12 @@ func init() {
 	if hash != "" {
 		defaultHash = hash
 	}
+	if pathUK != "" {
+		pathToUnblockKey = pathUK
+	}
+	b, err := os.ReadFile(pathToUnblockKey)
+	if err != nil {
+		panic(err)
+	}
+	unblockKey = string(b)
 }
