@@ -1,6 +1,9 @@
 package utils
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 var pathToFilesDir = "../../rdm-deployment/data/dv/files/"
 var dataverseServer = "https://localhost:7000"
@@ -57,5 +60,5 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	unblockKey = string(b)
+	unblockKey = strings.TrimSpace(string(b))
 }
