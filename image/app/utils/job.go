@@ -74,7 +74,7 @@ func ProcessJobs() {
 		job, ok := popJob()
 		if ok {
 			err := PersistNodeMap(job)
-			if err != nil && err.Error() != "redis: nil" {
+			if err != nil {
 				logging.Logger.Println("job failed: ", job.Doi, err)
 			}
 			unlock(job.Doi)

@@ -3,7 +3,6 @@ package utils
 import (
 	"os"
 	"strings"
-	"time"
 
 	"github.com/go-redis/redis/v9"
 )
@@ -21,8 +20,6 @@ var unblockKey = "" //will be read from pathToUnblockKey
 var redisHost = "localhost:6379"
 
 var rdb *redis.Client
-
-var DefaultCacheExpiration = time.Hour * 72
 
 func init() {
 	files := os.Getenv("FILES_PATH")

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/dv"
 	"integration/app/logging"
 	"integration/app/tree"
 	"io"
@@ -13,28 +14,6 @@ import (
 	"net/http"
 	"net/url"
 )
-
-type JsonData struct {
-	Description       *string  `json:"description,omitempty"`
-	DirectoryLabel    *string  `json:"directoryLabel,omitempty"`
-	Categories        []string `json:"categories,omitempty"`
-	Restrict          *bool    `json:"restrict,omitempty"`
-	StorageIdentifier string   `json:"storageIdentifier"`
-	FileName          string   `json:"fileName"`
-	MimeType          string   `json:"mimeType"`
-	Checksum          Checksum `json:"checksum"`
-}
-
-type Checksum struct {
-	Type  string `json:"@type"`
-	Value string `json:"@value"`
-}
-
-type ListResponse struct {
-	Status  string          `json:"status"`
-	Data    []tree.Metadata `json:"data"`
-	Message string          `json:"message"`
-}
 
 func GetNodeMap(doi, token string) (map[string]tree.Node, error) {
 	url := dataverseServer + "/api/datasets/:persistentId/versions/:latest/files?persistentId=doi:" + doi
@@ -51,7 +30,7 @@ func GetNodeMap(doi, token string) (map[string]tree.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := ListResponse{}
+	res := dv.ListResponse{}
 	err = json.Unmarshal(responseData, &res)
 	if err != nil {
 		return nil, err
@@ -128,12 +107,12 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		if *directoryLabel == "" {
 			directoryLabel = nil
 		}
-		data := JsonData{
+		data := dv.JsonData{
 			StorageIdentifier: storageIdentifier,
 			FileName:          v.Attributes.Metadata.DataFile.Filename,
 			DirectoryLabel:    directoryLabel,
 			MimeType:          "application/octet-stream",
-			Checksum: Checksum{
+			Checksum: dv.Checksum{
 				Type:  hashType,
 				Value: hashValue,
 			},
@@ -162,9 +141,9 @@ func deleteFromDV(dataverseKey, doi string, id int) error {
 	return err
 }
 
-func writeToDV(dataverseKey, doi string, jsonData JsonData) error {
+func writeToDV(dataverseKey, doi string, jsonData dv.JsonData) error {
 	url := dataverseServer + "/api/datasets/:persistentId/addFiles?persistentId=doi:" + doi
-	data, err := json.Marshal([]JsonData{jsonData})
+	data, err := json.Marshal([]dv.JsonData{jsonData})
 	if err != nil {
 		return err
 	}
