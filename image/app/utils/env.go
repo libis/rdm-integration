@@ -3,6 +3,9 @@ package utils
 import (
 	"os"
 	"strings"
+	"time"
+
+	"github.com/go-redis/redis/v9"
 )
 
 var pathToFilesDir = "../../rdm-deployment/data/dv/files/"
@@ -15,6 +18,11 @@ var awsBucket = "dataverse"
 var defaultHash = Md5
 var pathToUnblockKey = "../../rdm-deployment/data/.secrets/api/key"
 var unblockKey = "" //will be read from pathToUnblockKey
+var redisHost = "localhost:6379"
+
+var Rdb *redis.Client
+
+var DefaultCacheExpiration = time.Hour*72
 
 func init() {
 	files := os.Getenv("FILES_PATH")
@@ -26,6 +34,7 @@ func init() {
 	bucket := os.Getenv("AWS_BUCKET")
 	hash := os.Getenv("HASH_TYPE")
 	pathUK := os.Getenv("PATH_TO_UNBLOCK_KEY")
+	rh := os.Getenv("REDIS_HOST")
 	// Environment variables used for credentials:
 	// * Access Key ID:     AWS_ACCESS_KEY_ID or AWS_ACCESS_KEY
 	// * Secret Access Key: AWS_SECRET_ACCESS_KEY or AWS_SECRET_KEY
@@ -61,4 +70,13 @@ func init() {
 		panic(err)
 	}
 	unblockKey = strings.TrimSpace(string(b))
+	if rh != "" {
+		redisHost = rh
+	}
+
+	Rdb = redis.NewClient(&redis.Options{
+		Addr:     redisHost,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
 }
