@@ -16,4 +16,4 @@ RUN go build -v -o /usr/local/bin/app ./app
 
 USER app
 
-CMD ["app"]
+CMD ["app && app/workers 1"]

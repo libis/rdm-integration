@@ -26,7 +26,7 @@ push: ## Push Docker image (only in prod stage)
 	fi
 
 run: ## Run the server locally
-	cd image && go mod tidy && go run ./app
+	cd image && go run ./app && go run ./app/workers 5
 
 run-on-docker:
 	cd image && docker run -p 7788:7788 -d "$(IMAGE_TAG)"

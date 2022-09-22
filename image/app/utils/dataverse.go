@@ -30,11 +30,6 @@ type Checksum struct {
 	Value string `json:"@value"`
 }
 
-type Stream struct {
-	Open  func() io.Reader
-	Close func() error
-}
-
 type ListResponse struct {
 	Status  string          `json:"status"`
 	Data    []tree.Metadata `json:"data"`
@@ -90,19 +85,20 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 	return res
 }
 
-func PersistNodeMap(dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream) {
-	//TODO: put in queue: redis keyvalue store https://hub.docker.com/_/redis
+func PersistNodeMap(job Job) error {
 	ctx := context.Background()
-	err := doPersistNodeMap(ctx, dataverseKey, doi, writableNodes, streams)
+	streams, err := deserialize(ctx, job.StreamType, job.Streams, job.StreamParams)
 	if err != nil {
-		logging.Logger.Println(err)
+		return err
 	}
+	return doPersistNodeMap(ctx, job.DataverseKey, job.Doi, job.WritableNodes, streams)
 }
 
 func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream) (err error) {
 	err = checkPermission(dataverseKey, doi)
 	if err != nil {
-		return err
+		logging.Logger.Println(err)
+		//return err
 	}
 	for k, v := range writableNodes {
 		if !v.Checked && v.Attributes.Metadata.DataFile.Id != 0 {
@@ -154,7 +150,8 @@ func deleteFromDV(dataverseKey, doi string, id int) error {
 	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", dataverseServer, id)
 	request, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
-		return err
+		logging.Logger.Println(err)
+		//return err
 	}
 	request.SetBasicAuth(dataverseKey, "")
 	r, err := http.DefaultClient.Do(request)
@@ -193,15 +190,18 @@ func writeToDV(dataverseKey, doi string, jsonData JsonData) error {
 	return err
 }
 
-//TODO: fixme
+// TODO: fixme
 func checkPermission(dataverseKey, doi string) error {
-	url := fmt.Sprintf("%s/api/admin/permissions/%v?unblock-key=%v", dataverseServer, url.PathEscape("doi:" + doi), unblockKey)
+	url := fmt.Sprintf("%s/api/admin/permissions/%v?unblock-key=%v", dataverseServer, url.PathEscape("doi:"+doi), unblockKey)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
 	request.Header.Add("X-Dataverse-key", dataverseKey)
 	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
 		return fmt.Errorf("getting permissions for dataset %s failed: %s", doi, string(b))

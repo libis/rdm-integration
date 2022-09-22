@@ -20,9 +20,9 @@ var pathToUnblockKey = "../../rdm-deployment/data/.secrets/api/key"
 var unblockKey = "" //will be read from pathToUnblockKey
 var redisHost = "localhost:6379"
 
-var Rdb *redis.Client
+var rdb *redis.Client
 
-var DefaultCacheExpiration = time.Hour*72
+var DefaultCacheExpiration = time.Hour * 72
 
 func init() {
 	files := os.Getenv("FILES_PATH")
@@ -74,7 +74,7 @@ func init() {
 		redisHost = rh
 	}
 
-	Rdb = redis.NewClient(&redis.Options{
+	rdb = redis.NewClient(&redis.Options{
 		Addr:     redisHost,
 		Password: "", // no password set
 		DB:       0,  // use default DB

@@ -1,8 +1,6 @@
 package gh
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/tree"
@@ -148,28 +146,28 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: req.GhToken},
-	)
-	ctx := context.Background()
-	tc := oauth2.NewClient(ctx, ts)
 
-	client := github.NewClient(tc)
-	readers := map[string]utils.Stream{}
 	writableNodes := utils.ToWritableNodes(req.SelectedNodes, req.OriginalRoot)
+	streams := map[string]map[string]interface{}{}
 	for k, v := range writableNodes {
-		sha := v.Attributes.RemoteHash
-		var gitErr error
-		readers[k] = utils.Stream{
-			Open: func() io.Reader {
-				var b2 []byte
-				b2, _, gitErr = client.Git.GetBlobRaw(ctx, req.GhUser, req.Repo, sha)
-				return bytes.NewReader(b2)
-			},
-			Close: func() error {
-				return gitErr
-			},
-		}
+		streams[k] = map[string]interface{}{"sha": v.Attributes.RemoteHash}
 	}
-	utils.PersistNodeMap(req.DataverseKey, req.Doi, writableNodes, readers)
+
+	err = utils.AddJob(utils.Job{
+		DataverseKey:  req.DataverseKey,
+		Doi:           req.Doi,
+		WritableNodes: writableNodes,
+		StreamType:    "github",
+		Streams:       streams,
+		StreamParams: map[string]string{
+			"user":  req.GhUser,
+			"repo":  req.Repo,
+			"token": req.GhToken,
+		},
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
 }
