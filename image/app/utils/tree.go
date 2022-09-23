@@ -48,10 +48,68 @@ func MergeTrees(to, from map[string]tree.Node) {
 }
 
 func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error) {
+	folders := getFolders(nodes)
+	addFoldersTonNodes(folders, nodes)
+	res := map[string]*tree.Node{}
+	children := map[string][]*tree.Node{}
+	for k, v := range nodes {
+		node := v
+		html, err := addColor(doi, node)
+		if err != nil {
+			return nil, err
+		}
+		node.Html = html
+		res[k] = &node
+		if v.Id != "" {
+			children[v.Attributes.ParentId] = append(children[v.Attributes.ParentId], &node)
+		}
+	}
+	for k := range res {
+		sort.Slice(children[k], func(i, j int) bool {
+			return strings.ToLower(children[k][i].Id) < strings.ToLower(children[k][j].Id)
+		})
+		res[k].Children = children[k]
+	}
+
+	return res[""], nil
+}
+
+func addColor(doi string, node tree.Node) (string, error) {
+	html := node.Html
+	if node.Attributes.IsFile {
+		if node.Attributes.RemoteHash == "" {
+			html = "<span style=\"color: red;\">" + node.Html + "</span>"
+		} else if node.Attributes.LocalHash == "" {
+			html = "<span style=\"color: black;\">" + node.Html + "</span>"
+		} else if node.Attributes.Metadata.DataFile.Checksum.Type != node.Attributes.RemoteHashType {
+			h, err := doHash(doi, node)
+			if err != nil {
+				return "", fmt.Errorf("failed to hash local file %v: %v", node.Attributes.Metadata.DataFile.StorageIdentifier, err)
+			}
+			node.Attributes.LocalHash = fmt.Sprintf("%x", h)
+			if node.Attributes.LocalHash == node.Attributes.RemoteHash {
+				html = "<span style=\"color: green;\">" + node.Html + "</span>"
+			} else {
+				html = "<span style=\"color: blue;\">" + node.Html + "</span>"
+			}
+		} else if node.Attributes.LocalHash == node.Attributes.RemoteHash {
+			html = "<span style=\"color: green;\">" + node.Html + "</span>"
+		} else {
+			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
+		}
+	}
+	return html, nil
+}
+
+func getFolders(nodes map[string]tree.Node) map[string]bool {
 	folders := map[string]bool{}
 	for _, v := range nodes {
 		folders[v.Attributes.ParentId] = true
 	}
+	return folders
+}
+
+func addFoldersTonNodes(folders map[string]bool, nodes map[string]tree.Node) {
 	for k := range folders {
 		ancestors := strings.Split(k, "/")
 		for i := range ancestors {
@@ -69,43 +127,4 @@ func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error
 			}
 		}
 	}
-	res := map[string]*tree.Node{}
-	children := map[string][]*tree.Node{}
-	for k, v := range nodes {
-		node := v
-		if v.Attributes.IsFile {
-			if v.Attributes.RemoteHash == "" {
-				node.Html = "<span style=\"color: red;\">" + v.Html + "</span>"
-			} else if v.Attributes.LocalHash == "" {
-				node.Html = "<span style=\"color: black;\">" + v.Html + "</span>"
-			} else if v.Attributes.Metadata.DataFile.Checksum.Type != v.Attributes.RemoteHashType {
-				h, err := doHash(doi, node)
-				if err != nil {
-					return nil, fmt.Errorf("failed to hash local file %v: %v", v.Attributes.Metadata.DataFile.StorageIdentifier, err)
-				}
-				node.Attributes.LocalHash = fmt.Sprintf("%x", h)
-				if node.Attributes.LocalHash == node.Attributes.RemoteHash {
-					node.Html = "<span style=\"color: green;\">" + v.Html + "</span>"
-				} else {
-					node.Html = "<span style=\"color: blue;\">" + v.Html + "</span>"
-				}
-			} else if v.Attributes.LocalHash == v.Attributes.RemoteHash {
-				node.Html = "<span style=\"color: green;\">" + v.Html + "</span>"
-			} else {
-				node.Html = "<span style=\"color: blue;\">" + v.Html + "</span>"
-			}
-		}
-		res[k] = &node
-		if v.Id != "" {
-			children[v.Attributes.ParentId] = append(children[v.Attributes.ParentId], &node)
-		}
-	}
-	for k := range res {
-		sort.Slice(children[k], func(i, j int) bool {
-			return strings.ToLower(children[k][i].Id) < strings.ToLower(children[k][j].Id)
-		})
-		res[k].Children = children[k]
-	}
-
-	return res[""], nil
 }
