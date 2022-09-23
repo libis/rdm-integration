@@ -130,7 +130,7 @@ func deleteFromDV(dataverseKey, doi string, id int) error {
 	request, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		logging.Logger.Println(err)
-		//return err
+		return err
 	}
 	request.SetBasicAuth(dataverseKey, "")
 	r, err := http.DefaultClient.Do(request)
