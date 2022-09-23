@@ -70,10 +70,10 @@ func PersistNodeMap(job Job) error {
 	if err != nil {
 		return err
 	}
-	return doPersistNodeMap(ctx, job.DataverseKey, job.Doi, job.WritableNodes, streams)
+	return doPersistNodeMap(ctx, job.DataverseKey, job.Doi, job.WritableNodes, streams, job)
 }
 
-func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream) (err error) {
+func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream, job Job) (err error) {
 	err = checkPermission(dataverseKey, doi)
 	if err != nil {
 		logging.Logger.Println(err)
@@ -81,6 +81,19 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 	}
 	knownHashes := getKnownHashes(doi)
 	for k, v := range writableNodes {
+		select {
+		case <-Stop:
+			//re-add the job for later processing
+			unlock(doi)
+			err = AddJob(job)
+			if err != nil {
+				logging.Logger.Println("re-adding job failed:", doi)
+			}
+			return
+		default:
+		}
+		delete(job.WritableNodes, k)
+
 		if !v.Checked && v.Attributes.Metadata.DataFile.Id != 0 {
 			err = deleteFromDV(dataverseKey, doi, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
