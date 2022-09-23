@@ -55,7 +55,7 @@ func popJob() (Job, bool) {
 	job := Job{}
 	err = json.Unmarshal([]byte(v), &job)
 	if err != nil {
-		logging.Logger.Println("failed to unmarshall a job: ", err)
+		logging.Logger.Println("failed to unmarshall a job:", err)
 		return job, false
 	}
 	return job, true
