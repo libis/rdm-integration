@@ -103,6 +103,7 @@ func write(stream Stream, storageIdentifier, doi, hashType, remoteHashType strin
 	reader = hashingReader{reader, remoteHasher}
 	defer stream.Close()
 
+	//TODO: stop stream and cleanup on Stop -> return error "stopped"
 	if s.driver == "file" {
 		file := pathToFilesDir + doi + "/" + s.filename
 		f, err := os.Create(file)

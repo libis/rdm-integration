@@ -73,34 +73,33 @@ func PersistNodeMap(job Job) error {
 	return doPersistNodeMap(ctx, job.DataverseKey, job.Doi, job.WritableNodes, streams, job)
 }
 
+var stopped = fmt.Errorf("stopped")
+
 func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream, job Job) (err error) {
 	err = checkPermission(dataverseKey, doi)
 	if err != nil {
 		logging.Logger.Println(err)
+		//TODO
 		//return err
+		err = nil
 	}
 	knownHashes := getKnownHashes(doi)
 	for k, v := range writableNodes {
 		select {
 		case <-Stop:
-			//re-add the job for later processing
 			unlock(doi)
 			err = AddJob(job)
-			if err != nil {
-				logging.Logger.Println("re-adding job failed:", doi)
-			}
 			return
 		default:
 		}
-		delete(job.WritableNodes, k)
 
 		if !v.Checked && v.Attributes.Metadata.DataFile.Id != 0 {
 			err = deleteFromDV(dataverseKey, doi, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
-				logging.Logger.Println(err)
-				return err
+				return
 			}
 			delete(knownHashes, v.Id)
+			storeKnownHashes(doi, knownHashes)
 			continue
 		}
 		stream := streams[k]
@@ -108,11 +107,18 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		storageIdentifier := generateStorageIdentifier(fileName)
 		hashType := defaultHash
 		remoteHashType := v.Attributes.RemoteHashType
-		h, remoteH, err := write(stream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
-		hashValue := fmt.Sprintf("%x", h)
-		if err != nil {
-			return err
+		var h []byte
+		var remoteH []byte
+		h, remoteH, err = write(stream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
+		if err == stopped {
+			unlock(doi)
+			err = AddJob(job)
+			return
 		}
+		if err != nil {
+			return
+		}
+		hashValue := fmt.Sprintf("%x", h)
 		knownHashes[v.Id] = CalculatedHashes{
 			LocalHashType:  hashType,
 			LocalHashValue: hashValue,
@@ -142,8 +148,9 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		if err != nil {
 			return err
 		}
+		storeKnownHashes(doi, knownHashes)
+		delete(job.WritableNodes, k)
 	}
-	storeKnownHashes(doi, knownHashes)
 	return nil
 }
 
