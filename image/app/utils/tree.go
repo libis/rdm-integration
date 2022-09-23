@@ -74,6 +74,7 @@ func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error
 }
 
 func addColor(doi string, node tree.Node) string {
+	//TODO: folders color
 	html := node.Html
 	if node.Attributes.IsFile {
 		if node.Attributes.RemoteHash == "" {
