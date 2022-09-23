@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"integration/app/tree"
 	"sort"
 	"strings"
@@ -48,17 +47,17 @@ func MergeTrees(to, from map[string]tree.Node) {
 }
 
 func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error) {
+	err := localRehashToMatchRemoteHashType(doi, nodes)
+	if err != nil {
+		return nil, err
+	}
 	folders := getFolders(nodes)
 	addFoldersTonNodes(folders, nodes)
 	res := map[string]*tree.Node{}
 	children := map[string][]*tree.Node{}
 	for k, v := range nodes {
 		node := v
-		html, err := addColor(doi, node)
-		if err != nil {
-			return nil, err
-		}
-		node.Html = html
+		node.Html = addColor(doi, node)
 		res[k] = &node
 		if v.Id != "" {
 			children[v.Attributes.ParentId] = append(children[v.Attributes.ParentId], &node)
@@ -74,31 +73,20 @@ func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error
 	return res[""], nil
 }
 
-func addColor(doi string, node tree.Node) (string, error) {
+func addColor(doi string, node tree.Node) string {
 	html := node.Html
 	if node.Attributes.IsFile {
 		if node.Attributes.RemoteHash == "" {
 			html = "<span style=\"color: red;\">" + node.Html + "</span>"
 		} else if node.Attributes.LocalHash == "" {
 			html = "<span style=\"color: black;\">" + node.Html + "</span>"
-		} else if node.Attributes.Metadata.DataFile.Checksum.Type != node.Attributes.RemoteHashType {
-			h, err := doHash(doi, node)
-			if err != nil {
-				return "", fmt.Errorf("failed to hash local file %v: %v", node.Attributes.Metadata.DataFile.StorageIdentifier, err)
-			}
-			node.Attributes.LocalHash = fmt.Sprintf("%x", h)
-			if node.Attributes.LocalHash == node.Attributes.RemoteHash {
-				html = "<span style=\"color: green;\">" + node.Html + "</span>"
-			} else {
-				html = "<span style=\"color: blue;\">" + node.Html + "</span>"
-			}
 		} else if node.Attributes.LocalHash == node.Attributes.RemoteHash {
 			html = "<span style=\"color: green;\">" + node.Html + "</span>"
 		} else {
 			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
 		}
 	}
-	return html, nil
+	return html
 }
 
 func getFolders(nodes map[string]tree.Node) map[string]bool {
