@@ -34,6 +34,9 @@ func unlock(doi string) {
 }
 
 func AddJob(job Job) error {
+	if len(job.WritableNodes) == 0 {
+		return nil
+	}
 	if !lock(job.Doi) {
 		return fmt.Errorf("Job for this dataverse is already in progress")
 	}
