@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"hash"
-	"integration/app/logging"
 	"integration/app/tree"
 	"io"
 	"os"
@@ -39,9 +38,7 @@ type hashingReader struct {
 
 func (r hashingReader) Read(buf []byte) (n int, err error) {
 	n, err = r.reader.Read(buf)
-	if r.hasher != nil {
-		r.hasher.Write(buf[:n])
-	}
+	r.hasher.Write(buf[:n])
 	return
 }
 
@@ -78,7 +75,7 @@ func generateStorageIdentifier(fileName string) string {
 	return fmt.Sprintf("%s://%s%s", defaultDriver, b, fileName)
 }
 
-func getHash(hashType string, fileSize int) (hasher hash.Hash) {
+func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 	if hashType == Md5 {
 		hasher = md5.New()
 	} else if hashType == SHA1 {
@@ -87,22 +84,30 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash) {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
 	} else {
-		logging.Logger.Printf("unsupported hash type: %v", hashType)
+		err = fmt.Errorf("unsupported hash type: %v", hashType)
 	}
 	return
 }
 
-func write(stream Stream, storageIdentifier, doi, hashType string) ([]byte, error) {
+func write(stream Stream, storageIdentifier, doi, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
 	s := getStorage(storageIdentifier)
-	hasher := getHash(hashType, 0)
+	hasher, err := getHash(hashType, fileSize)
+	if err != nil {
+		return nil, nil, err
+	}
+	remoteHasher, err := getHash(remoteHashType, fileSize)
+	if err != nil {
+		return nil, nil, err
+	}
 	reader := hashingReader{stream.Open(), hasher}
+	reader = hashingReader{reader, remoteHasher}
 	defer stream.Close()
 
 	if s.driver == "file" {
 		file := pathToFilesDir + doi + "/" + s.filename
 		f, err := os.Create(file)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		defer f.Close()
 		buf := make([]byte, 1024)
@@ -121,7 +126,7 @@ func write(stream Stream, storageIdentifier, doi, hashType string) ([]byte, erro
 			S3ForcePathStyle: aws.Bool(awsPathstyle),
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		uploader := s3manager.NewUploader(sess)
 		_, err = uploader.Upload(&s3manager.UploadInput{
@@ -130,24 +135,21 @@ func write(stream Stream, storageIdentifier, doi, hashType string) ([]byte, erro
 			Body:   reader,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
-		return nil, fmt.Errorf("unsupported driver: %s", s.driver)
+		return nil, nil, fmt.Errorf("unsupported driver: %s", s.driver)
 	}
 
-	if hasher != nil {
-		return hasher.Sum(nil), nil
-	}
-	return nil, nil
+	return hasher.Sum(nil), remoteHasher.Sum(nil), nil
 }
 
 func doHash(doi string, node tree.Node) ([]byte, error) {
 	storageIdentifier := node.Attributes.Metadata.DataFile.StorageIdentifier
 	hashType := node.Attributes.RemoteHashType
-	hasher := getHash(hashType, node.Attributes.Metadata.DataFile.Filesize)
-	if hasher == nil {
-		return nil, fmt.Errorf("unsupported hash type: %v", hashType)
+	hasher, err := getHash(hashType, node.Attributes.Metadata.DataFile.Filesize)
+	if err != nil {
+		return nil, err
 	}
 	s := getStorage(storageIdentifier)
 	var reader io.Reader

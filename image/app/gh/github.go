@@ -115,6 +115,7 @@ func toNodeMap(tr *github.Tree) map[string]tree.Node {
 					DataFile: tree.DataFile{
 						Filename:    fileName,
 						ContentType: "application/octet-stream",
+						Filesize: e.GetSize(),
 						Checksum: tree.Checksum{
 							Type:  utils.GitHash,
 							Value: e.GetSHA(),

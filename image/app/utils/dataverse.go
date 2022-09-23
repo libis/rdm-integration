@@ -79,6 +79,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		logging.Logger.Println(err)
 		//return err
 	}
+	knownHashes := getKnownHashes(doi)
 	for k, v := range writableNodes {
 		if !v.Checked && v.Attributes.Metadata.DataFile.Id != 0 {
 			err = deleteFromDV(dataverseKey, doi, v.Attributes.Metadata.DataFile.Id)
@@ -86,15 +87,23 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 				logging.Logger.Println(err)
 				return err
 			}
+			delete(knownHashes, v.Id)
 			continue
 		}
 		stream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
 		hashType := defaultHash
-		h, err := write(stream, storageIdentifier, doi, hashType)
+		remoteHashType := v.Attributes.RemoteHashType
+		h, remoteH, err := write(stream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
+		hashValue := fmt.Sprintf("%x", h)
 		if err != nil {
 			return err
+		}
+		knownHashes[v.Id] = CalculatedHashes{
+			LocalHashType:  hashType,
+			LocalHashValue: hashValue,
+			RemoteHashes:   map[string]string{remoteHashType: fmt.Sprintf("%x", remoteH)},
 		}
 		if v.Attributes.Metadata.DataFile.Id != 0 {
 			err = deleteFromDV(dataverseKey, doi, v.Attributes.Metadata.DataFile.Id)
@@ -102,7 +111,6 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 				return err
 			}
 		}
-		hashValue := fmt.Sprintf("%x", h)
 		directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
 		if *directoryLabel == "" {
 			directoryLabel = nil
@@ -122,6 +130,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 			return err
 		}
 	}
+	storeKnownHashes(doi, knownHashes)
 	return nil
 }
 
