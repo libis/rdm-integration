@@ -32,7 +32,7 @@ func toWritableNodes(node tree.Node, m map[string]tree.Node, checked func(string
 	}
 }
 
-func MergeTrees(to, from map[string]tree.Node) {
+func MergeNodeMaps(to, from map[string]tree.Node) {
 	for k, v := range from {
 		node, ok := to[k]
 		if !ok {
@@ -52,7 +52,7 @@ func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error
 		return nil, err
 	}
 	folders := getFolders(nodes)
-	addFoldersTonNodes(folders, nodes)
+	addFoldersToNodes(folders, nodes)
 	res := map[string]*tree.Node{}
 	children := map[string][]*tree.Node{}
 	for k, v := range nodes {
@@ -97,7 +97,7 @@ func getFolders(nodes map[string]tree.Node) map[string]bool {
 	return folders
 }
 
-func addFoldersTonNodes(folders map[string]bool, nodes map[string]tree.Node) {
+func addFoldersToNodes(folders map[string]bool, nodes map[string]tree.Node) {
 	for k := range folders {
 		ancestors := strings.Split(k, "/")
 		for i := range ancestors {

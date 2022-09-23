@@ -70,7 +70,7 @@ func GithubTree(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	utils.MergeTrees(nm, toNodeTree(tr))
+	utils.MergeNodeMaps(nm, toNodeMap(tr))
 
 	//compare and write response
 	res, err := utils.GetWiredRootNode(req.Doi, nm)
@@ -88,7 +88,7 @@ func GithubTree(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func toNodeTree(tr *github.Tree) map[string]tree.Node {
+func toNodeMap(tr *github.Tree) map[string]tree.Node {
 	res := map[string]tree.Node{}
 	for _, e := range tr.Entries {
 		path := e.GetPath()
