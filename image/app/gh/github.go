@@ -70,7 +70,7 @@ func GithubTree(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	addTree(nm, tr)
+	utils.MergeTrees(nm, toNodeTree(tr))
 
 	//compare and write response
 	res, err := utils.GetWiredRootNode(req.Doi, nm)
@@ -88,10 +88,10 @@ func GithubTree(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func addTree(nm map[string]tree.Node, tr *github.Tree) {
+func toNodeTree(tr *github.Tree) map[string]tree.Node {
+	res := map[string]tree.Node{}
 	for _, e := range tr.Entries {
 		path := e.GetPath()
-		node, ok := nm[path]
 		isFile := e.GetType() != "folder"
 		parentId := ""
 		ancestors := strings.Split(path, "/")
@@ -100,35 +100,32 @@ func addTree(nm map[string]tree.Node, tr *github.Tree) {
 			parentId = strings.Join(ancestors[:len(ancestors)-1], "/")
 			fileName = ancestors[len(ancestors)-1]
 		}
-		if !ok {
-			node = tree.Node{
-				Id:   path,
-				Html: fileName,
-				Attributes: tree.Attributes{
-					URL:      e.GetURL(),
-					ParentId: parentId,
-					IsFile:   isFile,
-					Metadata: tree.Metadata{
-						Label:          fileName,
-						DirectoryLabel: parentId,
-						DataFile: tree.DataFile{
-							Filename:    fileName,
-							ContentType: "application/octet-stream",
-							Checksum: tree.Checksum{
-								Type:  utils.GitHash,
-								Value: e.GetSHA(),
-							},
+		node := tree.Node{
+			Id:   path,
+			Html: fileName,
+			Attributes: tree.Attributes{
+				URL:            e.GetURL(),
+				ParentId:       parentId,
+				IsFile:         isFile,
+				RemoteHash:     e.GetSHA(),
+				RemoteHashType: utils.GitHash,
+				Metadata: tree.Metadata{
+					Label:          fileName,
+					DirectoryLabel: parentId,
+					DataFile: tree.DataFile{
+						Filename:    fileName,
+						ContentType: "application/octet-stream",
+						Checksum: tree.Checksum{
+							Type:  utils.GitHash,
+							Value: e.GetSHA(),
 						},
 					},
 				},
-			}
+			},
 		}
-		if node.Attributes.IsFile {
-			node.Attributes.RemoteHash = e.GetSHA()
-			node.Attributes.RemoteHashType = utils.GitHash
-		}
-		nm[path] = node
+		res[path] = node
 	}
+	return res
 }
 
 func GithubStore(w http.ResponseWriter, r *http.Request) {

@@ -33,6 +33,20 @@ func toWritableNodes(node tree.Node, m map[string]tree.Node, checked func(string
 	}
 }
 
+func MergeTrees(to, from map[string]tree.Node) {
+	for k, v := range from {
+		node, ok := to[k]
+		if !ok {
+			node = v
+		}
+		if node.Attributes.IsFile {
+			node.Attributes.RemoteHash = v.Attributes.RemoteHash
+			node.Attributes.RemoteHashType = v.Attributes.RemoteHashType
+		}
+		to[k] = node
+	}
+}
+
 func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error) {
 	folders := map[string]bool{}
 	for _, v := range nodes {
