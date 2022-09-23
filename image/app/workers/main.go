@@ -1,10 +1,10 @@
 package main
 
 import (
-    "math/rand"
 	"crypto/tls"
 	"integration/app/logging"
 	"integration/app/utils"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,15 +36,15 @@ func main() {
 
 	// wait for termination
 	signalChannel := make(chan os.Signal, 2)
-    signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
-    go func() {
-        sig := <-signalChannel
-        switch sig {
-        case os.Interrupt, syscall.SIGTERM:
+	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-signalChannel
+		switch sig {
+		case os.Interrupt, syscall.SIGTERM:
 			logging.Logger.Println("quiting...")
 			close(utils.Stop)
-        }
-    }()
+		}
+	}()
 
 	utils.Wait.Wait()
 }
