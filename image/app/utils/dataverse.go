@@ -84,11 +84,16 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		err = nil
 	}
 	knownHashes := getKnownHashes(doi)
+	defer func ()  {
+		storeKnownHashes(doi, knownHashes)
+		if len(job.WritableNodes) > 0 {
+			unlock(doi)
+			err = AddJob(job)
+		}
+	}()
 	for k, v := range writableNodes {
 		select {
 		case <-Stop:
-			unlock(doi)
-			err = AddJob(job)
 			return
 		default:
 		}
@@ -99,7 +104,6 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 				return
 			}
 			delete(knownHashes, v.Id)
-			storeKnownHashes(doi, knownHashes)
 			continue
 		}
 		stream := streams[k]
@@ -111,9 +115,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		var remoteH []byte
 		h, remoteH, err = write(stream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
 		if err == stopped {
-			unlock(doi)
-			err = AddJob(job)
-			return
+			return nil
 		}
 		if err != nil {
 			return
@@ -148,7 +150,6 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		if err != nil {
 			return err
 		}
-		storeKnownHashes(doi, knownHashes)
 		delete(job.WritableNodes, k)
 	}
 	return nil
