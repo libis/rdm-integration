@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 )
 
 func GetNodeMap(doi, token string) (map[string]tree.Node, error) {
@@ -78,10 +77,7 @@ var stopped = fmt.Errorf("stopped")
 func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]stream, in Job) (out Job, err error) {
 	err = checkPermission(dataverseKey, doi)
 	if err != nil {
-		logging.Logger.Println(err)
-		//TODO
-		//return err
-		err = nil
+		return
 	}
 	knownHashes := getKnownHashes(doi)
 	defer func() {
@@ -197,9 +193,8 @@ func writeToDV(dataverseKey, doi string, jsonData dv.JsonData) error {
 	return err
 }
 
-// TODO: fixme
 func checkPermission(dataverseKey, doi string) error {
-	url := fmt.Sprintf("%s/api/admin/permissions/%v?unblock-key=%v", dataverseServer, url.PathEscape("doi:"+doi), unblockKey)
+	url := fmt.Sprintf("%s/api/admin/permissions/doi:%v?unblock-key=%v", dataverseServer, doi, unblockKey)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -211,12 +206,26 @@ func checkPermission(dataverseKey, doi string) error {
 	}
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
-		return fmt.Errorf("getting permissions for dataset %s failed: %s", doi, string(b))
+		//return fmt.Errorf("getting permissions for dataset %s failed: %s", doi, string(b))
+		//bug in permissions check: passing "/" as pathparam is not possible, we cannot check permissions until it is fixed
+		logging.Logger.Printf("getting permissions for dataset %s failed: %s\n", doi, string(b))
 	}
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
-	logging.Logger.Println(string(b))
-	return err
+	res := dv.Permissions{}
+	err = json.Unmarshal(b, &res)
+	if err != nil {
+		return err
+	}
+	if res.Status != "OK" {
+		return fmt.Errorf("permission check status is %s for dataset %s", res.Status, doi)
+	}
+	for _, v := range res.Data.Permissions {
+		if v == "EditDataset" {
+			return nil
+		}
+	}
+	return fmt.Errorf("user %v has no permission to edit dataset %v", res.Data.User, doi)
 }

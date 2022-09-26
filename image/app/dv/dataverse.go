@@ -23,3 +23,14 @@ type ListResponse struct {
 	Data    []tree.Metadata `json:"data"`
 	Message string          `json:"message"`
 }
+
+type Permissions struct {
+	Status  string          `json:"status"`
+	Data    PermissionsData `json:"data"`
+	Message string          `json:"message"`
+}
+
+type PermissionsData struct {
+	User  string          `json:"user"`
+	Permissions []string          `json:"permissions"`
+}

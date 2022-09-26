@@ -80,17 +80,18 @@ func ProcessJobs() {
 		}
 		job, ok := popJob()
 		if ok {
+			doi := job.Doi
 			job, err := persistNodeMap(job)
 			if err != nil {
-				logging.Logger.Println("job failed:", job.Doi, err)
+				logging.Logger.Println("job failed:", doi, err)
 			}
-			if len(job.WritableNodes) > 0 {
+			if err == nil && len(job.WritableNodes) > 0 {
 				err = addJob(job, false)
 				if err != nil {
-					logging.Logger.Println("job failed:", job.Doi, err)
+					logging.Logger.Println("re-adding job failed:", doi, err)
 				}
 			} else {
-				unlock(job.Doi)
+				unlock(doi)
 			}
 		}
 	}

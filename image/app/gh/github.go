@@ -148,7 +148,9 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 	writableNodes := utils.ToWritableNodes(req.SelectedNodes, req.OriginalRoot)
 	streams := map[string]map[string]interface{}{}
 	for k, v := range writableNodes {
-		streams[k] = map[string]interface{}{"sha": v.Attributes.RemoteHash}
+		if v.Checked {
+			streams[k] = map[string]interface{}{"sha": v.Attributes.RemoteHash}
+		}
 	}
 
 	err = utils.AddJob(utils.Job{
