@@ -34,10 +34,14 @@ func unlock(doi string) {
 }
 
 func AddJob(job Job) error {
+	return addJob(job, true)
+}
+
+func addJob(job Job, requireLock bool) error {
 	if len(job.WritableNodes) == 0 {
 		return nil
 	}
-	if !lock(job.Doi) {
+	if requireLock && !lock(job.Doi) {
 		return fmt.Errorf("Job for this dataverse is already in progress")
 	}
 	b, err := json.Marshal(job)
@@ -76,11 +80,18 @@ func ProcessJobs() {
 		}
 		job, ok := popJob()
 		if ok {
-			err := PersistNodeMap(job)
+			job, err := PersistNodeMap(job)
 			if err != nil {
 				logging.Logger.Println("job failed:", job.Doi, err)
 			}
-			unlock(job.Doi)
+			if len(job.WritableNodes) > 0 {
+				err = addJob(job, false)
+				if err != nil {
+					logging.Logger.Println("job failed:", job.Doi, err)
+				}
+			} else {
+				unlock(job.Doi)
+			}
 		}
 	}
 }

@@ -64,18 +64,18 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 	return res
 }
 
-func PersistNodeMap(job Job) error {
+func PersistNodeMap(job Job) (Job, error) {
 	ctx := context.Background()
 	streams, err := deserialize(ctx, job.StreamType, job.Streams, job.StreamParams)
 	if err != nil {
-		return err
+		return job, err
 	}
 	return doPersistNodeMap(ctx, job.DataverseKey, job.Doi, job.WritableNodes, streams, job)
 }
 
 var stopped = fmt.Errorf("stopped")
 
-func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream, job Job) (err error) {
+func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream, in Job) (out Job, err error) {
 	err = checkPermission(dataverseKey, doi)
 	if err != nil {
 		logging.Logger.Println(err)
@@ -86,11 +86,8 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 	knownHashes := getKnownHashes(doi)
 	defer func() {
 		storeKnownHashes(doi, knownHashes)
-		if len(job.WritableNodes) > 0 {
-			unlock(doi)
-			AddJob(job)
-		}
 	}()
+	out = in
 	for k, v := range writableNodes {
 		select {
 		case <-Stop:
@@ -104,6 +101,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 				return
 			}
 			delete(knownHashes, v.Id)
+			delete(out.WritableNodes, k)
 			continue
 		}
 		stream := streams[k]
@@ -115,7 +113,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		var remoteH []byte
 		h, remoteH, err = write(stream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
 		if err == stopped {
-			return nil
+			return out, nil
 		}
 		if err != nil {
 			return
@@ -129,7 +127,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		if v.Attributes.Metadata.DataFile.Id != 0 {
 			err = deleteFromDV(dataverseKey, doi, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
-				return err
+				return
 			}
 		}
 		directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
@@ -148,11 +146,11 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		}
 		err = writeToDV(dataverseKey, doi, data)
 		if err != nil {
-			return err
+			return
 		}
-		delete(job.WritableNodes, k)
+		delete(out.WritableNodes, k)
 	}
-	return nil
+	return
 }
 
 func deleteFromDV(dataverseKey, doi string, id int) error {
