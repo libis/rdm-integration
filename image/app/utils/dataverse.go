@@ -88,7 +88,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		storeKnownHashes(doi, knownHashes)
 		if len(job.WritableNodes) > 0 {
 			unlock(doi)
-			err = AddJob(job)
+			AddJob(job)
 		}
 	}()
 	for k, v := range writableNodes {
