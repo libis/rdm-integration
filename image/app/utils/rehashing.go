@@ -8,7 +8,7 @@ import (
 	"integration/app/tree"
 )
 
-type CalculatedHashes struct {
+type calculatedHashes struct {
 	LocalHashType  string
 	LocalHashValue string
 	RemoteHashes   map[string]string
@@ -34,14 +34,14 @@ func localRehashToMatchRemoteHashType(doi string, nodes map[string]tree.Node) er
 	return nil
 }
 
-func getKnownHashes(doi string) map[string]CalculatedHashes {
-	res := map[string]CalculatedHashes{}
+func getKnownHashes(doi string) map[string]calculatedHashes {
+	res := map[string]calculatedHashes{}
 	cache := rdb.Get(context.Background(), "hashes: "+doi)
 	json.Unmarshal([]byte(cache.Val()), &res)
 	return res
 }
 
-func storeKnownHashes(doi string, knownHashes map[string]CalculatedHashes) {
+func storeKnownHashes(doi string, knownHashes map[string]calculatedHashes) {
 	knownHashesJson, err := json.Marshal(knownHashes)
 	if err != nil {
 		logging.Logger.Println("marshalling hashes failed")
@@ -51,7 +51,7 @@ func storeKnownHashes(doi string, knownHashes map[string]CalculatedHashes) {
 	logging.Logger.Println("hashes stored for", doi, len(knownHashes), res.Err())
 }
 
-func calculateHash(doi string, node tree.Node, knownHashes map[string]CalculatedHashes) (bool, error) {
+func calculateHash(doi string, node tree.Node, knownHashes map[string]calculatedHashes) (bool, error) {
 	hashType := node.Attributes.RemoteHashType
 	known, ok := knownHashes[node.Id]
 	if ok && known.LocalHashType == node.Attributes.Metadata.DataFile.Checksum.Type && known.LocalHashValue == node.Attributes.Metadata.DataFile.Checksum.Value {
@@ -60,7 +60,7 @@ func calculateHash(doi string, node tree.Node, knownHashes map[string]Calculated
 			return false, nil
 		}
 	} else {
-		known = CalculatedHashes{
+		known = calculatedHashes{
 			LocalHashType:  node.Attributes.Metadata.DataFile.Checksum.Type,
 			LocalHashValue: node.Attributes.Metadata.DataFile.Checksum.Value,
 			RemoteHashes:   map[string]string{},

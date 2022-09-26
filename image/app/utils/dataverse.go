@@ -75,7 +75,7 @@ func persistNodeMap(job Job) (Job, error) {
 
 var stopped = fmt.Errorf("stopped")
 
-func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]Stream, in Job) (out Job, err error) {
+func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]stream, in Job) (out Job, err error) {
 	err = checkPermission(dataverseKey, doi)
 	if err != nil {
 		logging.Logger.Println(err)
@@ -104,14 +104,14 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 			delete(out.WritableNodes, k)
 			continue
 		}
-		stream := streams[k]
+		fileStream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
 		hashType := defaultHash
 		remoteHashType := v.Attributes.RemoteHashType
 		var h []byte
 		var remoteH []byte
-		h, remoteH, err = write(stream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
+		h, remoteH, err = write(fileStream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
 		if err == stopped {
 			return out, nil
 		}
@@ -119,7 +119,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 			return
 		}
 		hashValue := fmt.Sprintf("%x", h)
-		knownHashes[v.Id] = CalculatedHashes{
+		knownHashes[v.Id] = calculatedHashes{
 			LocalHashType:  hashType,
 			LocalHashValue: hashValue,
 			RemoteHashes:   map[string]string{remoteHashType: fmt.Sprintf("%x", remoteH)},

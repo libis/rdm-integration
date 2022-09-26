@@ -89,7 +89,7 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 	return
 }
 
-func write(stream Stream, storageIdentifier, doi, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
+func write(fileStream stream, storageIdentifier, doi, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
 	s := getStorage(storageIdentifier)
 	hasher, err := getHash(hashType, fileSize)
 	if err != nil {
@@ -99,9 +99,9 @@ func write(stream Stream, storageIdentifier, doi, hashType, remoteHashType strin
 	if err != nil {
 		return nil, nil, err
 	}
-	reader := hashingReader{stream.Open(), hasher}
+	reader := hashingReader{fileStream.Open(), hasher}
 	reader = hashingReader{reader, remoteHasher}
-	defer stream.Close()
+	defer fileStream.Close()
 
 	//TODO: stop stream and cleanup on Stop -> return error "stopped"
 	if s.driver == "file" {
