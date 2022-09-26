@@ -15,6 +15,8 @@ type Attributes struct {
 	RemoteHash     string   `json:"remoteHash"`
 	RemoteHashType string   `json:"remoteHashType"`
 	IsFile         bool     `json:"isFile"`
+	SomeGreen      *bool    `json:"someGreen,omitempty"`
+	AllGreen       *bool    `json:"allGreen,omitempty"`
 	Metadata       Metadata `json:"metadata"`
 }
 

@@ -57,7 +57,6 @@ func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error
 	children := map[string][]*tree.Node{}
 	for k, v := range nodes {
 		node := v
-		node.Html = addColor(doi, node)
 		res[k] = &node
 		if v.Id != "" {
 			children[v.Attributes.ParentId] = append(children[v.Attributes.ParentId], &node)
@@ -69,12 +68,14 @@ func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error
 		})
 		res[k].Children = children[k]
 	}
+	for k := range res {
+		res[k].Html = addColor(doi, res[k])
+	}
 
 	return res[""], nil
 }
 
-func addColor(doi string, node tree.Node) string {
-	//TODO: folders color
+func addColor(doi string, node *tree.Node) string {
 	html := node.Html
 	if node.Attributes.IsFile {
 		if node.Attributes.RemoteHash == "" {
@@ -86,8 +87,37 @@ func addColor(doi string, node tree.Node) string {
 		} else {
 			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
 		}
+	} else {
+		someGreen, allGreen := foldersOverlapping(node)
+		if allGreen {
+			html = "<span style=\"color: green;\">" + node.Html + "</span>"
+		} else if someGreen {
+			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
+		}
 	}
 	return html
+}
+
+func foldersOverlapping(node *tree.Node) (bool, bool) {
+	if node.Attributes.SomeGreen != nil && node.Attributes.AllGreen != nil {
+		return *node.Attributes.SomeGreen, *node.Attributes.AllGreen
+	}
+	all := true
+	some := false
+	for i := range node.Children {
+		child := node.Children[i]
+		if child.Attributes.IsFile {
+			all = all && child.Attributes.LocalHash == child.Attributes.RemoteHash
+			some = some || child.Attributes.LocalHash == child.Attributes.RemoteHash
+		} else {
+			someGreen, allGreen := foldersOverlapping(child)
+			all = all && allGreen
+			some = some || someGreen
+		}
+	}
+	node.Attributes.SomeGreen = &some
+	node.Attributes.AllGreen = &all
+	return some, all
 }
 
 func getFolders(nodes map[string]tree.Node) map[string]bool {
