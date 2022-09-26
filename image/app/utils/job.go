@@ -80,7 +80,7 @@ func ProcessJobs() {
 		}
 		job, ok := popJob()
 		if ok {
-			job, err := PersistNodeMap(job)
+			job, err := persistNodeMap(job)
 			if err != nil {
 				logging.Logger.Println("job failed:", job.Doi, err)
 			}

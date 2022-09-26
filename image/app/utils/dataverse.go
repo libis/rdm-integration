@@ -64,7 +64,7 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 	return res
 }
 
-func PersistNodeMap(job Job) (Job, error) {
+func persistNodeMap(job Job) (Job, error) {
 	ctx := context.Background()
 	streams, err := deserialize(ctx, job.StreamType, job.Streams, job.StreamParams)
 	if err != nil {
