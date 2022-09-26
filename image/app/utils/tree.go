@@ -102,7 +102,7 @@ func foldersOverlapping(node *tree.Node) (bool, bool) {
 	if node.Attributes.SomeGreen != nil && node.Attributes.AllGreen != nil {
 		return *node.Attributes.SomeGreen, *node.Attributes.AllGreen
 	}
-	all := true
+	all := len(node.Children) > 0
 	some := false
 	for i := range node.Children {
 		child := node.Children[i]
