@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"integration/app/tree"
 	"io"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 )
 
@@ -171,19 +169,15 @@ func writeToDV(dataverseKey, doi string, jsonData dv.JsonData) error {
 	if err != nil {
 		return err
 	}
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormField("jsonData")
+	body, formDataContentType, err := dv.RequestBody(data)
 	if err != nil {
 		return err
 	}
-	part.Write(data)
-	writer.Close()
 	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return err
 	}
-	request.Header.Add("Content-Type", writer.FormDataContentType())
+	request.Header.Add("Content-Type", formDataContentType)
 	request.Header.Add("X-Dataverse-key", dataverseKey)
 	r, err := http.DefaultClient.Do(request)
 	if r.StatusCode != 200 {
@@ -194,7 +188,7 @@ func writeToDV(dataverseKey, doi string, jsonData dv.JsonData) error {
 }
 
 func checkPermission(dataverseKey, doi string) error {
-	url := fmt.Sprintf("%s/api/admin/permissions/doi:%v?unblock-key=%v", dataverseServer, doi, unblockKey)
+	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=doi:%s&unblock-key=%s", dataverseServer, doi, unblockKey)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -206,9 +200,7 @@ func checkPermission(dataverseKey, doi string) error {
 	}
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
-		//return fmt.Errorf("getting permissions for dataset %s failed: %s", doi, string(b))
-		//bug in permissions check: passing "/" as pathparam is not possible, we cannot check permissions until it is fixed
-		logging.Logger.Printf("getting permissions for dataset %s failed: %s\n", doi, string(b))
+		return fmt.Errorf("getting permissions for dataset %s failed: %s", doi, string(b))
 	}
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -228,4 +220,58 @@ func checkPermission(dataverseKey, doi string) error {
 		}
 	}
 	return fmt.Errorf("user %v has no permission to edit dataset %v", res.Data.User, doi)
+}
+
+func getUser(dataverseKey string) (dv.User, error) {
+	url := fmt.Sprintf("%s/api/users/:me", dataverseServer)
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return dv.User{}, err
+	}
+	request.Header.Add("X-Dataverse-key", dataverseKey)
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return dv.User{}, err
+	}
+	if r.StatusCode != 200 {
+		b, _ := io.ReadAll(r.Body)
+		return dv.User{}, fmt.Errorf("getting user failed: %s", string(b))
+	}
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return dv.User{}, err
+	}
+	res := dv.User{}
+	err = json.Unmarshal(b, &res)
+	return res, err
+}
+
+func CreateNewDataset(dataverseKey string) (string, error) {
+	user, err := getUser(dataverseKey)
+	if err != nil {
+		return "", err
+	}
+	body, formDataContentType, err := dv.CreateDatasetRequestBody(user)
+	if err != nil {
+		return "", err
+	}
+	url := dataverseServer + "/api/dataverses/rdr/datasets?doNotValidate=true"
+	request, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return "", err
+	}
+	request.Header.Add("Content-Type", formDataContentType)
+	request.Header.Add("X-Dataverse-key", dataverseKey)
+	r, err := http.DefaultClient.Do(request)
+	if r.StatusCode != 200 {
+		b, _ := io.ReadAll(r.Body)
+		return "", fmt.Errorf("creating dataset failed: %s", string(b))
+	}
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return "", err
+	}
+	res := dv.CreateNewDatasetResponse{}
+	err = json.Unmarshal(b, &res)
+	return res.Data.PersistentId, err
 }
