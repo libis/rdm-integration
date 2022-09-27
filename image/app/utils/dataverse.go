@@ -12,8 +12,8 @@ import (
 	"net/http"
 )
 
-func GetNodeMap(doi, token string) (map[string]tree.Node, error) {
-	url := dataverseServer + "/api/datasets/:persistentId/versions/:latest/files?persistentId=doi:" + doi
+func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
+	url := dataverseServer + "/api/datasets/:persistentId/versions/:latest/files?persistentId=" + persistentId
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func GetNodeMap(doi, token string) (map[string]tree.Node, error) {
 		return nil, err
 	}
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("listing files for %s failed: %+v", doi, res)
+		return nil, fmt.Errorf("listing files for %s failed: %+v", persistentId, res)
 	}
 	return mapToNodes(res.Data), nil
 }
@@ -67,19 +67,19 @@ func persistNodeMap(job Job) (Job, error) {
 	if err != nil {
 		return job, err
 	}
-	return doPersistNodeMap(ctx, job.DataverseKey, job.Doi, job.WritableNodes, streams, job)
+	return doPersistNodeMap(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, streams, job)
 }
 
 var stopped = fmt.Errorf("stopped")
 
-func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNodes map[string]tree.Node, streams map[string]stream, in Job) (out Job, err error) {
-	err = checkPermission(dataverseKey, doi)
+func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, writableNodes map[string]tree.Node, streams map[string]stream, in Job) (out Job, err error) {
+	err = checkPermission(dataverseKey, persistentId)
 	if err != nil {
 		return
 	}
-	knownHashes := getKnownHashes(doi)
+	knownHashes := getKnownHashes(persistentId)
 	defer func() {
-		storeKnownHashes(doi, knownHashes)
+		storeKnownHashes(persistentId, knownHashes)
 	}()
 	out = in
 	for k, v := range writableNodes {
@@ -90,7 +90,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		}
 
 		if !v.Checked && v.Attributes.Metadata.DataFile.Id != 0 {
-			err = deleteFromDV(dataverseKey, doi, v.Attributes.Metadata.DataFile.Id)
+			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
 				return
 			}
@@ -105,7 +105,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 		remoteHashType := v.Attributes.RemoteHashType
 		var h []byte
 		var remoteH []byte
-		h, remoteH, err = write(fileStream, storageIdentifier, doi, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
+		h, remoteH, err = write(fileStream, storageIdentifier, persistentId, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
 		if err == stopped {
 			return out, nil
 		}
@@ -119,7 +119,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 			RemoteHashes:   map[string]string{remoteHashType: fmt.Sprintf("%x", remoteH)},
 		}
 		if v.Attributes.Metadata.DataFile.Id != 0 {
-			err = deleteFromDV(dataverseKey, doi, v.Attributes.Metadata.DataFile.Id)
+			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
 				return
 			}
@@ -138,7 +138,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 				Value: hashValue,
 			},
 		}
-		err = writeToDV(dataverseKey, doi, data)
+		err = writeToDV(dataverseKey, persistentId, data)
 		if err != nil {
 			return
 		}
@@ -147,7 +147,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, doi string, writableNod
 	return
 }
 
-func deleteFromDV(dataverseKey, doi string, id int) error {
+func deleteFromDV(dataverseKey string, id int) error {
 	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", dataverseServer, id)
 	request, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -163,8 +163,8 @@ func deleteFromDV(dataverseKey, doi string, id int) error {
 	return err
 }
 
-func writeToDV(dataverseKey, doi string, jsonData dv.JsonData) error {
-	url := dataverseServer + "/api/datasets/:persistentId/addFiles?persistentId=doi:" + doi
+func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
+	url := dataverseServer + "/api/datasets/:persistentId/addFiles?persistentId=" + persistentId
 	data, err := json.Marshal([]dv.JsonData{jsonData})
 	if err != nil {
 		return err
@@ -182,13 +182,19 @@ func writeToDV(dataverseKey, doi string, jsonData dv.JsonData) error {
 	r, err := http.DefaultClient.Do(request)
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
-		return fmt.Errorf("writing file in %s failed: %d - %s", doi, r.StatusCode, string(b))
+		return fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
+	}
+	b, _ := io.ReadAll(r.Body)
+	res := dv.AddFilesResponse{}
+	err = json.Unmarshal(b, &res)
+	if res.Data.Result.Added != 1 && len(res.Data.Files) == 1 {
+		return fmt.Errorf(res.Data.Files[0].ErrorMessage)
 	}
 	return err
 }
 
-func checkPermission(dataverseKey, doi string) error {
-	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=doi:%s&unblock-key=%s", dataverseServer, doi, unblockKey)
+func checkPermission(dataverseKey, persistentId string) error {
+	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=%s&unblock-key=%s", dataverseServer, persistentId, unblockKey)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -200,7 +206,7 @@ func checkPermission(dataverseKey, doi string) error {
 	}
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
-		return fmt.Errorf("getting permissions for dataset %s failed: %s", doi, string(b))
+		return fmt.Errorf("getting permissions for dataset %s failed: %s", persistentId, string(b))
 	}
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -212,14 +218,14 @@ func checkPermission(dataverseKey, doi string) error {
 		return err
 	}
 	if res.Status != "OK" {
-		return fmt.Errorf("permission check status is %s for dataset %s", res.Status, doi)
+		return fmt.Errorf("permission check status is %s for dataset %s", res.Status, persistentId)
 	}
 	for _, v := range res.Data.Permissions {
 		if v == "EditDataset" {
 			return nil
 		}
 	}
-	return fmt.Errorf("user %v has no permission to edit dataset %v", res.Data.User, doi)
+	return fmt.Errorf("user %v has no permission to edit dataset %v", res.Data.User, persistentId)
 }
 
 func getUser(dataverseKey string) (dv.User, error) {

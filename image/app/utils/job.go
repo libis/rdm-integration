@@ -12,7 +12,7 @@ import (
 
 type Job struct {
 	DataverseKey  string
-	Doi           string
+	PersistentId  string
 	WritableNodes map[string]tree.Node
 	StreamType    string
 	Streams       map[string]map[string]interface{}
@@ -24,13 +24,13 @@ var Wait = sync.WaitGroup{}
 
 var lockMaxDuration = time.Hour * 24
 
-func lock(doi string) bool {
-	ok := rdb.SetNX(context.Background(), "lock: "+doi, true, lockMaxDuration)
+func lock(persistentId string) bool {
+	ok := rdb.SetNX(context.Background(), "lock: "+persistentId, true, lockMaxDuration)
 	return ok.Val()
 }
 
-func unlock(doi string) {
-	rdb.Del(context.Background(), "lock: "+doi)
+func unlock(persistentId string) {
+	rdb.Del(context.Background(), "lock: "+persistentId)
 }
 
 func AddJob(job Job) error {
@@ -41,7 +41,7 @@ func addJob(job Job, requireLock bool) error {
 	if len(job.WritableNodes) == 0 {
 		return nil
 	}
-	if requireLock && !lock(job.Doi) {
+	if requireLock && !lock(job.PersistentId) {
 		return fmt.Errorf("Job for this dataverse is already in progress")
 	}
 	b, err := json.Marshal(job)
@@ -80,18 +80,18 @@ func ProcessJobs() {
 		}
 		job, ok := popJob()
 		if ok {
-			doi := job.Doi
+			persistentId := job.PersistentId
 			job, err := persistNodeMap(job)
 			if err != nil {
-				logging.Logger.Println("job failed:", doi, err)
+				logging.Logger.Println("job failed:", persistentId, err)
 			}
 			if err == nil && len(job.WritableNodes) > 0 {
 				err = addJob(job, false)
 				if err != nil {
-					logging.Logger.Println("re-adding job failed:", doi, err)
+					logging.Logger.Println("re-adding job failed:", persistentId, err)
 				}
 			} else {
-				unlock(doi)
+				unlock(persistentId)
 			}
 		}
 	}

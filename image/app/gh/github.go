@@ -18,7 +18,7 @@ type TreeRequest struct {
 	GhUser       string `json:"ghUser"`
 	Repo         string `json:"repo"`
 	Hash         string `json:"hash"`
-	Doi          string `json:"doi"`
+	PersistentId string `json:"persistentId"`
 	DataverseKey string `json:"dataverseKey"`
 }
 
@@ -26,7 +26,7 @@ type StoreRequest struct {
 	GhToken       string       `json:"ghToken"`
 	GhUser        string       `json:"ghUser"`
 	Repo          string       `json:"repo"`
-	Doi           string       `json:"doi"`
+	PersistentId  string       `json:"persistentId"`
 	DataverseKey  string       `json:"dataverseKey"`
 	SelectedNodes []*tree.Node `json:"selectedNodes"`
 	OriginalRoot  tree.Node    `json:"originalRoot"`
@@ -51,7 +51,7 @@ func GithubTree(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//query dataverse
-	nm, err := utils.GetNodeMap(req.Doi, req.DataverseKey)
+	nm, err := utils.GetNodeMap(req.PersistentId, req.DataverseKey)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
@@ -73,7 +73,7 @@ func GithubTree(w http.ResponseWriter, r *http.Request) {
 	utils.MergeNodeMaps(nm, toNodeMap(tr))
 
 	//compare and write response
-	res, err := utils.GetWiredRootNode(req.Doi, nm)
+	res, err := utils.GetWiredRootNode(req.PersistentId, nm)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
@@ -155,7 +155,7 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 
 	err = utils.AddJob(utils.Job{
 		DataverseKey:  req.DataverseKey,
-		Doi:           req.Doi,
+		PersistentId:  req.PersistentId,
 		WritableNodes: writableNodes,
 		StreamType:    "github",
 		Streams:       streams,

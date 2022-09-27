@@ -10,7 +10,7 @@ async function showContent() {
 	    ghUser: x["owner"].value,
 	    repo: x["repo"].value,
 	    hash: x["ref"].value,
-	    doi: x["doi"].value,
+	    persistentId: x["persistentId"].value,
 	    dataverseKey: x["apiKey"].value,
     }
     let fetched = await fetch("../../api/github/tree", {
@@ -37,7 +37,7 @@ async function store() {
         ghToken: x["token"].value,
         ghUser: x["owner"].value,
         repo: x["repo"].value,
-        doi: x["doi"].value,
+        persistentId: x["persistentId"].value,
         dataverseKey: x["apiKey"].value,
         selectedNodes: myTree.selectedNodes,
         originalRoot: res,

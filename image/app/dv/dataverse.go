@@ -75,6 +75,26 @@ type CreateNewDatasetResponseData struct {
 	PersistentId string `json:"persistentId"`
 }
 
+type AddFilesResponse struct {
+	Status string               `json:"status"`
+	Data   AddFilesResponseData `json:"data"`
+}
+
+type AddFilesResponseData struct {
+	Files  []AddFilesFile
+	Result AddFilesResponseResult
+}
+
+type AddFilesFile struct {
+	ErrorMessage string   `json:"errorMessage"`
+	FileDetails  JsonData `json:"fileDetails"`
+}
+
+type AddFilesResponseResult struct {
+	Total int `json:"Total number of files"`
+	Added int `json:"Number of files successfully added"`
+}
+
 var createDatasetRequestFormat = `
 { 
 	"datasetVersion": {

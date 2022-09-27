@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/md5"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"hash"
 	"integration/app/tree"
@@ -89,7 +90,11 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 	return
 }
 
-func write(fileStream stream, storageIdentifier, doi, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
+func write(fileStream stream, storageIdentifier, persistentId, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
+	pid, err := trimProtocol(persistentId)
+	if err != nil {
+		return nil, nil, err
+	}
 	s := getStorage(storageIdentifier)
 	hasher, err := getHash(hashType, fileSize)
 	if err != nil {
@@ -105,7 +110,14 @@ func write(fileStream stream, storageIdentifier, doi, hashType, remoteHashType s
 
 	//TODO: stop stream and cleanup on Stop -> return error "stopped"
 	if s.driver == "file" {
-		file := pathToFilesDir + doi + "/" + s.filename
+		path := pathToFilesDir + pid + "/"
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			err := os.MkdirAll(path, os.ModePerm)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+		file := path + s.filename
 		f, err := os.Create(file)
 		if err != nil {
 			return nil, nil, err
@@ -132,7 +144,7 @@ func write(fileStream stream, storageIdentifier, doi, hashType, remoteHashType s
 		uploader := s3manager.NewUploader(sess)
 		_, err = uploader.Upload(&s3manager.UploadInput{
 			Bucket: aws.String(s.bucket),
-			Key:    aws.String(doi + "/" + s.filename),
+			Key:    aws.String(pid + "/" + s.filename),
 			Body:   reader,
 		})
 		if err != nil {
@@ -145,7 +157,11 @@ func write(fileStream stream, storageIdentifier, doi, hashType, remoteHashType s
 	return hasher.Sum(nil), remoteHasher.Sum(nil), nil
 }
 
-func doHash(doi string, node tree.Node) ([]byte, error) {
+func doHash(persistentId string, node tree.Node) ([]byte, error) {
+	pid, err := trimProtocol(persistentId)
+	if err != nil {
+		return nil, err
+	}
 	storageIdentifier := node.Attributes.Metadata.DataFile.StorageIdentifier
 	hashType := node.Attributes.RemoteHashType
 	hasher, err := getHash(hashType, node.Attributes.Metadata.DataFile.Filesize)
@@ -155,7 +171,7 @@ func doHash(doi string, node tree.Node) ([]byte, error) {
 	s := getStorage(storageIdentifier)
 	var reader io.Reader
 	if s.driver == "file" {
-		file := pathToFilesDir + doi + "/" + s.filename
+		file := pathToFilesDir + pid + "/" + s.filename
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, err
@@ -173,7 +189,7 @@ func doHash(doi string, node tree.Node) ([]byte, error) {
 		rawObject, err := svc.GetObject(
 			&s3.GetObjectInput{
 				Bucket: aws.String(s.bucket),
-				Key:    aws.String(doi + "/" + s.filename),
+				Key:    aws.String(pid + "/" + s.filename),
 			})
 		if err != nil {
 			return nil, err
@@ -193,4 +209,12 @@ func doHash(doi string, node tree.Node) ([]byte, error) {
 		}
 	}
 	return hasher.Sum(nil), nil
+}
+
+func trimProtocol(persistentId string) (string, error) {
+	s := strings.Split(persistentId, ":")
+	if len(s) < 2 {
+		return "", fmt.Errorf("expected at least two parts of persistentId: protocol and remainder, found: %v", persistentId)
+	}
+	return strings.Join(s[1:], ":"), nil
 }

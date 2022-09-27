@@ -14,12 +14,12 @@ type calculatedHashes struct {
 	RemoteHashes   map[string]string
 }
 
-func localRehashToMatchRemoteHashType(doi string, nodes map[string]tree.Node) error {
-	knownHashes := getKnownHashes(doi)
+func localRehashToMatchRemoteHashType(persistentId string, nodes map[string]tree.Node) error {
+	knownHashes := getKnownHashes(persistentId)
 	store := false
 	for k, node := range nodes {
 		if node.Attributes.LocalHash != "" && node.Attributes.RemoteHashType != "" && node.Attributes.Metadata.DataFile.Checksum.Type != node.Attributes.RemoteHashType {
-			recalculated, err := calculateHash(doi, node, knownHashes)
+			recalculated, err := calculateHash(persistentId, node, knownHashes)
 			if err != nil {
 				return err
 			}
@@ -29,29 +29,29 @@ func localRehashToMatchRemoteHashType(doi string, nodes map[string]tree.Node) er
 		}
 	}
 	if store {
-		storeKnownHashes(doi, knownHashes)
+		storeKnownHashes(persistentId, knownHashes)
 	}
 	return nil
 }
 
-func getKnownHashes(doi string) map[string]calculatedHashes {
+func getKnownHashes(persistentId string) map[string]calculatedHashes {
 	res := map[string]calculatedHashes{}
-	cache := rdb.Get(context.Background(), "hashes: "+doi)
+	cache := rdb.Get(context.Background(), "hashes: "+persistentId)
 	json.Unmarshal([]byte(cache.Val()), &res)
 	return res
 }
 
-func storeKnownHashes(doi string, knownHashes map[string]calculatedHashes) {
+func storeKnownHashes(persistentId string, knownHashes map[string]calculatedHashes) {
 	knownHashesJson, err := json.Marshal(knownHashes)
 	if err != nil {
 		logging.Logger.Println("marshalling hashes failed")
 		return
 	}
-	res := rdb.Set(context.Background(), "hashes: "+doi, knownHashesJson, 0)
-	logging.Logger.Println("hashes stored for", doi, len(knownHashes), res.Err())
+	res := rdb.Set(context.Background(), "hashes: "+persistentId, knownHashesJson, 0)
+	logging.Logger.Println("hashes stored for", persistentId, len(knownHashes), res.Err())
 }
 
-func calculateHash(doi string, node tree.Node, knownHashes map[string]calculatedHashes) (bool, error) {
+func calculateHash(persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) (bool, error) {
 	hashType := node.Attributes.RemoteHashType
 	known, ok := knownHashes[node.Id]
 	if ok && known.LocalHashType == node.Attributes.Metadata.DataFile.Checksum.Type && known.LocalHashValue == node.Attributes.Metadata.DataFile.Checksum.Value {
@@ -66,7 +66,7 @@ func calculateHash(doi string, node tree.Node, knownHashes map[string]calculated
 			RemoteHashes:   map[string]string{},
 		}
 	}
-	h, err := doHash(doi, node)
+	h, err := doHash(persistentId, node)
 	if err != nil {
 		return false, fmt.Errorf("failed to hash local file %v: %v", node.Attributes.Metadata.DataFile.StorageIdentifier, err)
 	}

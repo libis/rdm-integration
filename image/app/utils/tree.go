@@ -46,8 +46,8 @@ func MergeNodeMaps(to, from map[string]tree.Node) {
 	}
 }
 
-func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error) {
-	err := localRehashToMatchRemoteHashType(doi, nodes)
+func GetWiredRootNode(persistentId string, nodes map[string]tree.Node) (*tree.Node, error) {
+	err := localRehashToMatchRemoteHashType(persistentId, nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -69,13 +69,13 @@ func GetWiredRootNode(doi string, nodes map[string]tree.Node) (*tree.Node, error
 		res[k].Children = children[k]
 	}
 	for k := range res {
-		res[k].Html = addColor(doi, res[k])
+		res[k].Html = addColor(res[k])
 	}
 
 	return res[""], nil
 }
 
-func addColor(doi string, node *tree.Node) string {
+func addColor(node *tree.Node) string {
 	html := node.Html
 	if node.Attributes.IsFile {
 		if node.Attributes.RemoteHash == "" {
