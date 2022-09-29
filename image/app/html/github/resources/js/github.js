@@ -124,7 +124,7 @@ function showConfirmationDialog(toConfirm) {
         }
         form += '</form>';
     } else {
-        form += '<form name="toDelete"/>';
+        form += '<form name="toDelete"></form>';
     }
 
     if (toConfirm.toUpdate.length != 0) {
@@ -134,7 +134,7 @@ function showConfirmationDialog(toConfirm) {
         }
         form += '</form>';
     } else {
-        form += '<form name="toUpdate"/>';
+        form += '<form name="toUpdate"></form>';
     }
     form += '<span><br/></span><button onclick="store()">OK</button><button onclick="showContent()">Cancel</button>';
 
