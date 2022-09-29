@@ -74,6 +74,10 @@ function getSelected(fName) {
     if (!cbs) {
         return values;
     }
+    if (cbs.checked) { //if only one checkbox in the form
+        values.push(cbs.value);
+        return values;
+    }
     for (var i = 0, cbLen = cbs.length; i < cbLen; i++) {
         if (cbs[i].checked) {
             values.push(cbs[i].value);
