@@ -30,7 +30,7 @@ async function showContent() {
     });
     if (res.children.length > 0) {
         document.getElementById("saver").innerHTML = '<button onclick="confirm()">Save</button>';
-        document.getElementById("instructions").innerHTML = '<span style="font-weight: bold;">Select the files to <span style="font-weight: 900; color: red;">KEEP</span> in Dataverse (regardless of the color):</span>';
+        document.getElementById("instructions").innerHTML = '<span style="font-weight: bold;">Select the files to <span style="font-weight: 900; color: red;">KEEP</span> in Dataverse (regardless of the color):<br/></span><button onclick="myTree.collapseAll()">Collaps all</button>';
         document.getElementById("legend").innerHTML = `
         Legend:
             <ul>
