@@ -34,6 +34,7 @@ func unlock(persistentId string) {
 }
 
 func AddJob(job Job) error {
+	logging.Logger.Println("job added for " + job.PersistentId)
 	return addJob(job, true)
 }
 
