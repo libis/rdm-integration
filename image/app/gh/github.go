@@ -30,6 +30,13 @@ type StoreRequest struct {
 	DataverseKey  string       `json:"dataverseKey"`
 	SelectedNodes []*tree.Node `json:"selectedNodes"`
 	OriginalRoot  tree.Node    `json:"originalRoot"`
+	ToUpdate      []string     `json:"toUpdate"`
+	ToDelete      []string     `json:"toDelete"`
+}
+
+type WritableNodesResponse struct {
+	ToUpdate []string `json:"toUpdate"`
+	ToDelete []string `json:"toDelete"`
 }
 
 func GithubTree(w http.ResponseWriter, r *http.Request) {
@@ -147,9 +154,16 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 
 	writableNodes := utils.ToWritableNodes(req.SelectedNodes, req.OriginalRoot)
 	streams := map[string]map[string]interface{}{}
+	selected := map[string]bool{}
+	for _, s := range append(req.ToDelete, req.ToUpdate...) {
+		selected[s] = true
+	}
 	for k, v := range writableNodes {
-		if v.Checked {
+		if v.Checked && selected[v.Id] {
 			streams[k] = map[string]interface{}{"sha": v.Attributes.RemoteHash}
+		}
+		if !selected[v.Id] {
+			delete(writableNodes, v.Id)
 		}
 	}
 
@@ -170,4 +184,45 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
+}
+
+func GetWritable(w http.ResponseWriter, r *http.Request) {
+	req := StoreRequest{}
+	b, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+	err = json.Unmarshal(b, &req)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+
+	writableNodes := utils.ToWritableNodes(req.SelectedNodes, req.OriginalRoot)
+	toUpdate := []string{}
+	toDelete := []string{}
+	for _, v := range writableNodes {
+		if v.Checked {
+			toUpdate = append(toUpdate, v.Id)
+		} else {
+			toDelete = append(toDelete, v.Id)
+		}
+	}
+
+	res := WritableNodesResponse{
+		ToUpdate: toUpdate,
+		ToDelete: toDelete,
+	}
+
+	b, err = json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+	w.Write(b)
 }
