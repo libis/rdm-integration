@@ -79,9 +79,9 @@ func addColor(node *tree.Node) string {
 	html := node.Html
 	if node.Attributes.IsFile {
 		if node.Attributes.RemoteHash == "" {
-			html = "<span style=\"color: red;\">" + node.Html + "</span>"
+			html = "<span style=\"color: gray;\">" + node.Html + "</span>"
 		} else if node.Attributes.LocalHash == "" {
-			html = "<span style=\"color: black;\">" + node.Html + "</span>"
+			html = "<span style=\"color: violet;\">" + node.Html + "</span>"
 		} else if node.Attributes.LocalHash == node.Attributes.RemoteHash {
 			html = "<span style=\"color: green;\">" + node.Html + "</span>"
 		} else {
@@ -93,6 +93,8 @@ func addColor(node *tree.Node) string {
 			html = "<span style=\"color: green;\">" + node.Html + "</span>"
 		} else if someGreen {
 			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
+		} else {
+			html = "<span style=\"color: violet;\">" + node.Html + "</span>"
 		}
 	}
 	return html
