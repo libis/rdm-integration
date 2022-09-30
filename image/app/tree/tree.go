@@ -17,7 +17,7 @@ type Attributes struct {
 	IsFile         bool     `json:"isFile"`
 	SomeMatch      *bool    `json:"someMatch,omitempty"`
 	AllMatch       *bool    `json:"allMatch,omitempty"`
-	AllLocal       *bool    `json:"allMatch,omitempty"`
+	AllLocal       *bool    `json:"allLocal,omitempty"`
 	Metadata       Metadata `json:"metadata"`
 }
 
