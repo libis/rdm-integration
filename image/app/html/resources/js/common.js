@@ -41,6 +41,17 @@ async function showConfirmationDialog() {
 }
 
 function showConfirmation(toConfirm) {
+    document.getElementById("instructions").innerHTML = '<span style="font-weight: bold;">Select the files to <span style="font-weight: 900; color: red;">KEEP</span> in Dataverse:<br/><br/></span><button onclick="myTree.collapseAll()">Collaps all</button>';
+    document.getElementById("legend").innerHTML = `
+    Legend:
+        <ul>
+            <li><span style="color: green;">Files only at remote location</span></li>
+            <li><span style="color: black;">The same version is at remote locaction as in Dataverse</span></li>
+            <li><span style="color: blue;">Remote location version does not match Dataverse version</span></li>
+            <li><span style="color: gray;">Files only in Dataverse</span></li>
+        </ul>
+    `;
+    document.getElementById("frm1").style.display = 'none';
     if (toConfirm.toUpdate.length == 0 && toConfirm.toDelete.length == 0 && toConfirm.toAdd.length == 0) {
         document.getElementById("confirmation").innerHTML = 'Nothing to update, add or to delete...<br/><br/><button onclick="cancel()">Cancel</button>';
         return;
