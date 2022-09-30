@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"embed"
+	"integration/app/common"
 	"integration/app/gh"
 	"io/fs"
 	"net/http"
@@ -16,7 +17,7 @@ func main() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	http.HandleFunc("/api/github/tree", gh.GithubTree)
 	http.HandleFunc("/api/github/store", gh.GithubStore)
-	http.HandleFunc("/api/github/writable", gh.GetWritable)
+	http.HandleFunc("/api/common/writable", common.GetWritable)
 
 	// serve html
 	fs := http.FileServer(http.FS(fs.FS(staticFiles)))

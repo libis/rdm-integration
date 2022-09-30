@@ -24,15 +24,10 @@ async function showConfirmationDialog() {
     }
     let x = document.getElementById("frm1");
     let data = {
-        ghToken: x["token"].value,
-        ghUser: x["owner"].value,
-        repo: x["repo"].value,
-        persistentId: x["persistentId"].value,
-        dataverseKey: x["apiKey"].value,
         selectedNodes: myTree.selectedNodes,
         originalRoot: res,
     };
-    let fetched = await fetch("../../api/github/writable", {
+    let fetched = await fetch("../../api/common/writable", {
         method: "POST",
         body: JSON.stringify(data),
     })
