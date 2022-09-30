@@ -3,8 +3,8 @@ This is a work in progress and at this point only for GitHub integration into th
 
 Some pictures that tell more than 1000 words (very raw at this point):
 
-![image](https://user-images.githubusercontent.com/101262459/193055711-a0f3c227-6aee-4bc6-8fa8-40894f4d8302.png)
+![image](https://user-images.githubusercontent.com/101262459/193233733-8a38cd40-2781-4ec7-8ff3-d350188a95a3.png)
 
 Confirmation screen:
 
-![image](https://user-images.githubusercontent.com/101262459/193056040-7f07ac20-ab45-4483-8dfe-c4c91e5e41df.png)
+![image](https://user-images.githubusercontent.com/101262459/193233812-f53a0ae1-8c32-4536-99a7-2acf4a640215.png)
