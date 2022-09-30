@@ -7,6 +7,7 @@ import (
 	"integration/app/utils"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/google/go-github/github"
@@ -221,6 +222,10 @@ func GetWritable(w http.ResponseWriter, r *http.Request) {
 			toDelete = append(toDelete, v.Id)
 		}
 	}
+	
+	sort.Strings(toUpdate)
+	sort.Strings(toDelete)
+	sort.Strings(toAdd)
 
 	res := WritableNodesResponse{
 		ToUpdate: toUpdate,
