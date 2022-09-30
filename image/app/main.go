@@ -13,10 +13,14 @@ import (
 var staticFiles embed.FS
 
 func main() {
-	// serve api
+	// allow bad certificates
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	
+	// serve api
+	// github
 	http.HandleFunc("/api/github/tree", gh.GithubTree)
 	http.HandleFunc("/api/github/store", gh.GithubStore)
+	//common
 	http.HandleFunc("/api/common/writable", common.GetWritable)
 
 	// serve html
