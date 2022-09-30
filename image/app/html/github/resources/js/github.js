@@ -1,10 +1,8 @@
-var myTree;
 var res;
 
 async function showContent() {
     let x = document.getElementById("frm1");
     document.getElementById("content").innerHTML = 'loading...';
-    document.getElementById("saver").innerHTML = '';
     document.getElementById("instructions").innerHTML = '';
     document.getElementById("legend").innerHTML = '';
     let data = {
@@ -27,10 +25,12 @@ async function showContent() {
     res = await fetched.json();
     myTree = new Tree('#content', {
         data: res.children,
+        onChange: function() {
+          showConfirmationDialog();
+        },
     });
     if (res.children.length > 0) {
-        document.getElementById("saver").innerHTML = '<button onclick="confirm()">Save</button>';
-        document.getElementById("instructions").innerHTML = '<span style="font-weight: bold;">Select the files to <span style="font-weight: 900; color: red;">KEEP</span> in Dataverse (regardless of the color):<br/></span><button onclick="myTree.collapseAll()">Collaps all</button>';
+        document.getElementById("instructions").innerHTML = '<span style="font-weight: bold;">Select the files to <span style="font-weight: 900; color: red;">KEEP</span> in Dataverse (regardless of the color):<br/><br/></span><button onclick="myTree.collapseAll()">Collaps all</button>';
         document.getElementById("legend").innerHTML = `
         Legend:
             <ul>
@@ -40,6 +40,10 @@ async function showContent() {
                 <li><span style="color: gray;">Files only in Dataverse</span></li>
             </ul>
         `;
+        x.style.display = 'none';
+        showConfirmationDialog();
+    } else {
+        document.getElementById("content").innerHTML = 'No files found.';
     }
 }
 
@@ -63,11 +67,12 @@ async function store() {
     })
     if (fetched.status != 200) {
         alert(await fetched.text());
-        document.getElementById("content").innerHTML = '';
     } else {
-        showContent();
+        cancel();
     }
 }
+
+var myTree;
 
 function getSelected(fName) {
     var values = [];
@@ -87,7 +92,10 @@ function getSelected(fName) {
     return values;
 }
 
-async function confirm() {
+async function showConfirmationDialog() {
+    if (!myTree) {
+        return
+    }
     let x = document.getElementById("frm1");
     let data = {
         ghToken: x["token"].value,
@@ -104,59 +112,63 @@ async function confirm() {
     })
     if (fetched.status != 200) {
         alert(await fetched.text());
-        document.getElementById("content").innerHTML = '';
+        document.getElementById("confirmation").innerHTML = '';
     } else {
         let toConfirm = await fetched.json()
-        showConfirmationDialog(toConfirm);
+        showConfirmation(toConfirm);
     }
 }
 
-function showConfirmationDialog(toConfirm) {
-    document.getElementById("saver").innerHTML = '';
-    document.getElementById("instructions").innerHTML = '';
-    document.getElementById("legend").innerHTML = '';
-
+function showConfirmation(toConfirm) {
     if (toConfirm.toUpdate.length == 0 && toConfirm.toDelete.length == 0 && toConfirm.toAdd.length == 0) {
-        document.getElementById("content").innerHTML = 'Nothing to update, add or to delete...';
+        document.getElementById("confirmation").innerHTML = 'Nothing to update, add or to delete...<br/><br/><button onclick="cancel()">Cancel</button>';
         return;
     }
 
     let form = '';
     if (toConfirm.toDelete.length != 0) {
-        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: red;">DELETED</span> from Dataverse:</span><form name="toDelete">';
+        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: red;">DELETED</span> from Dataverse:</span><form name="toDelete"><br/>';
         for (let i = 0, l = toConfirm.toDelete.length; i < l; i++) {
             form += toCheckbox(toConfirm.toDelete[i], 'red');
         }
-        form += '</form>';
+        form += '</form><br/>';
     } else {
         form += '<form name="toDelete"></form>';
     }
 
     if (toConfirm.toAdd.length != 0) {
-        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: green;">ADDED</span> to Dataverse:</span><form name="toAdd">';
+        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: green;">ADDED</span> to Dataverse:</span><form name="toAdd"><br/>';
         for (let i = 0, l = toConfirm.toAdd.length; i < l; i++) {
             form += toCheckbox(toConfirm.toAdd[i], 'green');
         }
-        form += '</form>';
+        form += '</form><br/>';
     } else {
         form += '<form name="toAdd"></form>';
     }
 
     if (toConfirm.toUpdate.length != 0) {
-        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: blue;">UPDATED</span> in Dataverse:</span><form name="toUpdate">';
+        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: blue;">UPDATED</span> in Dataverse:</span><form name="toUpdate"><br/>';
         for (let i = 0, l = toConfirm.toUpdate.length; i < l; i++) {
             form += toCheckbox(toConfirm.toUpdate[i], 'blue');
         }
-        form += '</form>';
+        form += '</form><br/>';
     } else {
         form += '<form name="toUpdate"></form>';
     }
     
-    form += '<span><br/></span><button onclick="store()">OK</button><button onclick="showContent()">Cancel</button>';
+    form += '<span><br/></span><button onclick="store()">OK</button><button onclick="cancel()">Cancel</button><br/><br/>';
 
-    document.getElementById("content").innerHTML = form;
+    document.getElementById("confirmation").innerHTML = form;
 }
 
 function toCheckbox(value, color) {
     return '<p><input type="checkbox" name="files" value="' + value + '" checked="true"/><span style="color: ' + color + ';">' + value + '</span></p>';
+}
+
+function cancel() {
+    document.getElementById("content").innerHTML = '';
+    document.getElementById("instructions").innerHTML = '';
+    document.getElementById("legend").innerHTML = '';
+    document.getElementById("confirmation").innerHTML = '';
+    document.getElementById("frm1").style.display = 'block';
 }

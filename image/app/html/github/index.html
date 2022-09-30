@@ -4,46 +4,56 @@
 <head>
     <title>Data synchronizer</title>
     <link type="text/css" href="resources/css/style.css" rel="stylesheet">
-    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="shortcut icon" href="resources/images/favicon.ico">
     <script type="text/javascript" src="resources/js/tree.js"></script>
+    <script type="text/javascript" src="resources/js/common.js"></script>
     <script type="text/javascript" src="resources/js/github.js"></script>
 </head>
 
 <body style="min-width: 1100px;">
     <div id="main">
-        <form id="frm1">
-            <p>
-                <label for="owner">Owner: <span aria-label="required">*</span></label>
-                <input type="text"name="owner"><br>
-            </p>
-            <p>
-                <label for="repo">Repo: <span aria-label="required">*</span></label>
-                <input type="text" name="repo"><br>
-            </p>
-            <p>
-                <label for="ref">Ref (branch or tag or release): <span aria-label="required">*</span></label>
-                <input type="text" name="ref"><br>
-            </p>
-            <p>
-                <label for="token">Github token: <span aria-label="required">*</span></label>
-                <input type="password" name="token"><br>
-            </p>
-            <p>
-                <label for="persistentId">PID: <span aria-label="required">*</span></label>
-                <input type="text" name="persistentId"><button onclick="showContent()">New</button><br>
-            </p>
-            <p>
-                <label for="apiKey">Dataverse token: <span aria-label="required">*</span></label>
-                <input type="password" name="apiKey"><br>
-            </p>
-        </form>
-        <span><br/></span>
-        <button onclick="showContent()">Compare</button>
-        <div id="saver"></div>
-        <span><br/></span>
-        <div id="instructions"></div>
-        <div id="content"></div>
-        <div id="legend"></div>
+        <div class="split left">
+            <div class="centered">
+                <form id="frm1">
+                    <p>
+                        <label for="owner">Owner: <span aria-label="required">*</span></label>
+                        <input type="text"name="owner"><br>
+                    </p>
+                    <p>
+                        <label for="repo">Repo: <span aria-label="required">*</span></label>
+                        <input type="text" name="repo"><br>
+                    </p>
+                    <p>
+                        <label for="ref">Ref (branch or tag or release): <span aria-label="required">*</span></label>
+                        <input type="text" name="ref"><br>
+                    </p>
+                    <p>
+                        <label for="token">Github token: <span aria-label="required">*</span></label>
+                        <input type="password" name="token"><br>
+                    </p>
+                    <p>
+                        <label for="persistentId">PID: <span aria-label="required">*</span></label>
+                        <input type="text" name="persistentId"><button onclick="showContent()">New</button><br>
+                    </p>
+                    <p>
+                        <label for="apiKey">Dataverse token: <span aria-label="required">*</span></label>
+                        <input type="password" name="apiKey"><br>
+                    </p>
+                    <p>
+                        <input type="button" onclick="showContent()" value="Compare">
+                    </p>
+                </form>
+                
+                <div id="instructions"></div>
+                <div id="content"></div>
+                <div id="legend"></div>
+            </div>
+        </div>
+        <div class="split right">
+            <div class="centered">
+                <div id="confirmation"></div>
+            </div>
+        </div>
     </div>
 </body>
 
