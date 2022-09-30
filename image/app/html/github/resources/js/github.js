@@ -34,10 +34,10 @@ async function showContent() {
         document.getElementById("legend").innerHTML = `
         Legend:
             <ul>
-                <li><span style="color: violet;">Files only in Github. Will be copied to dataverse if checked.</span></li>
-                <li><span style="color: green;">The same version in Github as in Dataverse. Will be deleted from Dataverse if uncheked.</span></li>
-                <li><span style="color: blue;">Github version does not match Dataverse version. When checked will be updated in Dataverse, otherwise will be deleted from Dataverse</span></li>
-                <li><span style="color: gray;">Files only in Dataverse. Will be deleted from dataverse if uncheked.</span></li>
+                <li><span style="color: green;">Files only in Github</span></li>
+                <li><span style="color: black;">The same version in Github as in Dataverse</span></li>
+                <li><span style="color: blue;">Github version does not match Dataverse version</span></li>
+                <li><span style="color: gray;">Files only in Dataverse</span></li>
             </ul>
         `;
     }
@@ -55,6 +55,7 @@ async function store() {
         originalRoot: res,
         toUpdate: getSelected('toUpdate'),
         toDelete: getSelected('toDelete'),
+        toAdd: getSelected('toAdd'),
     };
     let fetched = await fetch("../../api/github/store", {
         method: "POST",
@@ -115,8 +116,8 @@ function showConfirmationDialog(toConfirm) {
     document.getElementById("instructions").innerHTML = '';
     document.getElementById("legend").innerHTML = '';
 
-    if (toConfirm.toUpdate.length == 0 && toConfirm.toDelete.length == 0) {
-        document.getElementById("content").innerHTML = 'Nothing to update or to delete...';
+    if (toConfirm.toUpdate.length == 0 && toConfirm.toDelete.length == 0 && toConfirm.toAdd.length == 0) {
+        document.getElementById("content").innerHTML = 'Nothing to update, add or to delete...';
         return;
     }
 
@@ -124,27 +125,38 @@ function showConfirmationDialog(toConfirm) {
     if (toConfirm.toDelete.length != 0) {
         form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: red;">DELETED</span> from Dataverse:</span><form name="toDelete">';
         for (let i = 0, l = toConfirm.toDelete.length; i < l; i++) {
-            form += toCheckbox(toConfirm.toDelete[i]);
+            form += toCheckbox(toConfirm.toDelete[i], 'red');
         }
         form += '</form>';
     } else {
         form += '<form name="toDelete"></form>';
     }
 
+    if (toConfirm.toAdd.length != 0) {
+        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: green;">ADDED</span> to Dataverse:</span><form name="toAdd">';
+        for (let i = 0, l = toConfirm.toAdd.length; i < l; i++) {
+            form += toCheckbox(toConfirm.toAdd[i], 'green');
+        }
+        form += '</form>';
+    } else {
+        form += '<form name="toAdd"></form>';
+    }
+
     if (toConfirm.toUpdate.length != 0) {
-        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: red;">ADDED or UPDATED</span> in Dataverse:</span><form name="toUpdate">';
+        form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: blue;">UPDATED</span> in Dataverse:</span><form name="toUpdate">';
         for (let i = 0, l = toConfirm.toUpdate.length; i < l; i++) {
-            form += toCheckbox(toConfirm.toUpdate[i]);
+            form += toCheckbox(toConfirm.toUpdate[i], 'blue');
         }
         form += '</form>';
     } else {
         form += '<form name="toUpdate"></form>';
     }
+    
     form += '<span><br/></span><button onclick="store()">OK</button><button onclick="showContent()">Cancel</button>';
 
     document.getElementById("content").innerHTML = form;
 }
 
-function toCheckbox(value) {
-    return '<p><input type="checkbox" name="files" value="' + value + '" checked="true"/>' + value + '</p>';
+function toCheckbox(value, color) {
+    return '<p><input type="checkbox" name="files" value="' + value + '" checked="true"/><span style="color: ' + color + ';">' + value + '</span></p>';
 }

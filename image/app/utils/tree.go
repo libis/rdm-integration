@@ -81,45 +81,51 @@ func addColor(node *tree.Node) string {
 		if node.Attributes.RemoteHash == "" {
 			html = "<span style=\"color: gray;\">" + node.Html + "</span>"
 		} else if node.Attributes.LocalHash == "" {
-			html = "<span style=\"color: violet;\">" + node.Html + "</span>"
-		} else if node.Attributes.LocalHash == node.Attributes.RemoteHash {
 			html = "<span style=\"color: green;\">" + node.Html + "</span>"
+		} else if node.Attributes.LocalHash == node.Attributes.RemoteHash {
+			html = "<span style=\"color: black;\">" + node.Html + "</span>"
 		} else {
 			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
 		}
 	} else {
-		someGreen, allGreen := foldersOverlapping(node)
-		if allGreen {
-			html = "<span style=\"color: green;\">" + node.Html + "</span>"
-		} else if someGreen {
+		someMatch, allMatch, allLocal := foldersOverlapping(node)
+		if allMatch {
+			html = "<span style=\"color: black;\">" + node.Html + "</span>"
+		} else if someMatch {
 			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
+		} else if allLocal {
+			html = "<span style=\"color: gray;\">" + node.Html + "</span>"
 		} else {
-			html = "<span style=\"color: violet;\">" + node.Html + "</span>"
+			html = "<span style=\"color: green;\">" + node.Html + "</span>"
 		}
 	}
 	return html
 }
 
-func foldersOverlapping(node *tree.Node) (bool, bool) {
-	if node.Attributes.SomeGreen != nil && node.Attributes.AllGreen != nil {
-		return *node.Attributes.SomeGreen, *node.Attributes.AllGreen
+func foldersOverlapping(node *tree.Node) (bool, bool, bool) {
+	if node.Attributes.SomeMatch != nil && node.Attributes.AllMatch != nil && node.Attributes.AllLocal != nil {
+		return *node.Attributes.SomeMatch, *node.Attributes.AllMatch, *node.Attributes.AllLocal
 	}
 	all := len(node.Children) > 0
+	allL := len(node.Children) > 0
 	some := false
 	for i := range node.Children {
 		child := node.Children[i]
 		if child.Attributes.IsFile {
 			all = all && child.Attributes.LocalHash == child.Attributes.RemoteHash
-			some = some || child.Attributes.LocalHash == child.Attributes.RemoteHash
+			some = some || (child.Attributes.RemoteHash != "" && child.Attributes.LocalHash != "")
+			allL = allL && child.Attributes.RemoteHash == ""
 		} else {
-			someGreen, allGreen := foldersOverlapping(child)
-			all = all && allGreen
-			some = some || someGreen
+			someMatch, allMatch, allLocal := foldersOverlapping(child)
+			all = all && allMatch
+			some = some || someMatch
+			allL = allL && allLocal
 		}
 	}
-	node.Attributes.SomeGreen = &some
-	node.Attributes.AllGreen = &all
-	return some, all
+	node.Attributes.SomeMatch = &some
+	node.Attributes.AllMatch = &all
+	node.Attributes.AllLocal = &allL
+	return some, all, allL
 }
 
 func getFolders(nodes map[string]tree.Node) map[string]bool {

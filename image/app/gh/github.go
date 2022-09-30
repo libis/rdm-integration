@@ -32,11 +32,13 @@ type StoreRequest struct {
 	OriginalRoot  tree.Node    `json:"originalRoot"`
 	ToUpdate      []string     `json:"toUpdate"`
 	ToDelete      []string     `json:"toDelete"`
+	ToAdd         []string     `json:"toAdd"`
 }
 
 type WritableNodesResponse struct {
 	ToUpdate []string `json:"toUpdate"`
 	ToDelete []string `json:"toDelete"`
+	ToAdd    []string `json:"toAdd"`
 }
 
 func GithubTree(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +157,9 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 	writableNodes := utils.ToWritableNodes(req.SelectedNodes, req.OriginalRoot)
 	streams := map[string]map[string]interface{}{}
 	selected := map[string]bool{}
-	for _, s := range append(req.ToDelete, req.ToUpdate...) {
+	selectedSlice := append(req.ToDelete, req.ToUpdate...)
+	selectedSlice = append(selectedSlice, req.ToAdd...)
+	for _, s := range selectedSlice {
 		selected[s] = true
 	}
 	for k, v := range writableNodes {
@@ -205,9 +209,14 @@ func GetWritable(w http.ResponseWriter, r *http.Request) {
 	writableNodes := utils.ToWritableNodes(req.SelectedNodes, req.OriginalRoot)
 	toUpdate := []string{}
 	toDelete := []string{}
+	toAdd := []string{}
 	for _, v := range writableNodes {
 		if v.Checked {
-			toUpdate = append(toUpdate, v.Id)
+			if v.Attributes.LocalHash == "" {
+				toAdd = append(toAdd, v.Id)
+			} else {
+				toUpdate = append(toUpdate, v.Id)
+			}
 		} else {
 			toDelete = append(toDelete, v.Id)
 		}
@@ -216,6 +225,7 @@ func GetWritable(w http.ResponseWriter, r *http.Request) {
 	res := WritableNodesResponse{
 		ToUpdate: toUpdate,
 		ToDelete: toDelete,
+		ToAdd:    toAdd,
 	}
 
 	b, err = json.Marshal(res)
