@@ -3,10 +3,10 @@
 
 <head>
     <title>Data synchronizer</title>
-    <link type="text/css" href="resources/css/style.css" rel="stylesheet">
-    <link rel="shortcut icon" href="resources/images/favicon.ico">
-    <script type="text/javascript" src="resources/js/tree.js"></script>
-    <script type="text/javascript" src="resources/js/common.js"></script>
+    <link type="text/css" href="../resources/css/style.css" rel="stylesheet">
+    <link rel="shortcut icon" href="../resources/images/favicon.ico">
+    <script type="text/javascript" src="../resources/js/tree.js"></script>
+    <script type="text/javascript" src="../resources/js/common.js"></script>
     <script type="text/javascript" src="resources/js/github.js"></script>
 </head>
 
@@ -39,8 +39,10 @@
                         <label for="apiKey">Dataverse token: <span aria-label="required">*</span></label>
                         <input type="password" name="apiKey"><br>
                     </p>
+                    <br/>
                     <p>
-                        <input type="button" onclick="showContent()" value="Compare">
+                        <label for="compare"></label>
+                        <input type="button" onclick="showContent()" value="Compare" name="compare">
                     </p>
                 </form>
                 
