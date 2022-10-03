@@ -44,9 +44,9 @@ async function store() {
         dataverseKey: x["apiKey"].value,
         selectedNodes: myTree.selectedNodes,
         originalRoot: res,
-        toUpdate: getSelected('toUpdate'),
-        toDelete: getSelected('toDelete'),
-        toAdd: getSelected('toAdd'),
+        toUpdate: getValues('toUpdate', true),
+        toDelete: getValues('toDelete', true),
+        toAdd: getValues('toAdd', true),
     };
     let fetched = await fetch("../../api/github/store", {
         method: "POST",

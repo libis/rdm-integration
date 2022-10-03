@@ -1,21 +1,28 @@
 var myTree;
 
-function getSelected(fName) {
-    var values = [];
-    var cbs = document.forms[fName].elements['files'];
+function getValues(fName, checked) {
+    var f = document.forms[fName];
+    if (!f) {
+        return [];
+    }
+    var cbs = f.elements['files'];
     if (!cbs) {
-        return values;
+        return [];
     }
-    if (cbs.checked) { //if only one checkbox in the form
-        values.push(cbs.value);
-        return values;
-    }
-    for (var i = 0, cbLen = cbs.length; i < cbLen; i++) {
-        if (cbs[i].checked) {
-            values.push(cbs[i].value);
+    if (typeof cbs.checked !== 'undefined') {
+        if (cbs.checked == checked) {
+            return [cbs.value];
+        } else {
+            return [];
         }
     }
-    return values;
+    var res = [];
+    for (var i = 0, cbLen = cbs.length; i < cbLen; i++) {
+        if (cbs[i].checked == checked) {
+            res.push(cbs[i].value);
+        }
+    }
+    return res;
 }
 
 async function showConfirmationDialog() {
@@ -59,9 +66,10 @@ function showConfirmation(toConfirm) {
 
     let form = '';
     if (toConfirm.toDelete.length != 0) {
+        let unselected = getValues('toDelete', false)
         form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: red;">DELETED</span> from Dataverse:</span><form name="toDelete"><br/>';
         for (let i = 0, l = toConfirm.toDelete.length; i < l; i++) {
-            form += toCheckbox(toConfirm.toDelete[i], 'red');
+            form += toCheckbox(toConfirm.toDelete[i], 'red', unselected);
         }
         form += '</form><br/>';
     } else {
@@ -69,9 +77,10 @@ function showConfirmation(toConfirm) {
     }
 
     if (toConfirm.toAdd.length != 0) {
+        let unselected = getValues('toAdd', false)
         form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: green;">ADDED</span> to Dataverse:</span><form name="toAdd"><br/>';
         for (let i = 0, l = toConfirm.toAdd.length; i < l; i++) {
-            form += toCheckbox(toConfirm.toAdd[i], 'green');
+            form += toCheckbox(toConfirm.toAdd[i], 'green', unselected);
         }
         form += '</form><br/>';
     } else {
@@ -79,9 +88,10 @@ function showConfirmation(toConfirm) {
     }
 
     if (toConfirm.toUpdate.length != 0) {
+        let unselected = getValues('toUpdate', false)
         form += '<span style="font-weight: bold;">Files that will be <span style="font-weight: 900; color: blue;">UPDATED</span> in Dataverse:</span><form name="toUpdate"><br/>';
         for (let i = 0, l = toConfirm.toUpdate.length; i < l; i++) {
-            form += toCheckbox(toConfirm.toUpdate[i], 'blue');
+            form += toCheckbox(toConfirm.toUpdate[i], 'blue', unselected);
         }
         form += '</form><br/>';
     } else {
@@ -93,8 +103,10 @@ function showConfirmation(toConfirm) {
     document.getElementById("confirmation").innerHTML = form;
 }
 
-function toCheckbox(value, color) {
-    return '<p><input type="checkbox" name="files" value="' + value + '" checked="true"/><span style="color: ' + color + ';">' + value + '</span></p>';
+function toCheckbox(value, color, unselected) {
+    return '<p><input type="checkbox" name="files" value="' +
+        value + '"' + (unselected.includes(value) ? '' : ' checked="checked"') +
+        '"/><span style="color: ' + color + ';">' + value + '</span></p>';
 }
 
 function cancel() {
