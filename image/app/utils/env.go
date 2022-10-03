@@ -18,6 +18,7 @@ var defaultHash = Md5
 var pathToUnblockKey = "../../rdm-deployment/data/.secrets/api/key"
 var unblockKey = "" //will be read from pathToUnblockKey
 var redisHost = "localhost:6379"
+var defaultDataverse = "rdr"
 
 var rdb *redis.Client
 
@@ -32,6 +33,7 @@ func init() {
 	hash := os.Getenv("HASH_TYPE")
 	pathUK := os.Getenv("PATH_TO_UNBLOCK_KEY")
 	rh := os.Getenv("REDIS_HOST")
+	dv := os.Getenv("DEFAULT_DATAVERSE")
 	// Environment variables used for credentials:
 	// * Access Key ID:     AWS_ACCESS_KEY_ID or AWS_ACCESS_KEY
 	// * Secret Access Key: AWS_SECRET_ACCESS_KEY or AWS_SECRET_KEY
@@ -69,6 +71,9 @@ func init() {
 	unblockKey = strings.TrimSpace(string(b))
 	if rh != "" {
 		redisHost = rh
+	}
+	if dv != "" {
+		defaultDataverse = dv
 	}
 
 	rdb = redis.NewClient(&redis.Options{

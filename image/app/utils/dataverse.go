@@ -257,21 +257,18 @@ func CreateNewDataset(dataverseKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	body, formDataContentType, err := dv.CreateDatasetRequestBody(user)
-	if err != nil {
-		return "", err
-	}
-	url := dataverseServer + "/api/dataverses/rdr/datasets?doNotValidate=true"
+	body := dv.CreateDatasetRequestBody(user)
+	url := dataverseServer + "/api/dataverses/" + defaultDataverse + "/datasets?doNotValidate=true"
 	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return "", err
 	}
-	request.Header.Add("Content-Type", formDataContentType)
+	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("X-Dataverse-key", dataverseKey)
 	r, err := http.DefaultClient.Do(request)
-	if r.StatusCode != 200 {
+	if r.StatusCode != 201 {
 		b, _ := io.ReadAll(r.Body)
-		return "", fmt.Errorf("creating dataset failed: %s", string(b))
+		return "", fmt.Errorf("creating dataset failed (%v): %s", r.StatusCode, string(b))
 	}
 	b, err := io.ReadAll(r.Body)
 	if err != nil {

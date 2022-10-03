@@ -22,6 +22,7 @@ func main() {
 	http.HandleFunc("/api/github/store", gh.GithubStore)
 	//common
 	http.HandleFunc("/api/common/writable", common.GetWritable)
+	http.HandleFunc("/api/common/newdataset", common.NewDataset)
 
 	// serve html
 	fs := http.FileServer(http.FS(fs.FS(staticFiles)))

@@ -43,12 +43,12 @@ async function showConfirmationDialog() {
     let fetched = await fetch("../../api/common/writable", {
         method: "POST",
         body: JSON.stringify(data),
-    })
+    });
     if (fetched.status != 200) {
         alert(await fetched.text());
         document.getElementById("confirmation").innerHTML = '';
     } else {
-        let toConfirm = await fetched.json()
+        let toConfirm = await fetched.json();
         showConfirmation(toConfirm);
     }
 }
@@ -123,4 +123,24 @@ function cancel() {
     document.getElementById("frm1").style.display = 'block';
 }
 
-//TODO: newDataset() function
+async function newDataset() {
+    let x = document.getElementById("frm1");
+    let dvKey = x["dataverseKey"].value;
+    if (typeof dvKey === 'undifined' || dvKey === '') {
+        alert("Provide the Dataverse API token.");
+        return;
+    }
+    let data = {
+        dataverseKey: dvKey,
+    };
+    let fetched = await fetch("../../api/common/newdataset", {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+    if (fetched.status != 200) {
+        alert(await fetched.text());
+    } else {
+        let resp = await fetched.json();
+        x["persistentId"].value = resp.persistentId;
+    }
+}

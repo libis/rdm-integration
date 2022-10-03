@@ -120,9 +120,9 @@ var createDatasetRequestFormat = `
 }
 `
 
-func CreateDatasetRequestBody(user User) (io.Reader, string, error) {
+func CreateDatasetRequestBody(user User) io.Reader {
 	data := []byte(fmt.Sprintf(createDatasetRequestFormat, user.Data.LastName, user.Data.FirstName))
-	return RequestBody(data)
+	return bytes.NewReader(data)
 }
 
 func RequestBody(data []byte) (io.Reader, string, error) {

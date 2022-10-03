@@ -53,7 +53,7 @@ async function store() {
     let fetched = await fetch("../../api/github/store", {
         method: "POST",
         body: JSON.stringify(data),
-    })
+    });
     if (fetched.status != 200) {
         alert(await fetched.text());
     } else {
