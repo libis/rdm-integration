@@ -28,16 +28,16 @@
                         <input type="text" name="ref"><br>
                     </p>
                     <p>
-                        <label for="token">Github token: <span aria-label="required">*</span></label>
-                        <input type="password" name="token"><br>
+                        <label for="ghToken">Github token: <span aria-label="required">*</span></label>
+                        <input type="password" name="ghToken"><br>
                     </p>
                     <p>
                         <label for="persistentId">PID: <span aria-label="required">*</span></label>
-                        <input type="text" name="persistentId"><button onclick="showContent()">New</button><br>
+                        <input type="text" name="persistentId"><button onclick="newDataset()">New</button><br>
                     </p>
                     <p>
-                        <label for="apiKey">Dataverse token: <span aria-label="required">*</span></label>
-                        <input type="password" name="apiKey"><br>
+                        <label for="dataverseKey">Dataverse token: <span aria-label="required">*</span></label>
+                        <input type="password" name="dataverseKey"><br>
                     </p>
                     <br/>
                     <p>
@@ -57,6 +57,7 @@
             </div>
         </div>
     </div>
+    <script>loadStoredValues()</script>
 </body>
 
 </html>

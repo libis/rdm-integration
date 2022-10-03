@@ -15,7 +15,7 @@ var staticFiles embed.FS
 func main() {
 	// allow bad certificates
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	
+
 	// serve api
 	// github
 	http.HandleFunc("/api/github/tree", gh.GithubTree)

@@ -1,5 +1,11 @@
 var myTree;
 
+function loadStoredValues() {
+    let x = document.getElementById("frm1");
+    x["dataverseKey"].value = localStorage.getItem("dataverseKey");
+    x["ghToken"].value = localStorage.getItem("ghToken");
+}
+
 function getValues(fName, checked) {
     var f = document.forms[fName];
     if (!f) {
@@ -97,7 +103,7 @@ function showConfirmation(toConfirm) {
     } else {
         form += '<form name="toUpdate"></form>';
     }
-    
+
     form += '<span><br/></span><button onclick="store()">OK</button><button onclick="cancel()">Cancel</button><br/><br/>';
 
     document.getElementById("confirmation").innerHTML = form;
@@ -116,3 +122,5 @@ function cancel() {
     document.getElementById("confirmation").innerHTML = '';
     document.getElementById("frm1").style.display = 'block';
 }
+
+//TODO: newDataset() function
