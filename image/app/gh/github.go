@@ -73,7 +73,7 @@ func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	utils.MergeNodeMaps(nm, toNodeMap(tr))
 
 	//compare and write response
-	res, err := utils.Compare(nm, req.PersistentId)
+	res := utils.Compare(nm, req.PersistentId, req.DataverseKey)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
@@ -172,7 +172,7 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	res := common.StoreResult{ Status: "OK" }
+	res := common.StoreResult{Status: "OK"}
 	b, err = json.Marshal(res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

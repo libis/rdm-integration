@@ -47,7 +47,7 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 		}
 		id := dir + d.DataFile.Filename
 		res[id] = tree.Node{
-			Id: id,
+			Id:   id,
 			Name: d.DataFile.Filename,
 			Path: dir,
 			Attributes: tree.Attributes{
@@ -61,8 +61,11 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 	return res
 }
 
-func persistNodeMap(job Job) (Job, error) {
+func doWork(job Job) (Job, error) {
 	ctx := context.Background()
+	if job.StreamType == "hash-only" {
+		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
+	}
 	streams, err := deserialize(ctx, job.StreamType, job.Streams, job.StreamParams)
 	if err != nil {
 		return job, err
@@ -113,6 +116,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 			return
 		}
 		hashValue := fmt.Sprintf("%x", h)
+		//updated or new: always rehash
 		knownHashes[v.Id] = calculatedHashes{
 			LocalHashType:  hashType,
 			LocalHashValue: hashValue,

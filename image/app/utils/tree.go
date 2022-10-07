@@ -30,22 +30,21 @@ func MergeNodeMaps(to, from map[string]tree.Node) {
 	}
 }
 
-func Compare(in map[string]tree.Node, pid string) (CompareResponse, error) {
-	//TODO: rehashing in a job
-	err := localRehashToMatchRemoteHashType(pid, in)
-	if err != nil {
-		return CompareResponse{}, err
-	}
+func Compare(in map[string]tree.Node, pid, dataverseKey string) CompareResponse {
+	jobNeeded := localRehashToMatchRemoteHashType(dataverseKey, pid, in)
 	data := []tree.Node{}
+	empty := false
 	for _, v := range in {
 		if !v.Attributes.IsFile {
-			continue;
+			continue
 		}
 		v.Status = tree.Deleted
 		if v.Attributes.RemoteHash != "" {
 			switch {
 			case v.Attributes.LocalHash == "":
 				v.Status = tree.New
+			case v.Attributes.LocalHash == "?":
+				v.Status = tree.Unknown
 			case v.Attributes.LocalHash != v.Attributes.RemoteHash:
 				v.Status = tree.Updated
 			case v.Attributes.LocalHash == v.Attributes.RemoteHash:
@@ -54,10 +53,17 @@ func Compare(in map[string]tree.Node, pid string) (CompareResponse, error) {
 		}
 		v.Action = tree.Ignore
 		data = append(data, v)
+		empty = empty || v.Attributes.LocalHash != ""
+	}
+	status := Finished
+	if jobNeeded {
+		status = Updating
+	} else if empty {
+		status = New
 	}
 	return CompareResponse{
 		Id:     pid,
-		Status: Finished,
+		Status: status,
 		Data:   data,
-	}, nil
+	}
 }

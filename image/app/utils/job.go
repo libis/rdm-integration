@@ -34,8 +34,14 @@ func unlock(persistentId string) {
 }
 
 func AddJob(job Job) error {
-	logging.Logger.Println("job added for " + job.PersistentId)
-	return addJob(job, true)
+	if len(job.WritableNodes) == 0 {
+		return nil
+	}
+	err := addJob(job, true)
+	if err == nil {
+		logging.Logger.Println("job added for " + job.PersistentId)
+	}
+	return err
 }
 
 func addJob(job Job, requireLock bool) error {
@@ -82,7 +88,7 @@ func ProcessJobs() {
 		job, ok := popJob()
 		if ok {
 			persistentId := job.PersistentId
-			job, err := persistNodeMap(job)
+			job, err := doWork(job)
 			if err != nil {
 				logging.Logger.Println("job failed:", persistentId, err)
 			}
