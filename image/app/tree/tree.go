@@ -1,11 +1,27 @@
 package tree
 
+const (
+	Equal   = 0
+	New     = 1
+	Updated = 2
+	Deleted = 3
+	Unknown = 4
+)
+
+const (
+	Ignore = 0
+	Copy   = 1
+	Update = 2
+	Delete = 3
+)
+
 type Node struct {
 	Id         string     `json:"id"`
-	Html       string     `json:"html"`
 	Attributes Attributes `json:"attributes"`
-	Children   []*Node    `json:"children"`
-	Checked    bool       `json:"checked"`
+	Path       string     `json:"path"`
+	Name       string     `json:"name"`
+	Status     int        `json:"status"`
+	Action     int        `json:"action"`
 }
 
 type Attributes struct {
@@ -15,9 +31,6 @@ type Attributes struct {
 	RemoteHash     string   `json:"remoteHash"`
 	RemoteHashType string   `json:"remoteHashType"`
 	IsFile         bool     `json:"isFile"`
-	SomeMatch      *bool    `json:"someMatch,omitempty"`
-	AllMatch       *bool    `json:"allMatch,omitempty"`
-	AllLocal       *bool    `json:"allLocal,omitempty"`
 	Metadata       Metadata `json:"metadata"`
 }
 

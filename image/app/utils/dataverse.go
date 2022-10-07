@@ -47,15 +47,15 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 		}
 		id := dir + d.DataFile.Filename
 		res[id] = tree.Node{
-			Id:   id,
-			Html: d.DataFile.Filename,
+			Id: id,
+			Name: d.DataFile.Filename,
+			Path: dir,
 			Attributes: tree.Attributes{
 				ParentId:  d.DirectoryLabel,
 				Metadata:  d,
 				IsFile:    true,
 				LocalHash: d.DataFile.Checksum.Value,
 			},
-			Checked: true,
 		}
 	}
 	return res
@@ -89,7 +89,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 		default:
 		}
 
-		if !v.Checked && v.Attributes.Metadata.DataFile.Id != 0 {
+		if v.Action == tree.Delete {
 			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
 				return

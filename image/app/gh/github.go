@@ -3,6 +3,7 @@ package gh
 import (
 	"encoding/json"
 	"fmt"
+	"integration/app/common"
 	"integration/app/tree"
 	"integration/app/utils"
 	"io"
@@ -13,7 +14,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type TreeRequest struct {
+type CompareRequest struct {
 	GhToken      string `json:"ghToken"`
 	GhUser       string `json:"ghUser"`
 	Repo         string `json:"repo"`
@@ -23,22 +24,18 @@ type TreeRequest struct {
 }
 
 type StoreRequest struct {
-	GhToken       string       `json:"ghToken"`
-	GhUser        string       `json:"ghUser"`
-	Repo          string       `json:"repo"`
-	PersistentId  string       `json:"persistentId"`
-	DataverseKey  string       `json:"dataverseKey"`
-	SelectedNodes []*tree.Node `json:"selectedNodes"`
-	OriginalRoot  tree.Node    `json:"originalRoot"`
-	ToUpdate      []string     `json:"toUpdate"`
-	ToDelete      []string     `json:"toDelete"`
-	ToAdd         []string     `json:"toAdd"`
+	GhToken       string      `json:"ghToken"`
+	GhUser        string      `json:"ghUser"`
+	Repo          string      `json:"repo"`
+	PersistentId  string      `json:"persistentId"`
+	DataverseKey  string      `json:"dataverseKey"`
+	SelectedNodes []tree.Node `json:"selectedNodes"`
 }
 
-func GithubTree(w http.ResponseWriter, r *http.Request) {
+func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	//process request
 	ctx := r.Context()
-	req := TreeRequest{}
+	req := CompareRequest{}
 	b, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -76,7 +73,7 @@ func GithubTree(w http.ResponseWriter, r *http.Request) {
 	utils.MergeNodeMaps(nm, toNodeMap(tr))
 
 	//compare and write response
-	res, err := utils.GetWiredRootNode(req.PersistentId, nm)
+	res, err := utils.Compare(nm, req.PersistentId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
@@ -105,7 +102,8 @@ func toNodeMap(tr *github.Tree) map[string]tree.Node {
 		}
 		node := tree.Node{
 			Id:   path,
-			Html: fileName,
+			Name: fileName,
+			Path: parentId,
 			Attributes: tree.Attributes{
 				URL:            e.GetURL(),
 				ParentId:       parentId,
@@ -148,27 +146,19 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writableNodes := utils.ToWritableNodes(req.SelectedNodes, req.OriginalRoot)
 	streams := map[string]map[string]interface{}{}
-	selected := map[string]bool{}
-	selectedSlice := append(req.ToDelete, req.ToUpdate...)
-	selectedSlice = append(selectedSlice, req.ToAdd...)
-	for _, s := range selectedSlice {
-		selected[s] = true
-	}
-	for k, v := range writableNodes {
-		if v.Checked && selected[v.Id] {
-			streams[k] = map[string]interface{}{"sha": v.Attributes.RemoteHash}
+	selected := map[string]tree.Node{}
+	for _, v := range req.SelectedNodes {
+		if v.Action == tree.Copy || v.Action == tree.Update {
+			streams[v.Id] = map[string]interface{}{"sha": v.Attributes.RemoteHash}
 		}
-		if !selected[v.Id] {
-			delete(writableNodes, v.Id)
-		}
+		selected[v.Id] = v
 	}
 
 	err = utils.AddJob(utils.Job{
 		DataverseKey:  req.DataverseKey,
 		PersistentId:  req.PersistentId,
-		WritableNodes: writableNodes,
+		WritableNodes: selected,
 		StreamType:    "github",
 		Streams:       streams,
 		StreamParams: map[string]string{
@@ -182,4 +172,12 @@ func GithubStore(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
+	res := common.StoreResult{ Status: "OK" }
+	b, err = json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+	w.Write(b)
 }

@@ -2,15 +2,11 @@ package main
 
 import (
 	"crypto/tls"
-	"embed"
 	"integration/app/common"
 	"integration/app/gh"
-	"io/fs"
+	"integration/app/utils"
 	"net/http"
 )
-
-//go:embed html
-var staticFiles embed.FS
 
 func main() {
 	// allow bad certificates
@@ -18,14 +14,13 @@ func main() {
 
 	// serve api
 	// github
-	http.HandleFunc("/api/github/tree", gh.GithubTree)
+	http.HandleFunc("/api/github/compare", gh.GithubCompare)
 	http.HandleFunc("/api/github/store", gh.GithubStore)
 	//common
-	http.HandleFunc("/api/common/writable", common.GetWritable)
 	http.HandleFunc("/api/common/newdataset", common.NewDataset)
 
 	// serve html
-	fs := http.FileServer(http.FS(fs.FS(staticFiles)))
+	fs := http.FileServer(http.Dir(utils.FileServerPath))
 	http.Handle("/", fs)
 	http.ListenAndServe(":7788", nil)
 }

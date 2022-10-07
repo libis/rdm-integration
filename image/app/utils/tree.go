@@ -2,34 +2,18 @@ package utils
 
 import (
 	"integration/app/tree"
-	"sort"
-	"strings"
 )
 
-func ToWritableNodes(selectedNodes []*tree.Node, originalRoot tree.Node) map[string]tree.Node {
-	writableNodes := map[string]tree.Node{}
-	toWritableNodes(tree.Node{Children: selectedNodes}, writableNodes, func(string) bool { return true })
-	selected := map[string]bool{}
-	for _, v := range selectedNodes {
-		selected[v.Id] = true
-	}
-	toWritableNodes(originalRoot, writableNodes, func(s string) bool {
-		return selected[s]
-	})
-	return writableNodes
-}
+const (
+	New      = 0
+	Updating = 1
+	Finished = 2
+)
 
-func toWritableNodes(node tree.Node, m map[string]tree.Node, checked func(string) bool) {
-	node.Checked = checked(node.Id)
-	if !node.Checked && node.Attributes.LocalHash != "" {
-		m[node.Id] = node
-	}
-	if node.Checked && node.Attributes.IsFile && node.Attributes.RemoteHash != "" && node.Attributes.LocalHash != node.Attributes.RemoteHash {
-		m[node.Id] = node
-	}
-	for _, n := range node.Children {
-		toWritableNodes(*n, m, checked)
-	}
+type CompareResponse struct {
+	Id     string      `json:"id"`
+	Status int         `json:"status"`
+	Data   []tree.Node `json:"data"`
 }
 
 func MergeNodeMaps(to, from map[string]tree.Node) {
@@ -46,112 +30,34 @@ func MergeNodeMaps(to, from map[string]tree.Node) {
 	}
 }
 
-func GetWiredRootNode(persistentId string, nodes map[string]tree.Node) (*tree.Node, error) {
-	err := localRehashToMatchRemoteHashType(persistentId, nodes)
+func Compare(in map[string]tree.Node, pid string) (CompareResponse, error) {
+	//TODO: rehashing in a job
+	err := localRehashToMatchRemoteHashType(pid, in)
 	if err != nil {
-		return nil, err
+		return CompareResponse{}, err
 	}
-	folders := getFolders(nodes)
-	addFoldersToNodes(folders, nodes)
-	res := map[string]*tree.Node{}
-	children := map[string][]*tree.Node{}
-	for k, v := range nodes {
-		node := v
-		res[k] = &node
-		if v.Id != "" {
-			children[v.Attributes.ParentId] = append(children[v.Attributes.ParentId], &node)
+	data := []tree.Node{}
+	for _, v := range in {
+		if !v.Attributes.IsFile {
+			continue;
 		}
-	}
-	for k := range res {
-		sort.Slice(children[k], func(i, j int) bool {
-			return strings.ToLower(children[k][i].Id) < strings.ToLower(children[k][j].Id)
-		})
-		res[k].Children = children[k]
-	}
-	for k := range res {
-		res[k].Html = addColor(res[k])
-	}
-
-	return res[""], nil
-}
-
-func addColor(node *tree.Node) string {
-	html := node.Html
-	if node.Attributes.IsFile {
-		if node.Attributes.RemoteHash == "" {
-			html = "<span style=\"color: gray;\">" + node.Html + "</span>"
-		} else if node.Attributes.LocalHash == "" {
-			html = "<span style=\"color: green;\">" + node.Html + "</span>"
-		} else if node.Attributes.LocalHash == node.Attributes.RemoteHash {
-			html = "<span style=\"color: black;\">" + node.Html + "</span>"
-		} else {
-			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
-		}
-	} else {
-		someMatch, allMatch, allLocal := foldersOverlapping(node)
-		if allMatch {
-			html = "<span style=\"color: black;\">" + node.Html + "</span>"
-		} else if someMatch {
-			html = "<span style=\"color: blue;\">" + node.Html + "</span>"
-		} else if allLocal {
-			html = "<span style=\"color: gray;\">" + node.Html + "</span>"
-		} else {
-			html = "<span style=\"color: green;\">" + node.Html + "</span>"
-		}
-	}
-	return html
-}
-
-func foldersOverlapping(node *tree.Node) (bool, bool, bool) {
-	if node.Attributes.SomeMatch != nil && node.Attributes.AllMatch != nil && node.Attributes.AllLocal != nil {
-		return *node.Attributes.SomeMatch, *node.Attributes.AllMatch, *node.Attributes.AllLocal
-	}
-	all := len(node.Children) > 0
-	allL := len(node.Children) > 0
-	some := false
-	for i := range node.Children {
-		child := node.Children[i]
-		if child.Attributes.IsFile {
-			all = all && child.Attributes.LocalHash == child.Attributes.RemoteHash
-			some = some || (child.Attributes.RemoteHash != "" && child.Attributes.LocalHash != "")
-			allL = allL && child.Attributes.RemoteHash == ""
-		} else {
-			someMatch, allMatch, allLocal := foldersOverlapping(child)
-			all = all && allMatch
-			some = some || someMatch
-			allL = allL && allLocal
-		}
-	}
-	node.Attributes.SomeMatch = &some
-	node.Attributes.AllMatch = &all
-	node.Attributes.AllLocal = &allL
-	return some, all, allL
-}
-
-func getFolders(nodes map[string]tree.Node) map[string]bool {
-	folders := map[string]bool{}
-	for _, v := range nodes {
-		folders[v.Attributes.ParentId] = true
-	}
-	return folders
-}
-
-func addFoldersToNodes(folders map[string]bool, nodes map[string]tree.Node) {
-	for k := range folders {
-		ancestors := strings.Split(k, "/")
-		for i := range ancestors {
-			parentId := ""
-			if i > 0 {
-				parentId = strings.Join(ancestors[:i], "/")
-			}
-			dir := strings.Join(ancestors[:i+1], "/")
-			nodes[k] = tree.Node{
-				Id:   dir,
-				Html: dir,
-				Attributes: tree.Attributes{
-					ParentId: parentId,
-				},
+		v.Status = tree.Deleted
+		if v.Attributes.RemoteHash != "" {
+			switch {
+			case v.Attributes.LocalHash == "":
+				v.Status = tree.New
+			case v.Attributes.LocalHash != v.Attributes.RemoteHash:
+				v.Status = tree.Updated
+			case v.Attributes.LocalHash == v.Attributes.RemoteHash:
+				v.Status = tree.Equal
 			}
 		}
+		v.Action = tree.Ignore
+		data = append(data, v)
 	}
+	return CompareResponse{
+		Id:     pid,
+		Status: Finished,
+		Data:   data,
+	}, nil
 }
