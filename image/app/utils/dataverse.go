@@ -49,7 +49,7 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 		res[id] = tree.Node{
 			Id:   id,
 			Name: d.DataFile.Filename,
-			Path: dir,
+			Path: d.DirectoryLabel,
 			Attributes: tree.Attributes{
 				ParentId:  d.DirectoryLabel,
 				Metadata:  d,
