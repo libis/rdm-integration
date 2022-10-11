@@ -88,11 +88,14 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 	i := 0
 	total := len(writableNodes)
 	for k, v := range writableNodes {
-		i++
 		select {
 		case <-Stop:
 			return
 		default:
+		}
+		i++
+		if i % 10 == 0 && i < total {
+			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
 		}
 
 		if v.Action == tree.Delete {
@@ -150,9 +153,6 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 			return
 		}
 		delete(out.WritableNodes, k)
-		if i % 10 == 0 && i < total {
-			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
-		}
 	}
 	return
 }
