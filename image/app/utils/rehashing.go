@@ -51,10 +51,16 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 		storeKnownHashes(persistentId, knownHashes)
 	}()
 	out = in
+	i := 0
+	total := len(nodes)
 	for k, node := range nodes {
 		err = calculateHash(persistentId, node, knownHashes)
 		if err != nil {
 			return
+		}
+		i++
+		if i % 10 == 0 && i < total {
+			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
 		}
 		delete(out.WritableNodes, k)
 	}
