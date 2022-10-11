@@ -85,7 +85,10 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 		storeKnownHashes(persistentId, knownHashes)
 	}()
 	out = in
+	i := 0
+	total := len(writableNodes)
 	for k, v := range writableNodes {
+		i++
 		select {
 		case <-Stop:
 			return
@@ -147,6 +150,9 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 			return
 		}
 		delete(out.WritableNodes, k)
+		if i % 10 == 0 && i < total {
+			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
+		}
 	}
 	return
 }
