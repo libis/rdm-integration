@@ -38,7 +38,6 @@ func Compare(in map[string]tree.Node, pid, dataverseKey string) CompareResponse 
 		if !v.Attributes.IsFile {
 			continue
 		}
-		v.Status = tree.Deleted
 		if v.Attributes.RemoteHash != "" {
 			switch {
 			case v.Attributes.LocalHash == "":
@@ -50,6 +49,10 @@ func Compare(in map[string]tree.Node, pid, dataverseKey string) CompareResponse 
 			case v.Attributes.LocalHash == v.Attributes.RemoteHash:
 				v.Status = tree.Equal
 			}
+		} else if v.Attributes.LocalHash == "" {
+			v.Status = tree.Removed
+		} else {
+			v.Status = tree.Deleted
 		}
 		v.Action = tree.Ignore
 		data = append(data, v)

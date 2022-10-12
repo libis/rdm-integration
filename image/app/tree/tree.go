@@ -6,6 +6,7 @@ const (
 	Updated = 2
 	Deleted = 3
 	Unknown = 4
+	Removed = 5
 )
 
 const (
