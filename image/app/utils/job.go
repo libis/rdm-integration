@@ -24,6 +24,11 @@ var Wait = sync.WaitGroup{}
 
 var lockMaxDuration = time.Hour * 24
 
+func IsLocked(persistentId string) bool {
+	l := rdb.Get(context.Background(), "lock: "+persistentId)
+	return l.Val() != ""
+}
+
 func lock(persistentId string) bool {
 	ok := rdb.SetNX(context.Background(), "lock: "+persistentId, true, lockMaxDuration)
 	return ok.Val()

@@ -18,6 +18,7 @@ func main() {
 	http.HandleFunc("/api/github/store", gh.GithubStore)
 	//common
 	http.HandleFunc("/api/common/newdataset", common.NewDataset)
+	http.HandleFunc("/api/common/compare", common.Compare)
 
 	// serve html
 	fs := http.FileServer(http.Dir(utils.FileServerPath))

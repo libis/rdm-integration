@@ -59,7 +59,7 @@ func Compare(in map[string]tree.Node, pid, dataverseKey string) CompareResponse 
 		empty = empty || v.Attributes.LocalHash != ""
 	}
 	status := Finished
-	if jobNeeded {
+	if jobNeeded || IsLocked(pid) {
 		status = Updating
 	} else if empty {
 		status = New
