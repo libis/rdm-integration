@@ -47,6 +47,7 @@ func toGithubStreams(ctx context.Context, in map[string]map[string]interface{}, 
 		res[k] = stream{
 			Open: func() io.Reader {
 				var b2 []byte
+				//TODO: better stream?
 				b2, _, gitErr = client.Git.GetBlobRaw(ctx, user, repo, sha)
 				return bytes.NewReader(b2)
 			},

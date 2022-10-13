@@ -109,6 +109,7 @@ func write(fileStream stream, storageIdentifier, persistentId, hashType, remoteH
 	defer fileStream.Close()
 
 	//TODO: cleanup at the end of the job -> see conversation with qqmyers
+	
 	if s.driver == "file" {
 		path := pathToFilesDir + pid + "/"
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {

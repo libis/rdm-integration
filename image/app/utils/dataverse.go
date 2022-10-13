@@ -66,6 +66,7 @@ func doWork(job Job) (Job, error) {
 	if job.StreamType == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
 	}
+	//TODO: filter not valid actions (when someone had browser open for a very long time and other job started and finished)
 	streams, err := deserialize(ctx, job.StreamType, job.Streams, job.StreamParams)
 	if err != nil {
 		return job, err
