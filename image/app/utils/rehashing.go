@@ -18,7 +18,7 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 	knownHashes := getKnownHashes(persistentId)
 	jobNodes := map[string]tree.Node{}
 	for k, node := range nodes {
-		if node.Attributes.RemoteHashType != "" && node.Attributes.Metadata.DataFile.Checksum.Type != node.Attributes.RemoteHashType {
+		if node.Attributes.RemoteHashType != "" {
 			value, ok := knownHashes[node.Id].RemoteHashes[node.Attributes.RemoteHashType]
 			if !ok && node.Attributes.LocalHash != "" {
 				jobNodes[k] = node
