@@ -18,9 +18,9 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 	knownHashes := getKnownHashes(persistentId)
 	jobNodes := map[string]tree.Node{}
 	for k, node := range nodes {
-		if node.Attributes.LocalHash != "" && node.Attributes.RemoteHashType != "" && node.Attributes.Metadata.DataFile.Checksum.Type != node.Attributes.RemoteHashType {
+		if node.Attributes.RemoteHashType != "" && node.Attributes.Metadata.DataFile.Checksum.Type != node.Attributes.RemoteHashType {
 			value, ok := knownHashes[node.Id].RemoteHashes[node.Attributes.RemoteHashType]
-			if !ok {
+			if !ok && node.Attributes.LocalHash != "" {
 				jobNodes[k] = node
 				value = "?"
 			}
@@ -59,7 +59,7 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 			return
 		}
 		i++
-		if i % 10 == 0 && i < total {
+		if i%10 == 0 && i < total {
 			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
 		}
 		delete(out.WritableNodes, k)

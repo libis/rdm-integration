@@ -95,7 +95,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 		default:
 		}
 		i++
-		if i % 10 == 0 && i < total {
+		if i%10 == 0 && i < total {
 			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
 		}
 

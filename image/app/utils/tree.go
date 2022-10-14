@@ -49,8 +49,6 @@ func Compare(in map[string]tree.Node, pid, dataverseKey string) CompareResponse 
 			case v.Attributes.LocalHash == v.Attributes.RemoteHash:
 				v.Status = tree.Equal
 			}
-		} else if v.Attributes.LocalHash == "" {
-			v.Status = tree.Removed
 		} else {
 			v.Status = tree.Deleted
 		}

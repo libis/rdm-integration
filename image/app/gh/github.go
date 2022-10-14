@@ -92,7 +92,7 @@ func toNodeMap(tr *github.Tree) map[string]tree.Node {
 	res := map[string]tree.Node{}
 	for _, e := range tr.Entries {
 		path := e.GetPath()
-		isFile := e.GetType() == "blob" 
+		isFile := e.GetType() == "blob"
 		parentId := ""
 		ancestors := strings.Split(path, "/")
 		fileName := path

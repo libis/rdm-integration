@@ -10,8 +10,8 @@ import (
 )
 
 type CompareRequest struct {
-	Data []tree.Node `json:"data"`
-	PersistentId string `json:"persistentId"`
+	Data         []tree.Node `json:"data"`
+	PersistentId string      `json:"persistentId"`
 }
 
 func Compare(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +34,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	//map nodes
 	nm := map[string]tree.Node{}
 	for _, v := range req.Data {
-		nm[v.Id] = v;
+		nm[v.Id] = v
 	}
 
 	//compare and write response
