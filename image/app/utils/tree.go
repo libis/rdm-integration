@@ -54,7 +54,6 @@ func Compare(in map[string]tree.Node, pid, dataverseKey string) CompareResponse 
 		} else {
 			v.Status = tree.Deleted
 		}
-		v.Action = tree.Ignore
 		data = append(data, v)
 		empty = empty || v.Attributes.LocalHash != ""
 	}
