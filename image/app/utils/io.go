@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"crypto/md5"
 	"crypto/sha1"
 	"errors"
@@ -162,7 +163,7 @@ func write(fileStream stream, storageIdentifier, persistentId, hashType, remoteH
 	return hasher.Sum(nil), remoteHasher.Sum(nil), nil
 }
 
-func doHash(persistentId string, node tree.Node) ([]byte, error) {
+func doHash(ctx context.Context, persistentId string, node tree.Node) ([]byte, error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, err
@@ -208,6 +209,11 @@ func doHash(persistentId string, node tree.Node) ([]byte, error) {
 	r := hashingReader{reader, hasher}
 	buf := make([]byte, 1024)
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		_, err2 := r.Read(buf)
 		if err2 == io.EOF {
 			break
