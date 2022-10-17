@@ -62,9 +62,7 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 }
 
 func doWork(job Job) (Job, error) {
-	ctx := context.Background()
-	//TODO: stopping context once we have the cleanup working
-	/*ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
 		select {
@@ -72,7 +70,7 @@ func doWork(job Job) (Job, error) {
 			cancel()
 		case <-ctx.Done():
 		}
-	}()*/
+	}()
 	if job.StreamType == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
 	}
@@ -196,6 +194,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, kn
 			return
 		}
 		delete(out.WritableNodes, k)
+	}
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+		return
+	default:
+		err = cleanup(in.DataverseKey, in.PersistentId)
 	}
 	return
 }
@@ -330,4 +335,30 @@ func CreateNewDataset(dataverseKey string) (string, error) {
 	res := dv.CreateNewDatasetResponse{}
 	err = json.Unmarshal(b, &res)
 	return res.Data.PersistentId, err
+}
+
+func cleanup(token, persistentId string) error {
+	url := dataverseServer + "/api/datasets/:persistentId/cleanStorage?persistentId=" + persistentId
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("X-Dataverse-key", token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	res := dv.DvResponse{}
+	err = json.Unmarshal(responseData, &res)
+	if err != nil {
+		return err
+	}
+	if res.Status != "OK" {
+		return fmt.Errorf("listing files for %s failed: %+v", persistentId, res)
+	}
+	return nil
 }

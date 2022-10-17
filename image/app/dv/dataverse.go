@@ -25,16 +25,19 @@ type Checksum struct {
 	Value string `json:"@value"`
 }
 
+type DvResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
 type ListResponse struct {
-	Status  string          `json:"status"`
-	Data    []tree.Metadata `json:"data"`
-	Message string          `json:"message"`
+	DvResponse
+	Data []tree.Metadata `json:"data"`
 }
 
 type Permissions struct {
-	Status  string          `json:"status"`
-	Data    PermissionsData `json:"data"`
-	Message string          `json:"message"`
+	DvResponse
+	Data PermissionsData `json:"data"`
 }
 
 type PermissionsData struct {
