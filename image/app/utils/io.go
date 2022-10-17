@@ -104,9 +104,13 @@ func write(fileStream stream, storageIdentifier, persistentId, hashType, remoteH
 	if err != nil {
 		return nil, nil, err
 	}
-	reader := hashingReader{fileStream.Open(), hasher}
-	reader = hashingReader{reader, remoteHasher}
+	readStream, err := fileStream.Open()
 	defer fileStream.Close()
+	if err != nil {
+		return nil, nil, err
+	}
+	reader := hashingReader{readStream, hasher}
+	reader = hashingReader{reader, remoteHasher}
 
 	//TODO: cleanup at the end of the job -> see conversation with qqmyers
 

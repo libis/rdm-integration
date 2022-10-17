@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,7 +10,7 @@ import (
 )
 
 type stream struct {
-	Open  func() io.Reader
+	Open  func() (io.Reader, error)
 	Close func() error
 }
 
@@ -43,18 +42,33 @@ func toGithubStreams(ctx context.Context, in map[string]map[string]interface{}, 
 		if !ok || sha == "" {
 			return nil, fmt.Errorf("streams: sha not found")
 		}
-		var gitErr error
+		var readStream io.ReadCloser
 		res[k] = stream{
-			Open: func() io.Reader {
-				var b2 []byte
-				//TODO: better stream?
-				b2, _, gitErr = client.Git.GetBlobRaw(ctx, user, repo, sha)
-				return bytes.NewReader(b2)
+			Open: func() (io.Reader, error) {
+				return getBlob(ctx, user, repo, sha, client)
 			},
 			Close: func() error {
-				return gitErr
+				var closeErr error
+				if readStream != nil {
+					closeErr = readStream.Close();
+				}
+				return closeErr
 			},
 		}
 	}
 	return res, nil
+}
+
+func getBlob(ctx context.Context, owner, repo, sha string, client *github.Client) (io.ReadCloser, error) {
+	u := fmt.Sprintf("repos/%v/%v/git/blobs/%v", owner, repo, sha)
+	req, err := client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3.raw")
+	req = req.WithContext(ctx)
+
+	reader, writer := io.Pipe()
+	_, err = client.Do(ctx, req, writer)
+	return reader, err
 }

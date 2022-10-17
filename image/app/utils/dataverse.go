@@ -63,6 +63,18 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 
 func doWork(job Job) (Job, error) {
 	ctx := context.Background()
+	//TODO: stopping context once we have the cleanup working
+	/*ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-Stop:
+			cancel()
+			return
+		case <-ctx.Done():
+			return
+		}
+	}()*/
 	if job.StreamType == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
 	}
