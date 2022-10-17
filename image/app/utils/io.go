@@ -91,7 +91,7 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 	return
 }
 
-func write(fileStream stream, storageIdentifier, persistentId, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
+func write(ctx context.Context, fileStream stream, storageIdentifier, persistentId, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, nil, err
@@ -131,6 +131,11 @@ func write(fileStream stream, storageIdentifier, persistentId, hashType, remoteH
 		defer f.Close()
 		buf := make([]byte, 1024)
 		for {
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			default:
+			}
 			n, err2 := reader.Read(buf)
 			if err2 == io.EOF {
 				break
@@ -148,7 +153,7 @@ func write(fileStream stream, storageIdentifier, persistentId, hashType, remoteH
 			return nil, nil, err
 		}
 		uploader := s3manager.NewUploader(sess)
-		_, err = uploader.Upload(&s3manager.UploadInput{
+		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 			Bucket: aws.String(s.bucket),
 			Key:    aws.String(pid + "/" + s.filename),
 			Body:   reader,

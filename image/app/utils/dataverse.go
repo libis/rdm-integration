@@ -127,7 +127,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 		remoteHashType := v.Attributes.RemoteHashType
 		var h []byte
 		var remoteH []byte
-		h, remoteH, err = write(fileStream, storageIdentifier, persistentId, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
+		h, remoteH, err = write(ctx, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
 		if err == stopped {
 			return out, nil
 		}
