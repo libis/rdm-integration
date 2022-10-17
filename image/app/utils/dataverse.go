@@ -76,22 +76,56 @@ func doWork(job Job) (Job, error) {
 	if job.StreamType == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
 	}
-	//TODO: filter not valid actions (when someone had browser open for a very long time and other job started and finished)
 	streams, err := deserialize(ctx, job.StreamType, job.Streams, job.StreamParams)
 	if err != nil {
 		return job, err
 	}
-	return doPersistNodeMap(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, streams, job)
+	knownHashes := getKnownHashes(job.PersistentId)
+	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
+	writableNodes, err := filterRedundant(job, knownHashes)
+	if err != nil {
+		return job, err
+	}
+	job.WritableNodes = writableNodes
+	return doPersistNodeMap(ctx, streams, job, knownHashes)
 }
 
-var stopped = fmt.Errorf("stopped")
+func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[string]tree.Node, error) {
+	filteredEqual := map[string]tree.Node{}
+	isDelete := false
+	for k, v := range job.WritableNodes {
+		h, ok := knownHashes[k].RemoteHashes[v.Attributes.RemoteHashType]
+		if v.Action == tree.Delete {
+			isDelete = true
+		} else if ok && h == v.Attributes.RemoteHash {
+			continue
+		}
+		filteredEqual[k] = v
+	}
+	if !isDelete {
+		return filteredEqual, nil
+	}
+	res := map[string]tree.Node{}
+	nm, err := GetNodeMap(job.PersistentId, job.DataverseKey)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range filteredEqual {
+		_, ok := nm[k]
+		if v.Action == tree.Delete && ok {
+			continue
+		}
+		res[k] = v
+	}
+	return res, nil
+}
 
-func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, writableNodes map[string]tree.Node, streams map[string]stream, in Job) (out Job, err error) {
+func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, knownHashes map[string]calculatedHashes) (out Job, err error) {
+	dataverseKey, persistentId, writableNodes := in.DataverseKey, in.PersistentId, in.WritableNodes
 	err = checkPermission(dataverseKey, persistentId)
 	if err != nil {
 		return
 	}
-	knownHashes := getKnownHashes(persistentId)
 	defer func() {
 		storeKnownHashes(persistentId, knownHashes)
 	}()
@@ -127,9 +161,6 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 		var h []byte
 		var remoteH []byte
 		h, remoteH, err = write(ctx, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
-		if err == stopped {
-			return out, nil
-		}
 		if err != nil {
 			return
 		}
