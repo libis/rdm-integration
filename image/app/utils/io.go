@@ -113,8 +113,6 @@ func write(ctx context.Context, fileStream stream, storageIdentifier, persistent
 	reader := hashingReader{readStream, hasher}
 	reader = hashingReader{reader, remoteHasher}
 
-	//TODO: cleanup at the end of the job -> see conversation with qqmyers
-
 	if s.driver == "file" {
 		path := pathToFilesDir + pid + "/"
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
