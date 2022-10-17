@@ -87,3 +87,7 @@ func init() {
 		DB:       0,  // use default DB
 	})
 }
+
+func GetRedis() *redis.Client {
+	return rdb
+}

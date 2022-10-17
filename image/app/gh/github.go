@@ -1,6 +1,7 @@
 package gh
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/common"
@@ -32,10 +33,8 @@ type StoreRequest struct {
 	SelectedNodes []tree.Node `json:"selectedNodes"`
 }
 
-// TODO: run in a goroutine and write in cache + polling from cache
 func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	//process request
-	ctx := r.Context()
 	req := CompareRequest{}
 	b, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -50,20 +49,28 @@ func GithubCompare(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
+	key := fmt.Sprintf("cached compare response (%v): %v", utils.GitHash, req.PersistentId)
+	go doGithubCompare(r.Context(), req, key)
+	w.Write([]byte(key))
+}
 
+func doGithubCompare(ctx context.Context, req CompareRequest, key string) {
+	cachedRes := common.CachedResponse{
+		Key: key,
+	}
 	//check permission
-	err = utils.CheckPermission(req.DataverseKey, req.PersistentId)
+	err := utils.CheckPermission(req.DataverseKey, req.PersistentId)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		cachedRes.ErrorMessage = err.Error()
+		common.CacheResponse(cachedRes)
 		return
 	}
 
 	//query dataverse
 	nm, err := utils.GetNodeMap(req.PersistentId, req.DataverseKey)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		cachedRes.ErrorMessage = err.Error()
+		common.CacheResponse(cachedRes)
 		return
 	}
 
@@ -75,8 +82,8 @@ func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	client := github.NewClient(tc)
 	tr, _, err := client.Git.GetTree(ctx, req.GhUser, req.Repo, req.Hash, true)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		cachedRes.ErrorMessage = err.Error()
+		common.CacheResponse(cachedRes)
 		return
 	}
 	utils.MergeNodeMaps(nm, toNodeMap(tr))
@@ -84,17 +91,13 @@ func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	//compare and write response
 	res := utils.Compare(nm, req.PersistentId, req.DataverseKey)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		cachedRes.ErrorMessage = err.Error()
+		common.CacheResponse(cachedRes)
 		return
 	}
-	b, err = json.Marshal(res)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
-	w.Write(b)
+
+	cachedRes.Response = res
+	common.CacheResponse(cachedRes)
 }
 
 func toNodeMap(tr *github.Tree) map[string]tree.Node {

@@ -1,12 +1,14 @@
 package common
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/tree"
 	"integration/app/utils"
 	"io"
 	"net/http"
+	"time"
 )
 
 type CompareRequest struct {
@@ -14,6 +16,52 @@ type CompareRequest struct {
 	PersistentId string      `json:"persistentId"`
 }
 
+type CachedResponse struct {
+	Key          string                `json:"key"`
+	Ready        bool                  `json:"ready"`
+	Response     utils.CompareResponse `json:"res"`
+	ErrorMessage string                `json:"err"`
+}
+
+var cacheMaxDuration = time.Second * 5
+
+func CacheResponse(res CachedResponse) {
+	b, _ := json.Marshal(res)
+	utils.GetRedis().Set(context.Background(), res.Key, string(b), cacheMaxDuration)
+}
+
+func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
+	//process request
+	b, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+	key := string(b)
+
+	res := CachedResponse{Key: key}
+	cached := utils.GetRedis().Get(context.Background(), key)
+	if cached.Val() != "" {
+		json.Unmarshal([]byte(cached.Val()), &res)
+		res.Ready = true
+	}
+	if res.ErrorMessage != "" {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", res.ErrorMessage)))
+		return
+	}
+	b, err = json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+	w.Write(b)
+}
+
+// this is called when polling for status changes
 func Compare(w http.ResponseWriter, r *http.Request) {
 	//process request
 	req := CompareRequest{}
