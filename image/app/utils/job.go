@@ -17,6 +17,7 @@ type Job struct {
 	StreamType    string
 	Streams       map[string]map[string]interface{}
 	StreamParams  map[string]string
+	ErrCnt        int
 }
 
 var Stop = make(chan struct{})
@@ -95,12 +96,18 @@ func ProcessJobs() {
 			persistentId := job.PersistentId
 			job, err := doWork(job)
 			if err != nil {
-				logging.Logger.Println("job failed:", persistentId, err)
+				job.ErrCnt = job.ErrCnt + 1
+				if job.ErrCnt == 3 {
+					logging.Logger.Println("job failed and will not be retried:", persistentId, err)
+				} else {
+					logging.Logger.Println("job failed, but will retry:", persistentId, err)
+				}
 			}
-			if err == nil && len(job.WritableNodes) > 0 {
+			if len(job.WritableNodes) > 0 && job.ErrCnt < 3 {
 				err = addJob(job, false)
 				if err != nil {
-					logging.Logger.Println("re-adding job failed:", persistentId, err)
+					logging.Logger.Println("re-adding job failed (no retry):", persistentId, err)
+					unlock(persistentId)
 				}
 			} else {
 				unlock(persistentId)
