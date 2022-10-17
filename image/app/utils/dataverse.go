@@ -100,7 +100,7 @@ func doPersistNodeMap(ctx context.Context, dataverseKey, persistentId string, wr
 	total := len(writableNodes)
 	for k, v := range writableNodes {
 		select {
-		case <-Stop:
+		case <-ctx.Done():
 			return
 		default:
 		}
