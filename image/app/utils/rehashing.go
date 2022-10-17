@@ -42,7 +42,7 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 }
 
 func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[string]tree.Node, in Job) (out Job, err error) {
-	err = checkPermission(dataverseKey, persistentId)
+	err = CheckPermission(dataverseKey, persistentId)
 	if err != nil {
 		return
 	}

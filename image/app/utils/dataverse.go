@@ -122,7 +122,7 @@ func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[stri
 
 func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, knownHashes map[string]calculatedHashes) (out Job, err error) {
 	dataverseKey, persistentId, writableNodes := in.DataverseKey, in.PersistentId, in.WritableNodes
-	err = checkPermission(dataverseKey, persistentId)
+	err = CheckPermission(dataverseKey, persistentId)
 	if err != nil {
 		return
 	}
@@ -246,7 +246,7 @@ func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
 	return err
 }
 
-func checkPermission(dataverseKey, persistentId string) error {
+func CheckPermission(dataverseKey, persistentId string) error {
 	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=%s&unblock-key=%s", dataverseServer, persistentId, unblockKey)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {

@@ -51,6 +51,14 @@ func GithubCompare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//check permission
+	err = utils.CheckPermission(req.DataverseKey, req.PersistentId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+
 	//query dataverse
 	nm, err := utils.GetNodeMap(req.PersistentId, req.DataverseKey)
 	if err != nil {
