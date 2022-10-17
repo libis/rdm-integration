@@ -32,6 +32,7 @@ type StoreRequest struct {
 	SelectedNodes []tree.Node `json:"selectedNodes"`
 }
 
+//TODO: run in a goroutine and write in cache + polling from cache
 func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	//process request
 	ctx := r.Context()
