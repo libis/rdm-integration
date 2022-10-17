@@ -50,7 +50,7 @@ func toGithubStreams(ctx context.Context, in map[string]map[string]interface{}, 
 			Close: func() error {
 				var closeErr error
 				if readStream != nil {
-					closeErr = readStream.Close();
+					closeErr = readStream.Close()
 				}
 				return closeErr
 			},

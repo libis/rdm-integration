@@ -70,9 +70,7 @@ func doWork(job Job) (Job, error) {
 		select {
 		case <-Stop:
 			cancel()
-			return
 		case <-ctx.Done():
-			return
 		}
 	}()*/
 	if job.StreamType == "hash-only" {
