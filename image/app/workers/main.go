@@ -30,7 +30,7 @@ func main() {
 
 	// start workers in background
 	for i := 0; i < numberWorkers; i++ {
-		time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
+		time.Sleep(time.Duration(rand.Intn(10000/numberWorkers)) * time.Millisecond)
 		go utils.ProcessJobs()
 	}
 
@@ -45,6 +45,8 @@ func main() {
 			close(utils.Stop)
 		}
 	}()
+	logging.Logger.Println("workers ready")
 
 	utils.Wait.Wait()
+	logging.Logger.Println("exit")
 }
