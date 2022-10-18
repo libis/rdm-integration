@@ -30,6 +30,15 @@ type DvResponse struct {
 	Message string `json:"message"`
 }
 
+type CleanupResponse struct {
+	Status string      `json:"status"`
+	Data   CleanupData `json:"data"`
+}
+
+type CleanupData struct {
+	Message string `json:"message"`
+}
+
 type ListResponse struct {
 	DvResponse
 	Data []tree.Metadata `json:"data"`

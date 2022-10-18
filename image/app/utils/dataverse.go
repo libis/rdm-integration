@@ -352,13 +352,14 @@ func cleanup(token, persistentId string) error {
 	if err != nil {
 		return err
 	}
-	res := dv.DvResponse{}
+	res := dv.CleanupResponse{}
 	err = json.Unmarshal(responseData, &res)
 	if err != nil {
 		return err
 	}
 	if res.Status != "OK" {
-		return fmt.Errorf("listing files for %s failed: %+v", persistentId, res)
+		return fmt.Errorf("cleaning up files for %s failed: %+v", persistentId, res)
 	}
+	logging.Logger.Println(res.Data.Message)
 	return nil
 }
