@@ -30,7 +30,7 @@ func CacheResponse(res CachedResponse) {
 	utils.GetRedis().Set(context.Background(), res.Key, string(b), cacheMaxDuration)
 }
 
-//this is called after specific compare request (e.g. github compare)
+// this is called after specific compare request (e.g. github compare)
 func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	//process request
 	b, err := io.ReadAll(r.Body)
