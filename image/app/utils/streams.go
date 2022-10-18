@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -42,17 +43,21 @@ func toGithubStreams(ctx context.Context, in map[string]map[string]interface{}, 
 		if !ok || sha == "" {
 			return nil, fmt.Errorf("streams: sha not found")
 		}
-		var readStream io.ReadCloser
+		//var readStream io.ReadCloser
+		var readStream io.Reader
+		var gitErr error
 		res[k] = stream{
 			Open: func() (io.Reader, error) {
-				return getBlob(ctx, user, repo, sha, client)
+				var b2 []byte
+				//TODO: better stream?
+				//readStream, gitErr = getBlob(ctx, user, repo, sha, client)
+				b2, _, gitErr = client.Git.GetBlobRaw(ctx, user, repo, sha)
+				readStream = bytes.NewReader(b2)
+				return readStream, gitErr
 			},
 			Close: func() error {
-				var closeErr error
-				if readStream != nil {
-					closeErr = readStream.Close()
-				}
-				return closeErr
+				//return readStream.Close()
+				return nil
 			},
 		}
 	}
