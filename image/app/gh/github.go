@@ -50,7 +50,7 @@ func GithubCompare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := fmt.Sprintf("cached compare response (%v): %v", utils.GitHash, req.PersistentId)
-	go doGithubCompare(r.Context(), req, key)
+	go doGithubCompare(req, key)
 	res := common.Key{Key: key}
 	b, err = json.Marshal(res)
 	if err != nil {
@@ -61,7 +61,8 @@ func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func doGithubCompare(ctx context.Context, req CompareRequest, key string) {
+func doGithubCompare(req CompareRequest, key string) {
+	ctx := context.Background()
 	cachedRes := common.CachedResponse{
 		Key: key,
 	}

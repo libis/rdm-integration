@@ -24,7 +24,7 @@ func main() {
 		}
 	}
 	if numberWorkers <= 0 {
-		numberWorkers = 1
+		numberWorkers = 200
 	}
 	logging.Logger.Println("nuber workers:", numberWorkers)
 
