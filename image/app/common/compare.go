@@ -16,6 +16,10 @@ type CompareRequest struct {
 	PersistentId string      `json:"persistentId"`
 }
 
+type Key struct {
+	Key string `json:"key"`
+}
+
 type CachedResponse struct {
 	Key          string                `json:"key"`
 	Ready        bool                  `json:"ready"`
@@ -40,10 +44,17 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	key := string(b)
 
-	res := CachedResponse{Key: key}
-	cached := utils.GetRedis().Get(context.Background(), key)
+	key := Key{}
+	err = json.Unmarshal(b, &key)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		return
+	}
+
+	res := CachedResponse{Key: key.Key}
+	cached := utils.GetRedis().Get(context.Background(), res.Key)
 	if cached.Val() != "" {
 		json.Unmarshal([]byte(cached.Val()), &res)
 		res.Ready = true
