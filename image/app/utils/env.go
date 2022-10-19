@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -90,4 +91,8 @@ func init() {
 
 func GetRedis() *redis.Client {
 	return rdb
+}
+
+func RedisReady() bool {
+	return rdb.Ping(context.Background()).Val() == "PONG"
 }

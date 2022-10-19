@@ -36,6 +36,11 @@ func CacheResponse(res CachedResponse) {
 
 // this is called after specific compare request (e.g. github compare)
 func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
+	if !utils.RedisReady() {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - cache not ready"))
+		return
+	}
 	//process request
 	b, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -76,6 +81,11 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 
 // this is called when polling for status changes, after specific compare is finished or store is calleed
 func Compare(w http.ResponseWriter, r *http.Request) {
+	if !utils.RedisReady() {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - cache not ready"))
+		return
+	}
 	//process request
 	req := CompareRequest{}
 	b, err := io.ReadAll(r.Body)
