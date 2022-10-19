@@ -40,7 +40,7 @@ func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
 	knownHashes := getKnownHashes(persistentId)
 	invalid := len(mapped) != len(knownHashes)
 	if invalid {
-		storeKnownHashes(persistentId, nil)// invalidate cache
+		invalidateKnownHashes(persistentId)
 		return mapped, nil
 	}
 	for k, v := range mapped {
@@ -50,7 +50,7 @@ func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
 		}
 	}
 	if invalid {
-		storeKnownHashes(persistentId, nil)// invalidate cache
+		invalidateKnownHashes(persistentId)
 	}
 	return mapped, nil
 }

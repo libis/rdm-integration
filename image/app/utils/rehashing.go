@@ -84,6 +84,10 @@ func storeKnownHashes(persistentId string, knownHashes map[string]calculatedHash
 	logging.Logger.Println("hashes stored for", persistentId, len(knownHashes), res.Err())
 }
 
+func invalidateKnownHashes(persistentId string) {
+	rdb.Del(context.Background(), "hashes: "+persistentId)
+}
+
 func calculateHash(ctx context.Context, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
 	hashType := node.Attributes.RemoteHashType
 	known, ok := knownHashes[node.Id]
