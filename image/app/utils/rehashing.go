@@ -70,7 +70,10 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 func getKnownHashes(persistentId string) map[string]calculatedHashes {
 	res := map[string]calculatedHashes{}
 	cache := rdb.Get(context.Background(), "hashes: "+persistentId)
-	json.Unmarshal([]byte(cache.Val()), &res)
+	err := json.Unmarshal([]byte(cache.Val()), &res)
+	if err != nil {
+		return map[string]calculatedHashes{}
+	}
 	return res
 }
 
