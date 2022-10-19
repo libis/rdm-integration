@@ -35,7 +35,24 @@ func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
 	if res.Status != "OK" {
 		return nil, fmt.Errorf("listing files for %s failed: %+v", persistentId, res)
 	}
-	return mapToNodes(res.Data), nil
+	mapped := mapToNodes(res.Data)
+	//check known hashes cache
+	knownHashes := getKnownHashes(persistentId)
+	invalid := len(mapped) != len(knownHashes)
+	if invalid {
+		storeKnownHashes(persistentId, nil)// invalidate cache
+		return mapped, nil
+	}
+	for k, v := range mapped {
+		invalid = invalid || knownHashes[k].LocalHashValue != v.Attributes.LocalHash
+		if invalid {
+			break
+		}
+	}
+	if invalid {
+		storeKnownHashes(persistentId, nil)// invalidate cache
+	}
+	return mapped, nil
 }
 
 func mapToNodes(data []tree.Metadata) map[string]tree.Node {
@@ -92,10 +109,11 @@ func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[stri
 	filteredEqual := map[string]tree.Node{}
 	isDelete := false
 	for k, v := range job.WritableNodes {
+		localHash := knownHashes[k].LocalHashValue
 		h, ok := knownHashes[k].RemoteHashes[v.Attributes.RemoteHashType]
 		if v.Action == tree.Delete {
 			isDelete = true
-		} else if ok && h == v.Attributes.RemoteHash {
+		} else if ok && h == v.Attributes.RemoteHash && localHash == v.Attributes.LocalHash {
 			continue
 		}
 		filteredEqual[k] = v
