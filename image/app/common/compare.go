@@ -57,6 +57,7 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	cached := utils.GetRedis().Get(context.Background(), res.Key)
 	if cached.Val() != "" {
 		json.Unmarshal([]byte(cached.Val()), &res)
+		utils.GetRedis().Del(context.Background(), res.Key)
 		res.Ready = true
 	}
 	if res.ErrorMessage != "" {
