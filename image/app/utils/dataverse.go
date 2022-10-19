@@ -110,7 +110,7 @@ func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[stri
 	}
 	for k, v := range filteredEqual {
 		_, ok := nm[k]
-		if v.Action == tree.Delete && ok {
+		if v.Action == tree.Delete && !ok {
 			continue
 		}
 		res[k] = v
@@ -360,6 +360,6 @@ func cleanup(token, persistentId string) error {
 	if res.Status != "OK" {
 		return fmt.Errorf("cleaning up files for %s failed: %+v", persistentId, res)
 	}
-	logging.Logger.Println(res.Data.Message)
+	//logging.Logger.Println(res.Data.Message)
 	return nil
 }
