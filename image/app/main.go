@@ -6,6 +6,7 @@ import (
 	"integration/app/gh"
 	"integration/app/utils"
 	"net/http"
+	"strings"
 )
 
 func main() {
@@ -23,6 +24,11 @@ func main() {
 
 	// serve html
 	fs := http.FileServer(http.Dir(utils.FileServerPath))
-	http.Handle("/", fs)
+	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/connect") {
+			r.URL.Path = "/"
+		}
+		fs.ServeHTTP(w, r)
+	}))
 	http.ListenAndServe(":7788", nil)
 }
