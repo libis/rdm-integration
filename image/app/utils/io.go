@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/md5"
 	"crypto/sha1"
@@ -91,47 +93,40 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 	return
 }
 
-func write(ctx context.Context, fileStream stream, storageIdentifier, persistentId, hashType, remoteHashType string, fileSize int) ([]byte, []byte, error) {
+func write(ctx context.Context, fileStream stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) ([]byte, []byte, *bytes.Buffer, error) {
+	b := bytes.NewBuffer(nil)
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	s := getStorage(storageIdentifier)
 	hasher, err := getHash(hashType, fileSize)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	remoteHasher, err := getHash(remoteHashType, fileSize)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	readStream, err := fileStream.Open()
 	defer fileStream.Close()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	reader := hashingReader{readStream, hasher}
 	reader = hashingReader{reader, remoteHasher}
 
-	if s.driver == "file" {
-		path := pathToFilesDir + pid + "/"
-		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-			err := os.MkdirAll(path, os.ModePerm)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-		file := path + s.filename
-		f, err := os.Create(file)
+	if s.driver == "file" || directUpload != "true" {
+		f, err := getFile(pid, s, b, id)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		defer f.Close()
 		buf := make([]byte, 1024)
 		for {
 			select {
 			case <-ctx.Done():
-				return nil, nil, ctx.Err()
+				return nil, nil, nil, ctx.Err()
 			default:
 			}
 			n, err2 := reader.Read(buf)
@@ -148,7 +143,7 @@ func write(ctx context.Context, fileStream stream, storageIdentifier, persistent
 			S3ForcePathStyle: aws.Bool(awsPathstyle),
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, b, err
 		}
 		uploader := s3manager.NewUploader(sess)
 		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
@@ -157,13 +152,51 @@ func write(ctx context.Context, fileStream stream, storageIdentifier, persistent
 			Body:   reader,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	} else {
-		return nil, nil, fmt.Errorf("unsupported driver: %s", s.driver)
+		return nil, nil, nil, fmt.Errorf("unsupported driver: %s", s.driver)
 	}
 
-	return hasher.Sum(nil), remoteHasher.Sum(nil), nil
+	return hasher.Sum(nil), remoteHasher.Sum(nil), b, nil
+}
+
+type zipWriterCloser struct {
+	writer    io.Writer
+	zipWriter *zip.Writer
+}
+
+func (z zipWriterCloser) Write(p []byte) (n int, err error) {
+	return z.writer.Write(p)
+}
+
+func (z zipWriterCloser) Close() error {
+	err := z.zipWriter.Flush()
+	if err != nil {
+		return err
+	}
+	return z.zipWriter.Close()
+}
+
+func getFile(pid string, s storage, b *bytes.Buffer, id string) (io.WriteCloser, error) {
+	if directUpload != "true" {
+		zipWriter := zip.NewWriter(b)
+		writer, err := zipWriter.Create(id)
+		return zipWriterCloser{writer, zipWriter}, err
+	}
+	path := pathToFilesDir + pid + "/"
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
+	}
+	file := path + s.filename
+	f, err := os.Create(file)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 func doHash(ctx context.Context, persistentId string, node tree.Node) ([]byte, error) {

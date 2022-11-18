@@ -21,6 +21,9 @@ var unblockKey = "" //will be read from pathToUnblockKey
 var redisHost = "localhost:6379"
 var defaultDataverse = "rdr"
 var FileServerPath = "../../DataSync/dist/datasync"
+var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995"
+var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"
+var directUpload = "https://github.com/IQSS/dataverse/pull/9003"
 
 var rdb *redis.Client
 
@@ -37,6 +40,9 @@ func init() {
 	rh := os.Getenv("REDIS_HOST")
 	dv := os.Getenv("DEFAULT_DATAVERSE")
 	fs := os.Getenv("FILE_SERVER_PATH")
+	slash := os.Getenv("SLASH_IN_PERMISSIONS")
+	cleanup := os.Getenv("FILES_CLEANUP")
+	upload := os.Getenv("DIRECT_UPLOAD")
 	// Environment variables used for credentials:
 	// * Access Key ID:     AWS_ACCESS_KEY_ID or AWS_ACCESS_KEY
 	// * Secret Access Key: AWS_SECRET_ACCESS_KEY or AWS_SECRET_KEY
@@ -80,6 +86,15 @@ func init() {
 	}
 	if fs != "" {
 		FileServerPath = fs
+	}
+	if slash != "" {
+		slashInPermissions = slash
+	}
+	if cleanup != "" {
+		filesCleanup = cleanup
+	}
+	if upload != "" {
+		directUpload = upload
 	}
 
 	rdb = redis.NewClient(&redis.Options{

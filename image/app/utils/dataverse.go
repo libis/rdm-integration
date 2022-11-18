@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -176,7 +177,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, kn
 		remoteHashType := v.Attributes.RemoteHashType
 		var h []byte
 		var remoteH []byte
-		h, remoteH, err = write(ctx, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, v.Attributes.Metadata.DataFile.Filesize)
+		var b *bytes.Buffer
+		h, remoteH, b, err = write(ctx, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
 		if err != nil {
 			return
 		}
@@ -193,23 +195,30 @@ func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, kn
 				return
 			}
 		}
-		directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
-		if *directoryLabel == "" {
-			directoryLabel = nil
-		}
-		data := dv.JsonData{
-			StorageIdentifier: storageIdentifier,
-			FileName:          v.Attributes.Metadata.DataFile.Filename,
-			DirectoryLabel:    directoryLabel,
-			MimeType:          "application/octet-stream",
-			Checksum: dv.Checksum{
-				Type:  hashType,
-				Value: hashValue,
-			},
-		}
-		err = writeToDV(dataverseKey, persistentId, data)
-		if err != nil {
-			return
+		if directUpload == "true" {
+			directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
+			if *directoryLabel == "" {
+				directoryLabel = nil
+			}
+			data := dv.JsonData{
+				StorageIdentifier: storageIdentifier,
+				FileName:          v.Attributes.Metadata.DataFile.Filename,
+				DirectoryLabel:    directoryLabel,
+				MimeType:          "application/octet-stream",
+				Checksum: dv.Checksum{
+					Type:  hashType,
+					Value: hashValue,
+				},
+			}
+			err = writeToDV(dataverseKey, persistentId, data)
+			if err != nil {
+				return
+			}
+		} else {
+			err = swordAddFile(dataverseKey, persistentId, b.Bytes())
+			if err != nil {
+				return
+			}
 		}
 		delete(out.WritableNodes, k)
 	}
@@ -271,6 +280,13 @@ func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
 
 func CheckPermission(dataverseKey, persistentId string) error {
 	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=%s&unblock-key=%s", dataverseServer, persistentId, unblockKey)
+	if slashInPermissions != "true" {
+		var err error
+		url, err = noSlashPermissionUrl(persistentId, dataverseKey)
+		if err != nil {
+			return err
+		}
+	}
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -356,6 +372,9 @@ func CreateNewDataset(dataverseKey string) (string, error) {
 }
 
 func cleanup(token, persistentId string) error {
+	if filesCleanup != "true" {
+		return nil
+	}
 	url := dataverseServer + "/api/datasets/:persistentId/cleanStorage?persistentId=" + persistentId
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -379,5 +398,47 @@ func cleanup(token, persistentId string) error {
 		return fmt.Errorf("cleaning up files for %s failed: %+v", persistentId, res)
 	}
 	//logging.Logger.Println(res.Data.Message)
+	return nil
+}
+
+func noSlashPermissionUrl(persistentId, dataverseKey string) (string, error) {
+	type Data struct {
+		Id int `json:"id"`
+	}
+	type Res struct {
+		Data `json:"data"`
+	}
+	res := Res{}
+	request, _ := http.NewRequest("GET", dataverseServer+fmt.Sprintf("/api/datasets/:persistentId?persistentId=%s", persistentId), nil)
+	request.Header.Add("X-Dataverse-key", dataverseKey)
+	response, _ := http.DefaultClient.Do(request)
+	responseData, _ := ioutil.ReadAll(response.Body)
+	json.Unmarshal(responseData, &res)
+	id := res.Id
+	if id == 0 {
+		return "", fmt.Errorf("dataset %v not found", persistentId)
+	}
+	return fmt.Sprintf("%s/api/admin/permissions/%v?&unblock-key=%s", dataverseServer, id, unblockKey), nil
+}
+
+func swordAddFile(dataverseKey, persistentId string, data []byte) error {
+	url := dataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
+	body := bytes.NewReader(data)
+	request, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("Content-Type", "application/zip")
+	request.Header.Add("Content-Disposition", "filename=example.zip")
+	request.Header.Add("Packaging", "http://purl.org/net/sword/package/SimpleZip")
+	request.SetBasicAuth(dataverseKey, "")
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	if r.StatusCode != 201 {
+		b, _ := io.ReadAll(r.Body)
+		return fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
+	}
 	return nil
 }
