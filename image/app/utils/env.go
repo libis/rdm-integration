@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"integration/app/logging"
 	"os"
 	"strings"
 
@@ -20,7 +21,7 @@ var pathToUnblockKey = "../../rdm-deployment/data/.secrets/api/key"
 var unblockKey = "" //will be read from pathToUnblockKey
 var redisHost = "localhost:6379"
 var defaultDataverse = "rdr"
-var FileServerPath = "../../DataSync/dist/datasync"
+var FileServerPath = "../../rdm-integration-frontend/dist/datasync"
 var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995"
 var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"
 var directUpload = "https://github.com/IQSS/dataverse/pull/9003"
@@ -109,5 +110,10 @@ func GetRedis() *redis.Client {
 }
 
 func RedisReady() bool {
-	return rdb.Ping(context.Background()).Val() == "PONG"
+	res, err := rdb.Ping(context.Background()).Result()
+	if err != nil {
+		logging.Logger.Printf("redis error: %v", err)
+		return false
+	}
+	return res == "PONG"
 }

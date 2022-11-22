@@ -13,6 +13,8 @@ GROUP_ID ?= $(shell id -g)
 
 build: ## Build Docker image
 	echo "Building Docker image ..."
+	rm -rf image/dist
+	cp -r ../rdm-integration-frontend/dist image/dist
 	docker build \
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
 		--tag "$(IMAGE_TAG)" ./image
@@ -27,6 +29,3 @@ push: ## Push Docker image (only in prod stage)
 
 run: ## Run the server locally
 	cd image && go run ./app && go run ./app/workers 5
-
-run-on-docker:
-	cd image && docker run -p 7788:7788 -d "$(IMAGE_TAG)"

@@ -2,10 +2,15 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"integration/app/common"
 	"integration/app/gh"
+	"integration/app/logging"
 	"integration/app/utils"
+	"integration/app/workers/spinner"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 )
 
@@ -30,5 +35,21 @@ func main() {
 		}
 		fs.ServeHTTP(w, r)
 	}))
-	http.ListenAndServe(":7788", nil)
+
+	numberWorkers := 0
+	var err error
+	if len(os.Args) > 1 {
+		numberWorkers, err = strconv.Atoi(os.Args[1])
+		if err != nil {
+			panic(fmt.Errorf("failed to parse number of workers from %v: %v", numberWorkers, err))
+		}
+	}
+	if numberWorkers > 0 {
+		logging.Logger.Println("nuber workers:", numberWorkers)
+		go http.ListenAndServe(":7788", nil)
+		spinner.SpinWorkers(numberWorkers)
+	} else {
+		logging.Logger.Println("http server only")
+		http.ListenAndServe(":7788", nil)
+	}
 }
