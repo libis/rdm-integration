@@ -130,10 +130,10 @@ func write(ctx context.Context, fileStream stream, storageIdentifier, persistent
 			default:
 			}
 			n, err2 := reader.Read(buf)
+			f.Write(buf[:n])
 			if err2 == io.EOF {
 				break
 			}
-			f.Write(buf[:n])
 		}
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{

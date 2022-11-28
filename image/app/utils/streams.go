@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"integration/app/tree"
 	"io"
+	"net/http"
+	"net/url"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
@@ -15,16 +18,18 @@ type stream struct {
 	Close func() error
 }
 
-func deserialize(ctx context.Context, streamType string, streams map[string]map[string]interface{}, streamParams map[string]string) (map[string]stream, error) {
+func deserialize(ctx context.Context, nodeMap map[string]tree.Node, streamType string, streamParams map[string]string) (map[string]stream, error) {
 	switch streamType {
 	case "github":
-		return toGithubStreams(ctx, streams, streamParams)
+		return toGithubStreams(ctx, nodeMap, streamParams)
+	case "gitlab":
+		return toGitlabStreams(ctx, nodeMap, streamParams)
 	default:
 		return nil, fmt.Errorf("unknown stream type: %s", streamType)
 	}
 }
 
-func toGithubStreams(ctx context.Context, in map[string]map[string]interface{}, streamParams map[string]string) (map[string]stream, error) {
+func toGithubStreams(ctx context.Context, in map[string]tree.Node, streamParams map[string]string) (map[string]stream, error) {
 	user := streamParams["user"]
 	repo := streamParams["repo"]
 	token := streamParams["token"]
@@ -39,21 +44,72 @@ func toGithubStreams(ctx context.Context, in map[string]map[string]interface{}, 
 
 	client := github.NewClient(tc)
 	for k, v := range in {
-		sha, ok := v["sha"].(string)
-		if !ok || sha == "" {
+		sha := v.Attributes.RemoteHash
+		if !v.Attributes.IsFile || (v.Action != tree.Update && v.Action != tree.Copy) {
+			continue
+		}
+		if sha == "" {
 			return nil, fmt.Errorf("streams: sha not found")
 		}
-		var readStream io.Reader
-		var gitErr error
+
 		res[k] = stream{
 			Open: func() (io.Reader, error) {
-				var b2 []byte
-				b2, _, gitErr = client.Git.GetBlobRaw(ctx, user, repo, sha)
-				readStream = bytes.NewReader(b2)
-				return readStream, gitErr
+				b2, _, gitErr := client.Git.GetBlobRaw(ctx, user, repo, sha)
+				return bytes.NewReader(b2), gitErr
 			},
 			Close: func() error {
 				return nil
+			},
+		}
+	}
+	return res, nil
+}
+
+func toGitlabStreams(ctx context.Context, in map[string]tree.Node, streamParams map[string]string) (map[string]stream, error) {
+	base := streamParams["base"]
+	group := streamParams["group"]
+	project := streamParams["project"]
+	token := streamParams["token"]
+	if project == "" || token == "" || base == "" {
+		return nil, fmt.Errorf("streams: missing parameters: expected base, group (optional), project and token, got: %v", streamParams)
+	}
+	res := map[string]stream{}
+
+	for k, v := range in {
+		sha := v.Attributes.RemoteHash
+		if !v.Attributes.IsFile || (v.Action != tree.Update && v.Action != tree.Copy) {
+			continue
+		}
+		if sha == "" {
+			return nil, fmt.Errorf("streams: sha not found")
+		}
+		sep := "/"
+		if group == "" {
+			sep = ""
+		}
+		url := base + "/api/v4/projects/" + url.PathEscape(group+sep+project) + "/repository/blobs/" + sha + "/raw"
+		request, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Add("PRIVATE-TOKEN", token)
+		var r *http.Response
+
+		res[k] = stream{
+			Open: func() (io.Reader, error) {
+				fmt.Println(url)
+				r, err = http.DefaultClient.Do(request)
+				if err != nil {
+					return nil, err
+				}
+				if r.StatusCode != 200 {
+					b, _ := io.ReadAll(r.Body)
+					return nil, fmt.Errorf("getting file failed: %s", string(b))
+				}
+				return r.Body, nil
+			},
+			Close: func() error {
+				return r.Body.Close()
 			},
 		}
 	}

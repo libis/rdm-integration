@@ -92,7 +92,7 @@ func doWork(job Job) (Job, error) {
 	if job.StreamType == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
 	}
-	streams, err := deserialize(ctx, job.StreamType, job.Streams, job.StreamParams)
+	streams, err := deserialize(ctx, job.WritableNodes, job.StreamType, job.StreamParams)
 	if err != nil {
 		return job, err
 	}
@@ -184,10 +184,14 @@ func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, kn
 		}
 		hashValue := fmt.Sprintf("%x", h)
 		//updated or new: always rehash
+		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
+		if remoteHashType == GitHash {
+			remoteHashVlaue = v.Attributes.RemoteHash
+		}
 		knownHashes[v.Id] = calculatedHashes{
 			LocalHashType:  hashType,
 			LocalHashValue: hashValue,
-			RemoteHashes:   map[string]string{remoteHashType: fmt.Sprintf("%x", remoteH)},
+			RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
 		}
 		if v.Attributes.Metadata.DataFile.Id != 0 {
 			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)

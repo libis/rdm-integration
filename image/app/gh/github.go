@@ -24,15 +24,6 @@ type CompareRequest struct {
 	DataverseKey string `json:"dataverseKey"`
 }
 
-type StoreRequest struct {
-	GhToken       string      `json:"ghToken"`
-	GhUser        string      `json:"ghUser"`
-	Repo          string      `json:"repo"`
-	PersistentId  string      `json:"persistentId"`
-	DataverseKey  string      `json:"dataverseKey"`
-	SelectedNodes []tree.Node `json:"selectedNodes"`
-}
-
 func GithubCompare(w http.ResponseWriter, r *http.Request) {
 	if !utils.RedisReady() {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -153,61 +144,4 @@ func toNodeMap(tr *github.Tree) map[string]tree.Node {
 		res[path] = node
 	}
 	return res
-}
-
-func GithubStore(w http.ResponseWriter, r *http.Request) {
-	if !utils.RedisReady() {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - cache not ready"))
-		return
-	}
-	req := StoreRequest{}
-	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
-	err = json.Unmarshal(b, &req)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
-
-	streams := map[string]map[string]interface{}{}
-	selected := map[string]tree.Node{}
-	for _, v := range req.SelectedNodes {
-		if v.Action == tree.Copy || v.Action == tree.Update {
-			streams[v.Id] = map[string]interface{}{"sha": v.Attributes.RemoteHash}
-		}
-		selected[v.Id] = v
-	}
-
-	err = utils.AddJob(utils.Job{
-		DataverseKey:  req.DataverseKey,
-		PersistentId:  req.PersistentId,
-		WritableNodes: selected,
-		StreamType:    "github",
-		Streams:       streams,
-		StreamParams: map[string]string{
-			"user":  req.GhUser,
-			"repo":  req.Repo,
-			"token": req.GhToken,
-		},
-	})
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
-	res := common.StoreResult{Status: "OK"}
-	b, err = json.Marshal(res)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
-	w.Write(b)
 }
