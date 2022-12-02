@@ -13,7 +13,7 @@ GROUP_ID ?= $(shell id -g)
 
 build: ## Build Docker image
 	echo "Building frontend ..."
-	cd ../rdm-integration-frontend && ng build --configuration="production" --base-href /integration/
+	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production" --base-href /integration/
 	echo "Building Docker image ..."
 	rm -rf image/dist
 	cp -r ../rdm-integration-frontend/dist image/dist
@@ -33,6 +33,6 @@ push: ## Push Docker image (only in prod stage)
 	fi
 
 run: ## Run the server locally
-	cd ../rdm-integration-frontend && ng build
+	cd ../rdm-integration-frontend && rm -rf ./dist && ng build
 	docker stop redis || true && docker rm redis || true && docker run -p 6379:6379 --name redis -d redis
 	cd image && go run ./app 100
