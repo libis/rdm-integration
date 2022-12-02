@@ -1,4 +1,4 @@
-STAGE ?= dev
+STAGE ?= prod
 
 include env.$(STAGE)
 include .env
@@ -13,7 +13,7 @@ GROUP_ID ?= $(shell id -g)
 
 build: ## Build Docker image
 	echo "Building frontend ..."
-	cd ../rdm-integration-frontend && ng build --base-href /integration/
+	cd ../rdm-integration-frontend && ng build --configuration="production" --base-href /integration/
 	echo "Building Docker image ..."
 	rm -rf image/dist
 	cp -r ../rdm-integration-frontend/dist image/dist
