@@ -1,4 +1,4 @@
-STAGE ?= prod
+STAGE ?= dev
 
 include env.$(STAGE)
 include .env
