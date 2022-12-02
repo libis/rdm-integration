@@ -1,9 +1,4 @@
-FROM golang:1.19.1
-
-ARG USER_ID
-ARG GROUP_ID
-RUN addgroup --gid ${GROUP_ID} app \
- && adduser --disabled-password --uid ${USER_ID} --ingroup app --gecos '' app
+FROM golang:alpine
 
 WORKDIR /usr/src/app
 
@@ -13,6 +8,16 @@ RUN go mod download && go mod verify
 
 COPY . .
 RUN go build -v -o /usr/local/bin/app ./app
+
+FROM alpine
+
+ARG USER_ID
+ARG GROUP_ID
+RUN addgroup --gid ${GROUP_ID} app \
+ && adduser --disabled-password --uid ${USER_ID} --ingroup app --gecos '' app
+
+COPY --from=0 /usr/local/bin/app /usr/local/bin/app
+COPY --from=0 /usr/src/app/dist/datasync /usr/local/bin/dist/datasync
 
 USER app
 
