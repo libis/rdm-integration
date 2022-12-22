@@ -447,7 +447,32 @@ func swordAddFile(dataverseKey, persistentId string, data []byte) error {
 	return nil
 }
 
-//GET https://localhost:7000/api/v1/mydata/retrieve?key=xxxx-xxxx-xxxx-xxxx&selected_page=1&dvobject_types=Dataset&role_ids=6&published_states=Draft
 func ListDatasets(token string) ([]dv.Item, error) {
-	return []dv.Item{{Name: "Test data", GlobalId: "doi:10.80442/Q8KS6G"}, {Name: "", GlobalId: "doi:10.80442/EY4SVP"}}, nil
+	res := []dv.Item{}
+	hasNextPage := true
+	for page := 1; hasNextPage; page++ {
+		url := dataverseServer + "/api/v1/mydata/retrieve?key=" + token + "&selected_page=" + fmt.Sprint(page) +
+			"&dvobject_types=Dataset&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review&role_ids=2&role_ids=5&role_ids=6&mydata_search_term="
+		request, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		//request.Header.Add("X-Dataverse-key", token)
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			return nil, err
+		}
+		responseData, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+		retrieveResponse := dv.RetrieveResponse{}
+		err = json.Unmarshal(responseData, &retrieveResponse)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, retrieveResponse.Data.Items...)
+		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber
+	}
+	return res, nil
 }
