@@ -33,11 +33,16 @@ func Datasets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := []SelectItem{}
+	added := map[string]bool{}
 	for _, v := range datasets {
-		res = append(res, SelectItem{
-			Label: v.Name + " (" + v.GlobalId + ")",
-			Value: v.GlobalId,
-		})
+		label := v.Name + " (" + v.GlobalId + ")"
+		if !added[label] {
+			added[label] = true
+			res = append(res, SelectItem{
+				Label: v.Name + " (" + v.GlobalId + ")",
+				Value: v.GlobalId,
+			})
+		}
 	}
 
 	if err != nil {
