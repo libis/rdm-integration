@@ -33,6 +33,6 @@ push: ## Push Docker image (only in prod stage)
 	fi
 
 run: ## Run the server locally
-	cd ../rdm-integration-frontend && rm -rf ./dist && ng build
+	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration development
 	docker stop redis || true && docker rm redis || true && docker run -p 6379:6379 --name redis -d redis
 	cd image && go run ./app 100
