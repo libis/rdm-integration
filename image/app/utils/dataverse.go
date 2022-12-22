@@ -446,3 +446,8 @@ func swordAddFile(dataverseKey, persistentId string, data []byte) error {
 	}
 	return nil
 }
+
+//GET https://localhost:7000/api/v1/mydata/retrieve?key=xxxx-xxxx-xxxx-xxxx&selected_page=1&dvobject_types=Dataset&role_ids=6&published_states=Draft
+func ListDatasets(token string) ([]dv.Item, error) {
+	return []dv.Item{{Name: "Test data", GlobalId: "doi:10.80442/Q8KS6G"}, {Name: "", GlobalId: "doi:10.80442/EY4SVP"}}, nil
+}

@@ -70,7 +70,7 @@ func toGitlabStreams(ctx context.Context, in map[string]tree.Node, streamParams 
 	group := streamParams["group"]
 	project := streamParams["project"]
 	token := streamParams["token"]
-	if project == "" || token == "" || base == "" {
+	if project == "" || token == "" || base == "" || group == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected base, group (optional), project and token, got: %v", streamParams)
 	}
 	res := map[string]stream{}
@@ -114,4 +114,25 @@ func toGitlabStreams(ctx context.Context, in map[string]tree.Node, streamParams 
 		}
 	}
 	return res, nil
+}
+
+func GithubBranches(params map[string]string) ([]string, error) {
+	user := params["user"]
+	repo := params["repo"]
+	token := params["token"]
+	if user == "" || repo == "" || token == "" {
+		return nil, fmt.Errorf("branches: missing parameters: expected user, repo and token, got: %v", params)
+	}
+	return []string{"main", "master"}, nil
+}
+
+func GitlabBranches(params map[string]string) ([]string, error) {
+	base := params["base"]
+	group := params["group"]
+	project := params["project"]
+	token := params["token"]
+	if project == "" || token == "" || base == "" || group == "" {
+		return nil, fmt.Errorf("branches: missing parameters: expected base, group (optional), project and token, got: %v", params)
+	}
+	return []string{"main", "master"}, nil
 }

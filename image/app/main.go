@@ -31,6 +31,8 @@ func main() {
 	http.HandleFunc("/api/common/compare", common.Compare)
 	http.HandleFunc("/api/common/cached", common.GetCachedResponse)
 	http.HandleFunc("/api/common/store", common.Store)
+	http.HandleFunc("/api/common/branches", common.Branches)
+	http.HandleFunc("/api/common/datasets", common.Datasets)
 
 	// serve html
 	fs := http.FileServer(http.Dir(utils.FileServerPath))

@@ -148,3 +148,100 @@ func RequestBody(data []byte) (io.Reader, string, error) {
 	writer.Close()
 	return body, writer.FormDataContentType(), nil
 }
+
+type RetrieveResponse struct {
+	Success bool                 `json:"success"`
+	Data    RetrieveResponseData `json:"data"`
+}
+
+type RetrieveResponseData struct {
+	Pagination      Pagination      `json:"pagination"`
+	Items           []Item          `json:"items"`
+	TotoalCount     int             `json:"total_count"`
+	Start           int             `json:"start"`
+	SearchTerm      string          `json:"search_term"`
+	DvObjectCounts  DvObjectCounts  `json:"dvobject_counts"`
+	PubstatusCounts PubstatusCounts `json:"pubstatus_counts"`
+	SelectedFilters SelectedFilters `json:"selected_filters"`
+}
+
+type DvObjectCounts struct {
+	DataversesCount int `json:"dataverses_count"`
+	FilesCount      int `json:"files_count"`
+	DatasetsCount   int `json:"datasets_count"`
+}
+
+type PubstatusCounts struct {
+	UnpublishedCount   int `json:"unpublished_count"`
+	DraftCount         int `json:"draft_count"`
+	PublishedCount     int `json:"published_count"`
+	InReviewCount      int `json:"in_review_count"`
+	DeaccessionedCount int `json:"deaccessioned_count"`
+}
+
+type SelectedFilters struct {
+	PublicationStatuses []string `json:"publication_statuses"`
+	RoleNames           []string `json:"role_names"`
+}
+
+type Pagination struct {
+	IsNecessary           bool   `json:"isNecessary"`
+	NumResults            int    `json:"numResults"`
+	NumResultsString      string `json:"numResultsString"`
+	DocsPerPage           int    `json:"docsPerPage"`
+	SelectedPageNumber    int    `json:"selectedPageNumber"`
+	PageCount             int    `json:"pageCount"`
+	HasPreviousPageNumber bool   `json:"hasPreviousPageNumber"`
+	PreviousPageNumber    int    `json:"previousPageNumber"`
+	HasNextPageNumber     bool   `json:"hasNextPageNumber"`
+	NextPageNumber        int    `json:"nextPageNumber"`
+	StartCardNumber       int    `json:"startCardNumber"`
+	EndCardNumber         int    `json:"endCardNumber"`
+	StartCardNumberString string `json:"startCardNumberString"`
+	EndCardNumberString   string `json:"endCardNumberString"`
+	RemainingCards        int    `json:"remainingCards"`
+	NumberNextResults     int    `json:"numberNextResults"`
+	PageNumberList        []int  `json:"pageNumberList"`
+}
+type Item struct {
+	Name                  string    `json:"name"`
+	Type                  string    `json:"type"`
+	Url                   string    `json:"url"`
+	GlobalId              string    `json:"global_id"`
+	Description           string    `json:"description"`
+	Publisher             string    `json:"publisher"`
+	CitationHtml          string    `json:"citationHtml"`
+	IdentifierOfDataverse string    `json:"identifier_of_dataverse"`
+	NameOfDataverse       string    `json:"name_of_dataverse"`
+	Citation              string    `json:"citation"`
+	Score                 float64   `json:"score"`
+	EntityId              int       `json:"entity_id"`
+	StorageIdentifier     string    `json:"storageIdentifier"`
+	Keywords              []string  `json:"keywords"`
+	FileCount             int       `json:"fileCount"`
+	VersionId             int       `json:"versionId"`
+	VersionState          string    `json:"versionState"`
+	CreatedAt             string    `json:"createdAt"`
+	UpdatedAt             string    `json:"updatedAt"`
+	Contacts              []Contact `json:"contacts"`
+	ApiUrl                string    `json:"api_url"`
+	Authors               []string  `json:"authors"`
+	PublicationStatuses   []string  `json:"publication_statuses"`
+	IsDraftState          bool      `json:"is_draft_state"`
+	IsInReviewState       bool      `json:"is_in_review_state"`
+	IsUnpublishedState    bool      `json:"is_unpublished_state"`
+	IsPublished           bool      `json:"is_published"`
+	IsDeaccesioned        bool      `json:"is_deaccesioned"`
+	DateToDisplayOnCard   string    `json:"date_to_display_on_card"`
+	ParentId              string    `json:"parentId"`
+	ParentName            string    `json:"parentName"`
+	ParentAlias           string    `json:"parent_alias"`
+	UserRoles             []string  `json:"user_roles"`
+	//`json:"matches"`//: [],
+	//`json:"subjects"`//: [],
+}
+
+type Contact struct {
+	Name        string `json:"name"`
+	Affiliation string `json:"affiliation"`
+}
