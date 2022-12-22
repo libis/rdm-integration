@@ -3,11 +3,13 @@ package utils
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"integration/app/tree"
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
@@ -70,7 +72,7 @@ func toGitlabStreams(ctx context.Context, in map[string]tree.Node, streamParams 
 	group := streamParams["group"]
 	project := streamParams["project"]
 	token := streamParams["token"]
-	if project == "" || token == "" || base == "" || group == "" {
+	if project == "" || token == "" || base == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected base, group (optional), project and token, got: %v", streamParams)
 	}
 	res := map[string]stream{}
@@ -131,8 +133,52 @@ func GitlabBranches(params map[string]string) ([]string, error) {
 	group := params["group"]
 	project := params["project"]
 	token := params["token"]
-	if project == "" || token == "" || base == "" || group == "" {
+	if project == "" || token == "" || base == "" {
 		return nil, fmt.Errorf("branches: missing parameters: expected base, group (optional), project and token, got: %v", params)
 	}
-	return []string{"main", "master"}, nil
+	sep := "/"
+	if group == "" {
+		sep = ""
+	}
+	url := base + "/api/v4/projects/" + url.PathEscape(group+sep+project) + "/repository/branches"
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("PRIVATE-TOKEN", token)
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(r.Body)
+	if r.StatusCode != 200 {
+		return nil, fmt.Errorf("getting file failed: %s", string(b))
+	}
+	type Commit struct {
+		CommittedDate string `json:"committed_date"`
+	}
+	type Branch struct {
+		Name    string `json:"name"`
+		Default bool   `json:"default"`
+		Commit  Commit `json:"commit"`
+	}
+	branches := []Branch{}
+	err = json.Unmarshal(b, &branches)
+	sort.Slice(branches, func(i, j int) bool {
+		if branches[i].Default {
+			return true
+		}
+		return branches[i].Commit.CommittedDate > branches[j].Commit.CommittedDate
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, v := range branches {
+		res = append(res, v.Name)
+	}
+	return res, nil
 }
