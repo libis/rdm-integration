@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/logging"
 	"integration/app/tree"
 	"io"
 	"net/http"
@@ -133,12 +134,13 @@ func GithubBranches(params map[string]string) ([]string, error) {
 	client := github.NewClient(tc)
 
 	opt := &github.ListOptions{Page: 1, PerPage: 100}
-	branches := []*github.Branch{}
 	b, _, err := client.Repositories.ListBranches(ctx, user, repo, opt)
 	if err != nil {
 		return nil, err
 	}
+	branches := []*github.Branch{}
 	branches = append(branches, b...)
+	opt.Page++
 	for ; len(b) > 0; opt.Page++ {
 		b, _, err = client.Repositories.ListBranches(ctx, user, repo, opt)
 		if err != nil {
