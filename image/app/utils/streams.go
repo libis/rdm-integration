@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"integration/app/logging"
 	"integration/app/tree"
 	"io"
 	"net/http"
