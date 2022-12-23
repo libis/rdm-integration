@@ -125,7 +125,50 @@ func GithubBranches(params map[string]string) ([]string, error) {
 	if user == "" || repo == "" || token == "" {
 		return nil, fmt.Errorf("branches: missing parameters: expected user, repo and token, got: %v", params)
 	}
-	return []string{"main", "master"}, nil
+	ctx := context.Background()
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+	client := github.NewClient(tc)
+
+	opt := &github.ListOptions{Page: 1, PerPage: 100}
+	branches := []*github.Branch{}
+	b, _, err := client.Repositories.ListBranches(ctx, user, repo, opt)
+	if err != nil {
+		return nil, err
+	}
+	branches = append(branches, b...)
+	for ; len(b) > 0; opt.Page++ {
+		b, _, err = client.Repositories.ListBranches(ctx, user, repo, opt)
+		if err != nil {
+			return nil, err
+		}
+		branches = append(branches, b...)
+	}
+
+	r, _, err := client.Repositories.Get(ctx, user, repo)
+	if err != nil {
+		return nil, err
+	}
+	defaultBranch := r.GetDefaultBranch()
+	masterBranch := r.GetMasterBranch()
+
+	sort.Slice(branches, func(i, j int) bool {
+		if branches[i].GetName() == masterBranch {
+			return true
+		}
+		if branches[i].GetName() == defaultBranch {
+			return true
+		}
+		return false
+	})
+
+	res := []string{}
+	for _, v := range branches {
+		res = append(res, v.GetName())
+	}
+	return res, nil
 }
 
 func GitlabBranches(params map[string]string) ([]string, error) {
@@ -150,10 +193,11 @@ func GitlabBranches(params map[string]string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Body.Close()
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
 	}
-	b, err := io.ReadAll(r.Body)
 	if r.StatusCode != 200 {
 		return nil, fmt.Errorf("getting file failed: %s", string(b))
 	}
