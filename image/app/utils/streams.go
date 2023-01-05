@@ -119,6 +119,44 @@ func toGitlabStreams(ctx context.Context, in map[string]tree.Node, streamParams 
 	return res, nil
 }
 
+func toIrodsStreams(ctx context.Context, in map[string]tree.Node, streamParams map[string]string) (map[string]stream, error) {
+	user := streamParams["user"]
+	password := streamParams["password"]
+	server := streamParams["server"]
+	zone := streamParams["zone"]
+	folder := streamParams["folder"]
+	if user == "" || password == "" || server == "" || zone == "" || folder == "" {
+		return nil, fmt.Errorf("folders: missing parameters: expected server, zone, folder, user and password, got: %+v", streamParams)
+	}
+	res := map[string]stream{}
+	for k, v := range in {
+		path := v.Id
+		if !v.Attributes.IsFile || (v.Action != tree.Update && v.Action != tree.Copy) {
+			continue
+		}
+		if path == "" {
+			return nil, fmt.Errorf("streams: path not found")
+		}
+
+		var cl *client.IrodsClient
+		res[k] = stream{
+			Open: func() (io.Reader, error) {
+				cl, irodsErr := client.NewIrodsClient(server, zone, user, password)
+				if irodsErr != nil {
+					return nil, irodsErr
+				}
+				b2, irodsErr := cl.StreamFile(folder + path)
+				return bytes.NewReader(b2), irodsErr
+			},
+			Close: func() error {
+				cl.Close()
+				return nil
+			},
+		}
+	}
+	return res, nil
+}
+
 func GithubBranches(params map[string]string) ([]string, error) {
 	user := params["user"]
 	repo := params["repo"]
