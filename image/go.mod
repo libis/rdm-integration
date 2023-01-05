@@ -11,7 +11,15 @@ require (
 )
 
 require (
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/rs/xid v1.3.0 // indirect
+	github.com/sirupsen/logrus v1.7.0 // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+)
+
+require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cyverse/go-irodsclient v0.10.5
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect

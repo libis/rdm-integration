@@ -11,7 +11,7 @@ SHELL = /bin/bash
 USER_ID ?= $(shell id -u)
 GROUP_ID ?= $(shell id -g)
 
-build: ## Build Docker image
+build: fmt ## Build Docker image
 	echo "Building frontend ..."
 	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production" --base-href /integration/
 	echo "Building Docker image ..."
@@ -32,7 +32,10 @@ push: ## Push Docker image (only in prod stage)
 		echo "Not in production stage. Pushing not allowed."; \
 	fi
 
-run: ## Run the server locally
+run: fmt ## Run the server locally
 	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration development
 	docker stop redis || true && docker rm redis || true && docker run -p 6379:6379 --name redis -d redis
 	cd image && go run ./app 100
+
+fmt: ## Format the go code
+	cd image && go fmt ./app/...

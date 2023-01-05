@@ -31,6 +31,8 @@ func Branches(w http.ResponseWriter, r *http.Request) {
 		branches, err = utils.GithubBranches(params)
 	} else if params["repoType"] == "gitlab" {
 		branches, err = utils.GitlabBranches(params)
+	} else if params["repoType"] == "irods" {
+		branches, err = utils.IrodsFolders(params)
 	} else {
 		err = fmt.Errorf("unknown repoType: " + params["repoType"])
 	}

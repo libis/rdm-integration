@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/tree"
+	"integration/app/utils/irods/client"
 	"io"
 	"net/http"
 	"net/url"
@@ -224,6 +225,47 @@ func GitlabBranches(params map[string]string) ([]string, error) {
 	res := []string{}
 	for _, v := range branches {
 		res = append(res, v.Name)
+	}
+	return res, nil
+}
+
+func IrodsFolders(params map[string]string) ([]string, error) {
+	user := params["user"]
+	password := params["password"]
+	domain := params["domain"]
+	if user == "" || password == "" || domain == "" {
+		return nil, fmt.Errorf("folders: missing parameters: expected domain, user and password, got: %v", params)
+	}
+	cl, err := client.NewIrodsClient(domain, user, password)
+	if err != nil {
+		return nil, err
+	}
+	defer cl.Close()
+
+	res, err := getDirs(cl, "/")
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Strings(res)
+	return res, nil
+}
+
+func getDirs(cl *client.IrodsClient, dir string) ([]string, error) {
+	entries, err := cl.GetDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, v := range entries {
+		if v.Type == "directory" {
+			res = append(res, v.Path)
+			subdirs, err := getDirs(cl, v.Path)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, subdirs...)
+		}
 	}
 	return res, nil
 }
