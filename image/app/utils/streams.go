@@ -232,11 +232,12 @@ func GitlabBranches(params map[string]string) ([]string, error) {
 func IrodsFolders(params map[string]string) ([]string, error) {
 	user := params["user"]
 	password := params["password"]
-	domain := params["domain"]
-	if user == "" || password == "" || domain == "" {
-		return nil, fmt.Errorf("folders: missing parameters: expected domain, user and password, got: %v", params)
+	server := params["server"]
+	zone := params["zone"]
+	if user == "" || password == "" || server == "" || zone == "" {
+		return nil, fmt.Errorf("folders: missing parameters: expected server, zone, user and password, got: %+v", params)
 	}
-	cl, err := client.NewIrodsClient(domain, user, password)
+	cl, err := client.NewIrodsClient(server, zone, user, password)
 	if err != nil {
 		return nil, err
 	}

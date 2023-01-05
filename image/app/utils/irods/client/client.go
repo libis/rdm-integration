@@ -2,8 +2,8 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,11 +21,10 @@ type IrodsClient struct {
 	FileSystem *fs.FileSystem
 }
 
-type Domain struct {
-	AuthScheme string
+type Server struct {
 	Server     string
+	AuthScheme string
 	Port       int
-	Zone       string
 }
 
 var fileSystemConfig = &fs.FileSystemConfig{
@@ -48,24 +47,22 @@ var sessionConfig = &session.IRODSSessionConfig{
 	StartNewTransaction:   true,
 }
 
-var domainMap = map[string]Domain{
-	"ghum test": {AuthScheme: "PAM", Server: "ghum.irods.icts.kuleuven.be", Port: 1247, Zone: "ghum"},
+var serverMap = map[string]Server{
+	"PAM://ghum.irods.icts.kuleuven.be:1247": {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "PAM", Port: 1247},
+	"default":                                {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "PAM", Port: 1247},
 }
 
 // NewIrodsClient creates a new IrodsClient.
-func NewIrodsClient(domain, username, password string) (*IrodsClient, error) {
-	d, ok := domainMap[domain]
-	if !ok {
-		return nil, fmt.Errorf("domain %s unknown", domain)
-	}
+func NewIrodsClient(server, zone, username, password string) (*IrodsClient, error) {
+	s := getServer(server)
 	i := &IrodsClient{}
 
 	var err error
-	method, err := types.GetAuthScheme(d.AuthScheme)
+	method, err := types.GetAuthScheme(s.AuthScheme)
 	if err != nil {
 		return nil, err
 	}
-	i.Account, err = types.CreateIRODSAccount(d.Server, d.Port, username, d.Zone, method, password, "")
+	i.Account, err = types.CreateIRODSAccount(s.Server, s.Port, username, zone, method, password, "")
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +85,37 @@ func NewIrodsClient(domain, username, password string) (*IrodsClient, error) {
 	}
 
 	return i, nil
+}
+
+func getServer(server string) Server {
+	d, ok := serverMap[server]
+	if !ok {
+		d = serverMap["default"]
+		if server != "" {
+			s := strings.Split(server, "://")
+			if len(s) > 1 {
+				d.Server = s[1]
+				if s[0] == string(types.AuthSchemeNative) || s[0] == string(types.AuthSchemeGSI) || s[0] == string(types.AuthSchemePAM) {
+					d.AuthScheme = s[0]
+				}
+			} else {
+				d.Server = s[0]
+			}
+			s = strings.Split(d.Server, "/")
+			if len(s) > 1 {
+				d.Server = s[0]
+			}
+			s = strings.Split(d.Server, ":")
+			if len(s) > 1 {
+				d.Server = s[0]
+				port, err := strconv.Atoi(s[1])
+				if err == nil {
+					d.Port = port
+				}
+			}
+		}
+	}
+	return d
 }
 
 // Close an IrodsClient.
