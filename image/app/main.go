@@ -6,6 +6,7 @@ import (
 	"integration/app/common"
 	"integration/app/gh"
 	"integration/app/gl"
+	"integration/app/ir"
 	"integration/app/logging"
 	"integration/app/utils"
 	"integration/app/workers/spinner"
@@ -25,6 +26,8 @@ func main() {
 	http.HandleFunc("/api/github/compare", gh.GithubCompare)
 	// gitlab
 	http.HandleFunc("/api/gitlab/compare", gl.GitlabCompare)
+	// gitlab
+	http.HandleFunc("/api/irods/compare", ir.IrodsCompare)
 
 	//common
 	http.HandleFunc("/api/common/newdataset", common.NewDataset)
