@@ -69,7 +69,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	i.Account.CSNegotiationPolicy = "CS_NEG_REQUIRE"
 	i.Account.ClientServerNegotiation = true
 
-	i.Account.SSLConfiguration, err = types.CreateIRODSSSLConfig("/etc/ssl/certs/ca-bundle.crt", 32, "AES-256-CBC", 8, 16)
+	i.Account.SSLConfiguration, err = types.CreateIRODSSSLConfig("/etc/ssl/certs/ca-certificates.crt", 32, "AES-256-CBC", 8, 16)
 	if err != nil {
 		return nil, err
 	}
