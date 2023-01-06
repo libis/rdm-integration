@@ -11,6 +11,10 @@ RUN go build -v -o /usr/local/bin/app ./app
 
 FROM alpine
 
+RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
+COPY ./USERTrust_RSA_Certification_Authority.pem /usr/local/share/ca-certificates/USERTrust_RSA_Certification_Authority.pem
+RUN update-ca-certificates
+
 ARG USER_ID
 ARG GROUP_ID
 RUN addgroup --gid ${GROUP_ID} app \
