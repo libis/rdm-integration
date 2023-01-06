@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/md5"
 	"crypto/sha1"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash"
@@ -24,9 +25,10 @@ import (
 )
 
 const (
-	SHA1    = "SHA-1"
-	GitHash = "git-hash"
-	Md5     = "MD5"
+	SHA1     = "SHA-1"
+	GitHash  = "git-hash"
+	Md5      = "MD5"
+	FileSize = "FileSize"
 )
 
 type storage struct {
@@ -87,10 +89,50 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 	} else if hashType == GitHash {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
+	} else if hashType == FileSize {
+		hasher = newFileSizeHash(int64(fileSize))
 	} else {
 		err = fmt.Errorf("unsupported hash type: %v", hashType)
 	}
 	return
+}
+
+func newFileSizeHash(fileSize int64) hash.Hash {
+	return FileSizeHash{FileSize: fileSize}
+}
+
+type FileSizeHash struct {
+	FileSize int64
+}
+
+// Write (via the embedded io.Writer interface) adds more data to the running hash.
+// It never returns an error.
+func (h FileSizeHash) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}
+
+// Sum appends the current hash to b and returns the resulting slice.
+// It does not change the underlying hash state.
+func (h FileSizeHash) Sum(b []byte) []byte {
+	res := make([]byte, 8)
+	binary.LittleEndian.PutUint64(res, uint64(h.FileSize))
+	return res
+}
+
+// Reset resets the Hash to its initial state.
+func (h FileSizeHash) Reset() {}
+
+// Size returns the number of bytes Sum will return.
+func (h FileSizeHash) Size() int {
+	return 8
+}
+
+// BlockSize returns the hash's underlying block size.
+// The Write method must be able to accept any amount
+// of data, but it may operate more efficiently if all writes
+// are a multiple of the block size.
+func (h FileSizeHash) BlockSize() int {
+	return 256
 }
 
 func write(ctx context.Context, fileStream stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) ([]byte, []byte, *bytes.Buffer, error) {

@@ -1,6 +1,7 @@
 package ir
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"integration/app/common"
@@ -110,11 +111,11 @@ func toNodeMap(cl *client.IrodsClient, folder string, entries []*fs.Entry) (map[
 	res := map[string]tree.Node{}
 	dirs := []string{}
 	for _, e := range entries {
-		path := e.Name[len(folder):]
+		path := e.Path[len(folder)+1:]
 		isFile := e.Type == "file"
 		if !isFile {
 			if e.Type == "directory" {
-				dirs = append(dirs, e.Name)
+				dirs = append(dirs, e.Path)
 			}
 			continue
 		}
@@ -125,16 +126,23 @@ func toNodeMap(cl *client.IrodsClient, folder string, entries []*fs.Entry) (map[
 			parentId = strings.Join(ancestors[:len(ancestors)-1], "/")
 			fileName = ancestors[len(ancestors)-1]
 		}
+		hash := e.CheckSum
+		hashType := utils.Md5
+		if hash == "" {
+			h := make([]byte, 8)
+			binary.LittleEndian.PutUint64(h, uint64(e.Size))
+			hash = fmt.Sprintf("%x", h)
+			hashType = utils.FileSize
+		}
 		node := tree.Node{
 			Id:   path,
 			Name: fileName,
 			Path: parentId,
 			Attributes: tree.Attributes{
-				URL:            e.Name,
 				ParentId:       parentId,
 				IsFile:         isFile,
-				RemoteHash:     e.CheckSum,
-				RemoteHashType: utils.Md5,
+				RemoteHash:     hash,
+				RemoteHashType: hashType,
 				Metadata: tree.Metadata{
 					Label:          fileName,
 					DirectoryLabel: parentId,
@@ -143,8 +151,8 @@ func toNodeMap(cl *client.IrodsClient, folder string, entries []*fs.Entry) (map[
 						ContentType: "application/octet-stream",
 						Filesize:    int(e.Size),
 						Checksum: tree.Checksum{
-							Type:  utils.Md5,
-							Value: e.CheckSum,
+							Type:  hashType,
+							Value: hash,
 						},
 					},
 				},

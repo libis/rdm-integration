@@ -143,7 +143,7 @@ func (i *IrodsClient) StreamFile(irodsPath string) ([]byte, error) {
 		return nil, err
 	}
 
-	ok, fileSize := fileExistsAndAllowedSize(strings.TrimPrefix(irodsPath, "/"+i.Account.ClientZone), dir)
+	ok, fileSize := fileExistsAndAllowedSize(irodsPath, dir)
 
 	if ok {
 		conn, err := i.Session.AcquireConnection()
@@ -157,7 +157,8 @@ func (i *IrodsClient) StreamFile(irodsPath string) ([]byte, error) {
 			return nil, err
 		}
 		bytes := make([]byte, fileSize)
-		irods_fs.ReadDataObject(conn, handle, bytes)
+		_, err = irods_fs.ReadDataObject(conn, handle, bytes)
+		return bytes, err
 	}
 
 	return nil, errors.New("file not found")

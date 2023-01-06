@@ -27,6 +27,8 @@ func deserialize(ctx context.Context, nodeMap map[string]tree.Node, streamType s
 		return toGithubStreams(ctx, nodeMap, streamParams)
 	case "gitlab":
 		return toGitlabStreams(ctx, nodeMap, streamParams)
+	case "irods":
+		return toIrodsStreams(ctx, nodeMap, streamParams)
 	default:
 		return nil, fmt.Errorf("unknown stream type: %s", streamType)
 	}
@@ -141,11 +143,12 @@ func toIrodsStreams(ctx context.Context, in map[string]tree.Node, streamParams m
 		var cl *client.IrodsClient
 		res[k] = stream{
 			Open: func() (io.Reader, error) {
-				cl, irodsErr := client.NewIrodsClient(server, zone, user, password)
+				var irodsErr error
+				cl, irodsErr = client.NewIrodsClient(server, zone, user, password)
 				if irodsErr != nil {
 					return nil, irodsErr
 				}
-				b2, irodsErr := cl.StreamFile(folder + path)
+				b2, irodsErr := cl.StreamFile(folder + "/" + path)
 				return bytes.NewReader(b2), irodsErr
 			},
 			Close: func() error {

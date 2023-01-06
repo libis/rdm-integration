@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/kr/text v0.2.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.7.0 // indirect
