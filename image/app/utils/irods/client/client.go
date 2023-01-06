@@ -2,21 +2,20 @@ package client
 
 import (
 	"errors"
-	"path/filepath"
+	"io"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cyverse/go-irodsclient/fs"
+	"github.com/cyverse/go-irodsclient/irods/connection"
 	irods_fs "github.com/cyverse/go-irodsclient/irods/fs"
 	"github.com/cyverse/go-irodsclient/irods/session"
 	"github.com/cyverse/go-irodsclient/irods/types"
-	"github.com/cyverse/go-irodsclient/irods/util"
 )
 
-// IrodsClient is used for interacting with irods.
 type IrodsClient struct {
-	Account    *types.IRODSAccount
+	Zone       string
 	Session    *session.IRODSSession
 	FileSystem *fs.FileSystem
 }
@@ -27,23 +26,29 @@ type Server struct {
 	Port       int
 }
 
+type fileReader struct {
+	handle  *types.IRODSFileHandle
+	conn    *connection.IRODSConnection
+	session *session.IRODSSession
+}
+
 var fileSystemConfig = &fs.FileSystemConfig{
 	ApplicationName:       "iRODS_Go_RDR",
-	CacheTimeout:          time.Minute,
-	CacheCleanupTime:      time.Minute,
-	ConnectionMax:         5,
-	ConnectionIdleTimeout: 5 * time.Minute,
-	OperationTimeout:      5 * time.Minute,
+	CacheTimeout:          2 * time.Minute,
+	CacheCleanupTime:      2 * time.Minute,
+	ConnectionMax:         1,
+	ConnectionIdleTimeout: 2 * time.Minute,
+	OperationTimeout:      48 * time.Hour,
 }
 
 var sessionConfig = &session.IRODSSessionConfig{
 	ApplicationName:       "iRODS_Go_RDR",
-	ConnectionLifespan:    5 * time.Minute,
-	OperationTimeout:      5 * time.Minute,
-	ConnectionIdleTimeout: 5 * time.Minute,
-	ConnectionMax:         5,
-	ConnectionInitNumber:  5,
-	ConnectionMaxIdle:     5,
+	ConnectionLifespan:    48 * time.Hour,
+	OperationTimeout:      48 * time.Hour,
+	ConnectionIdleTimeout: 2 * time.Minute,
+	ConnectionMax:         1,
+	ConnectionInitNumber:  1,
+	ConnectionMaxIdle:     1,
 	StartNewTransaction:   true,
 }
 
@@ -52,34 +57,34 @@ var serverMap = map[string]Server{
 	"default":                                {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "PAM", Port: 1247},
 }
 
-// NewIrodsClient creates a new IrodsClient.
 func NewIrodsClient(server, zone, username, password string) (*IrodsClient, error) {
 	s := getServer(server)
 	i := &IrodsClient{}
+	i.Zone = zone
 
 	var err error
 	method, err := types.GetAuthScheme(s.AuthScheme)
 	if err != nil {
 		return nil, err
 	}
-	i.Account, err = types.CreateIRODSAccount(s.Server, s.Port, username, zone, method, password, "")
+	account, err := types.CreateIRODSAccount(s.Server, s.Port, username, zone, method, password, "")
 	if err != nil {
 		return nil, err
 	}
-	i.Account.CSNegotiationPolicy = "CS_NEG_REQUIRE"
-	i.Account.ClientServerNegotiation = true
+	account.CSNegotiationPolicy = "CS_NEG_REQUIRE"
+	account.ClientServerNegotiation = true
 
-	i.Account.SSLConfiguration, err = types.CreateIRODSSSLConfig("/etc/ssl/certs/ca-certificates.crt", 32, "AES-256-CBC", 8, 16)
-	if err != nil {
-		return nil, err
-	}
-
-	i.Session, err = session.NewIRODSSession(i.Account, sessionConfig)
+	account.SSLConfiguration, err = types.CreateIRODSSSLConfig("/etc/ssl/certs/ca-certificates.crt", 32, "AES-256-CBC", 8, 16)
 	if err != nil {
 		return nil, err
 	}
 
-	i.FileSystem, err = fs.NewFileSystem(i.Account, fileSystemConfig)
+	i.Session, err = session.NewIRODSSession(account, sessionConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	i.FileSystem, err = fs.NewFileSystem(account, fileSystemConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -118,57 +123,28 @@ func getServer(server string) Server {
 	return d
 }
 
-// Close an IrodsClient.
 func (i *IrodsClient) Close() {
+	i.FileSystem.Release()
 	i.Session.Release()
 }
 
-func (i *IrodsClient) GetDir(path string) ([]*fs.Entry, error) {
-	// Add the zone name to the given path
-	if !strings.HasPrefix(path, "/"+i.Account.ClientZone) {
-		path = "/" + i.Account.ClientZone + path
-	}
-	path = util.GetCorrectIRODSPath(path)
-
-	return i.FileSystem.List(path)
-}
-
-func (i *IrodsClient) StreamFile(irodsPath string) ([]byte, error) {
-	if !strings.HasPrefix(irodsPath, "/"+i.Account.ClientZone) {
-		irodsPath = "/" + i.Account.ClientZone + irodsPath
-	}
-
-	dir, err := i.GetDir(filepath.Dir(irodsPath))
-	if err != nil {
-		return nil, err
-	}
-
-	ok, fileSize := fileExistsAndAllowedSize(irodsPath, dir)
-
-	if ok {
+func (i *IrodsClient) StreamFile(irodsPath string) (io.ReadCloser, error) {
+	if i.FileSystem.ExistsFile(irodsPath) {
 		conn, err := i.Session.AcquireConnection()
 		if err != nil {
 			return nil, err
 		}
-		defer i.Session.ReturnConnection(conn)
-
 		handle, _, err := irods_fs.OpenDataObject(conn, irodsPath, "", "r")
-		if err != nil {
-			return nil, err
-		}
-		bytes := make([]byte, fileSize)
-		_, err = irods_fs.ReadDataObject(conn, handle, bytes)
-		return bytes, err
+		return &fileReader{handle, conn, i.Session}, err
 	}
-
 	return nil, errors.New("file not found")
 }
 
-func fileExistsAndAllowedSize(file string, list []*fs.Entry) (bool, int64) {
-	for _, b := range list {
-		if b.Path == file && b.Size < 1500000000 {
-			return true, b.Size
-		}
-	}
-	return false, 0
+func (fr *fileReader) Read(bytes []byte) (n int, err error) {
+	n, err = irods_fs.ReadDataObject(fr.conn, fr.handle, bytes)
+	return
+}
+
+func (fr fileReader) Close() error {
+	return fr.session.ReturnConnection(fr.conn)
 }

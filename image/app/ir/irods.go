@@ -86,7 +86,7 @@ func doIrodsCompare(req CompareRequest, key string) {
 		return
 	}
 	defer cl.Close()
-	entries, err := cl.GetDir(req.Folder)
+	entries, err := cl.FileSystem.List(req.Folder)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -161,7 +161,7 @@ func toNodeMap(cl *client.IrodsClient, folder string, entries []*fs.Entry) (map[
 		res[path] = node
 	}
 	for _, d := range dirs {
-		subEntries, err := cl.GetDir(d)
+		subEntries, err := cl.FileSystem.List(d)
 		if err != nil {
 			return nil, err
 		}

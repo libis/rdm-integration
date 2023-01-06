@@ -141,6 +141,7 @@ func toIrodsStreams(ctx context.Context, in map[string]tree.Node, streamParams m
 		}
 
 		var cl *client.IrodsClient
+		var reader io.ReadCloser
 		res[k] = stream{
 			Open: func() (io.Reader, error) {
 				var irodsErr error
@@ -148,12 +149,13 @@ func toIrodsStreams(ctx context.Context, in map[string]tree.Node, streamParams m
 				if irodsErr != nil {
 					return nil, irodsErr
 				}
-				b2, irodsErr := cl.StreamFile(folder + "/" + path)
-				return bytes.NewReader(b2), irodsErr
+				reader, irodsErr = cl.StreamFile(folder + "/" + path)
+				return reader, irodsErr
 			},
 			Close: func() error {
+				closeErr := reader.Close()
 				cl.Close()
-				return nil
+				return closeErr
 			},
 		}
 	}
@@ -284,7 +286,7 @@ func IrodsFolders(params map[string]string) ([]string, error) {
 	}
 	defer cl.Close()
 
-	res, err := getDirs(cl, "/")
+	res, err := getDirs(cl, "/"+zone+"/")
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +296,7 @@ func IrodsFolders(params map[string]string) ([]string, error) {
 }
 
 func getDirs(cl *client.IrodsClient, dir string) ([]string, error) {
-	entries, err := cl.GetDir(dir)
+	entries, err := cl.FileSystem.List(dir)
 	if err != nil {
 		return nil, err
 	}

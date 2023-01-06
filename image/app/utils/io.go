@@ -164,7 +164,7 @@ func write(ctx context.Context, fileStream stream, storageIdentifier, persistent
 			return nil, nil, nil, err
 		}
 		defer f.Close()
-		buf := make([]byte, 1024)
+		buf := make([]byte, 64*1024)
 		for {
 			select {
 			case <-ctx.Done():
