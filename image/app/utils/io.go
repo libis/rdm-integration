@@ -285,7 +285,7 @@ func doHash(ctx context.Context, persistentId string, node tree.Node) ([]byte, e
 	}
 
 	r := hashingReader{reader, hasher}
-	buf := make([]byte, 1024)
+	buf := make([]byte, 64*1024)
 	for {
 		select {
 		case <-ctx.Done():
