@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
 	"os"
@@ -22,13 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/uuid"
-)
-
-const (
-	SHA1     = "SHA-1"
-	GitHash  = "git-hash"
-	Md5      = "MD5"
-	FileSize = "FileSize"
 )
 
 type storage struct {
@@ -82,14 +76,14 @@ func generateStorageIdentifier(fileName string) string {
 }
 
 func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
-	if hashType == Md5 {
+	if hashType == types.Md5 {
 		hasher = md5.New()
-	} else if hashType == SHA1 {
+	} else if hashType == types.SHA1 {
 		hasher = sha1.New()
-	} else if hashType == GitHash {
+	} else if hashType == types.GitHash {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
-	} else if hashType == FileSize {
+	} else if hashType == types.FileSize {
 		hasher = newFileSizeHash(int64(fileSize))
 	} else {
 		err = fmt.Errorf("unsupported hash type: %v", hashType)
@@ -135,7 +129,7 @@ func (h FileSizeHash) BlockSize() int {
 	return 256
 }
 
-func write(ctx context.Context, fileStream stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) ([]byte, []byte, *bytes.Buffer, error) {
+func write(ctx context.Context, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) ([]byte, []byte, *bytes.Buffer, error) {
 	b := bytes.NewBuffer(nil)
 	pid, err := trimProtocol(persistentId)
 	if err != nil {

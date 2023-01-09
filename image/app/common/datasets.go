@@ -3,10 +3,15 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"integration/app/plugin/types"
 	"integration/app/utils"
 	"io"
 	"net/http"
 )
+
+type Token struct {
+	Token string `json:"token"`
+}
 
 func Datasets(w http.ResponseWriter, r *http.Request) {
 	//process request
@@ -32,13 +37,13 @@ func Datasets(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	res := []SelectItem{}
+	res := []types.SelectItem{}
 	added := map[string]bool{}
 	for _, v := range datasets {
 		label := v.Name + " (" + v.GlobalId + ")"
 		if !added[label] {
 			added[label] = true
-			res = append(res, SelectItem{
+			res = append(res, types.SelectItem{
 				Label: v.Name + " (" + v.GlobalId + ")",
 				Value: v.GlobalId,
 			})

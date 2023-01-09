@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/logging"
+	"integration/app/plugin/types"
 	"integration/app/tree"
 	"sync"
 	"time"
@@ -16,7 +17,7 @@ type Job struct {
 	WritableNodes map[string]tree.Node
 	StreamType    string
 	Streams       map[string]map[string]interface{}
-	StreamParams  map[string]string
+	StreamParams  types.StreamParams
 	ErrCnt        int
 }
 

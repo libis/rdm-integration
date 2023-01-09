@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"integration/app/plugin/types"
 	"integration/app/tree"
 	"integration/app/utils"
 	"io"
@@ -14,11 +15,11 @@ type StoreResult struct {
 }
 
 type StoreRequest struct {
-	StreamType    string            `json:"streamType"`
-	StreamParams  map[string]string `json:"streamParams"`
-	PersistentId  string            `json:"persistentId"`
-	DataverseKey  string            `json:"dataverseKey"`
-	SelectedNodes []tree.Node       `json:"selectedNodes"`
+	StreamType    string             `json:"streamType"`
+	StreamParams  types.StreamParams `json:"streamParams"`
+	PersistentId  string             `json:"persistentId"`
+	DataverseKey  string             `json:"dataverseKey"`
+	SelectedNodes []tree.Node        `json:"selectedNodes"`
 }
 
 func Store(w http.ResponseWriter, r *http.Request) {

@@ -1,8 +1,4 @@
-package common
-
-type Token struct {
-	Token string `json:"token"`
-}
+package types
 
 type SelectItem struct {
 	Label string      `json:"label"`

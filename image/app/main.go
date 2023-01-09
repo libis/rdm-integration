@@ -4,10 +4,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"integration/app/common"
-	"integration/app/gh"
-	"integration/app/gl"
-	"integration/app/ir"
 	"integration/app/logging"
+	"integration/app/plugin/funcs/compare"
+	"integration/app/plugin/funcs/options"
 	"integration/app/utils"
 	"integration/app/workers/spinner"
 	"net/http"
@@ -21,20 +20,14 @@ func main() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	// serve api
-	// when adding compare to a new repository type, do not forget to add corresponding stream in utils/streams.go
-	// github
-	http.HandleFunc("/api/github/compare", gh.GithubCompare)
-	// gitlab
-	http.HandleFunc("/api/gitlab/compare", gl.GitlabCompare)
-	// gitlab
-	http.HandleFunc("/api/irods/compare", ir.IrodsCompare)
+	http.HandleFunc("/api/plugin/compare", compare.Compare)
+	http.HandleFunc("/api/plugin/options", options.Options)
 
 	//common
 	http.HandleFunc("/api/common/newdataset", common.NewDataset)
 	http.HandleFunc("/api/common/compare", common.Compare)
 	http.HandleFunc("/api/common/cached", common.GetCachedResponse)
 	http.HandleFunc("/api/common/store", common.Store)
-	http.HandleFunc("/api/common/branches", common.Branches)
 	http.HandleFunc("/api/common/datasets", common.Datasets)
 
 	// serve html

@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"integration/app/dv"
+	dv "integration/app/dataverse"
 	"integration/app/logging"
+	"integration/app/plugin/funcs/stream"
+	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
 	"io/ioutil"
@@ -92,7 +94,7 @@ func doWork(job Job) (Job, error) {
 	if job.StreamType == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
 	}
-	streams, err := deserialize(ctx, job.WritableNodes, job.StreamType, job.StreamParams)
+	streams, err := stream.Streams(ctx, job.WritableNodes, job.StreamType, job.StreamParams)
 	if err != nil {
 		return job, err
 	}
@@ -137,7 +139,7 @@ func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[stri
 	return res, nil
 }
 
-func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, knownHashes map[string]calculatedHashes) (out Job, err error) {
+func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in Job, knownHashes map[string]calculatedHashes) (out Job, err error) {
 	dataverseKey, persistentId, writableNodes := in.DataverseKey, in.PersistentId, in.WritableNodes
 	err = CheckPermission(dataverseKey, persistentId)
 	if err != nil {
@@ -185,7 +187,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]stream, in Job, kn
 		hashValue := fmt.Sprintf("%x", h)
 		//updated or new: always rehash
 		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
-		if remoteHashType == GitHash {
+		if remoteHashType == types.GitHash {
 			remoteHashVlaue = v.Attributes.RemoteHash
 		}
 		knownHashes[v.Id] = calculatedHashes{
