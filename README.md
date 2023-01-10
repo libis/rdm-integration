@@ -48,29 +48,31 @@ sequenceDiagram
 sequenceDiagram
     Frontend->>+Backend: /api/plugin/compare
     Backend->>+Goroutine: Compare using Key as ref.
+    activate Goroutine
     Backend-->>Frontend: Key
     loop Until cached response ready
     	Frontend->>Backend: api/common/cached
 	Backend->>Redis: Get(key)
-	Redis->>Backend: Cached response if ready
+	Redis-->>Backend: Cached response if ready
         Backend-->>Frontend: Cached response if ready
     end
     Goroutine->>Dataverse: List files
-    Dataverse->>Goroutine: List of files
+    Dataverse-->>Goroutine: List of files
     Goroutine->>Repo: List files
-    Repo->>Goroutine: List of files
+    Repo-->>Goroutine: List of files
     Goroutine->>Redis: Get known hashes
     Redis-->>Goroutine: Known hashes
     Goroutine->>Redis: Hashing job for unknown hashes
     Goroutine->>Redis: Cached response is ready
+    deactivate Goroutine
     loop Until all hashes known
     	Frontend->>Backend: api/common/compare
 	Backend->>Redis: Get(key)
-	Redis->>Backend: Response
+	Redis-->>Backend: Response
         Backend-->>Frontend: not all hashes known
     end
     Worker->>Redis: Get new job
-    Redis->>Worker: Hashing job
+    Redis-->>Worker: Hashing job
     activate Worker
     loop Until all hashes known
     	Worker-->>Worker: calculate n hashes
