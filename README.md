@@ -57,9 +57,30 @@ sequenceDiagram
 
 ### Get dataverse collections
 
-## Create new dataset
+
+```mermaid
+sequenceDiagram
+    Frontend->>+Backend: /api/common/collections
+    loop Until all pages are retrieved
+    	Backend->>Dataverse: /api/v1/mydata/retrieve
+	Dataverse->>Backend: Dataverse collections
+    end
+    Backend-->>-Frontend: Dataverse collections
+```
+
+### Create new dataset
+
+
+```mermaid
+sequenceDiagram
+    Frontend->>+Backend: /api/common/newdataset
+    Backend->>Dataverse: POST /api/dataverses/{{Dataverse collection}}/datasets
+    Dataverse-->>Backend: Response
+    Backend-->>-Frontend: Persistent ID of the new dataset
+```
 
 ### Compare files
+
 
 ```mermaid
 sequenceDiagram
@@ -100,3 +121,4 @@ sequenceDiagram
 ```
 
 ### Store changes
+/api/common/store
