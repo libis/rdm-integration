@@ -31,8 +31,8 @@ In order to redeploy the integration application on pilot/prod (after building w
 
 ## Sequence diagrams
 
-### GET options
-Listing branches, folders, etc., that can be chosen in dropdown and on the connect page is a synchronous call. When retrieved, a branch or folder can be selected by the user as reference from where the files will be synchronized. The listing itself is implemented by a plugin and is described in the following sequence diagram:
+### Get options
+Listing branches, folders, etc. (depending on the repo plugin) that can be chosen in dropdown and on the connect page is a synchronous call. When retrieved, a branch or folder can be selected by the user as reference from where the files will be synchronized. The listing itself is implemented by a plugin and is described in the following sequence diagram:
 
 ```mermaid
 sequenceDiagram
@@ -41,6 +41,23 @@ sequenceDiagram
     Repo-->>Backend: List of branches
     Backend-->>-Frontend: List of options for the dropdown
 ```
+
+### Get datasets
+Another dropdown on the connect page lets the user to specify to which dataset the files should be synchronized. This is also a synchronous call and the dropdown displays "Loading..." (the same is true for the get options call) until a response is recived from the backend. The backend uses the Dataverse /api/v1/mydata/retrieve api call and retrieves all pages in a loop (the call supports paging for the cases where the user has many datasets). This is depicted in the diagram below:
+
+```mermaid
+sequenceDiagram
+    Frontend->>+Backend: /api/common/datasets
+    loop Until all pages are retrieved
+    	Backend->>Dataverse: /api/v1/mydata/retrieve
+	Dataverse->>Backend: Datasets
+    end
+    Backend-->>-Frontend: Datasets
+```
+
+### Get dataverse collections
+
+## Create new dataset
 
 ### Compare files
 
@@ -81,3 +98,5 @@ sequenceDiagram
     Worker->>Redis: All hashes known
     deactivate Worker
 ```
+
+### Store changes
