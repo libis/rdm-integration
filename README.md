@@ -47,29 +47,25 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     Frontend->>+Backend: /api/plugin/compare
-    Backend->>+Goroutine: Compare using Key as reference
+    Backend->>+Goroutine: Compare using Key as ref.
     Backend-->>Frontend: Key
-    loop Until Ready is true
-    	Frontend->>Backend: api/common/cached (get compare response for Key from cache)
+    loop Until cached response ready
+    	Frontend->>Backend: api/common/cached
 	Backend->>Redis: Get(key)
-	Redis->>Backend: Response (not yet ready)
-        Backend-->Frontend: Ready is false
+	Redis->>Backend: Cached response if ready
+        Backend-->Frontend: Cached response if ready
     end
-    Goroutine->>Dataverse: List files for persistent ID
+    Goroutine->>Dataverse: List files
     Dataverse->>Goroutine: List of files
     Goroutine->>Repo: List files
-    Dataverse->>Goroutine: List of files
-    Goroutine->>Redis: Get known hashes for peristant ID in Dataverse
-    Goroutine->>Redis: request new hashing job for unknown hashes
-    Goroutine->>Redis: Cached response ready, but possibly missing hashes
-    Frontend->>Backend: api/common/cached (last call in the loop)
-    Backend->>Redis: Get(key)
-    Redis->>Backend: Response (ready)
-    Backend-->Frontend: Ready is true
-    loop Until Ready is true
-    	Frontend->>Backend: api/common/compare (get compare response for Key from cache)
+    Repo->>Goroutine: List of files
+    Goroutine->>Redis: Get known hashes
+    Goroutine->>Redis: Hashing job for unknown hashes
+    Goroutine->>Redis: Cached response is ready
+    loop Until all hashes known
+    	Frontend->>Backend: api/common/compare
 	Backend->>Redis: Get(key)
-	Redis->>Backend: Response (more complete with every call)
+	Redis->>Backend: Response
         Backend-->Frontend: Ready is false
     end
     Worker->>Redis: get new job
@@ -80,9 +76,6 @@ sequenceDiagram
 	Worker->>Redis: Store calculated hashes
 	Worker->>Redis: update response
     end
+    Worker->>Redis: all hashes known
     deactivate Worker
-    Frontend->>Backend: api/common/compare (last call in the loop)
-    Backend->>Redis: Get(key)
-    Redis->>Backend: Response (ready)
-    Backend-->Frontend: Ready is true, all hashes are known
 ```
