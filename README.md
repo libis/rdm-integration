@@ -36,7 +36,7 @@ Listing branches, folders, etc., that can be chosen in dropdown and on the conne
 
 ```mermaid
 sequenceDiagram
-    Frontend->>+Backend: GET options
+    Frontend->>+Backend: /api/plugin/options
     Backend->>Repo: Specific call, e.g., list branches
     Repo-->>Backend: List of branches
     Backend-->>-Frontend: List of options for the dropdown
