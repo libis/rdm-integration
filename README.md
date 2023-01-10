@@ -69,7 +69,7 @@ sequenceDiagram
     	Frontend->>Backend: api/common/compare
 	Backend->>Redis: Get(key)
 	Redis-->>Backend: Response
-        Backend-->>Frontend: not all hashes known
+        Backend-->>Frontend: Not all hashes known
     end
     Worker->>Redis: Get new job
     Redis-->>Worker: Hashing job
