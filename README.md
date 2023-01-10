@@ -75,9 +75,9 @@ sequenceDiagram
     Redis-->>Worker: Hashing job
     activate Worker
     loop Until all hashes known
-    	Worker-->>Worker: calculate n hashes
+    	Worker-->>Worker: Calculate N hashes
 	Worker->>Redis: Store calculated hashes
     end
-    Worker->>Redis: all hashes known
+    Worker->>Redis: All hashes known
     deactivate Worker
 ```
