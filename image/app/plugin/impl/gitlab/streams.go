@@ -42,7 +42,6 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
-				fmt.Println(url)
 				r, err = http.DefaultClient.Do(request)
 				if err != nil {
 					return nil, err
