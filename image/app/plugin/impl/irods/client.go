@@ -145,6 +145,6 @@ func (fr *fileReader) Read(bytes []byte) (n int, err error) {
 	return
 }
 
-func (fr fileReader) Close() error {
+func (fr *fileReader) Close() error {
 	return fr.session.ReturnConnection(fr.conn)
 }
