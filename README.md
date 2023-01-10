@@ -51,7 +51,7 @@ sequenceDiagram
     activate Goroutine
     Backend-->>Frontend: Key
     loop Until cached response ready
-    	Frontend->>Backend: api/common/cached
+    	Frontend->>Backend: /api/common/cached
 	Backend->>Redis: Get(key)
 	Redis-->>Backend: Cached response if ready
         Backend-->>Frontend: Cached response if ready
@@ -66,7 +66,7 @@ sequenceDiagram
     Goroutine->>Redis: Cached response is ready
     deactivate Goroutine
     loop Until all hashes known
-    	Frontend->>Backend: api/common/compare
+    	Frontend->>Backend: /api/common/compare
 	Backend->>Redis: Get(key)
 	Redis-->>Backend: Response
         Backend-->>Frontend: Not all hashes known
