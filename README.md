@@ -28,3 +28,61 @@ In order to redeploy the integration application on pilot/prod (after building w
 - make pull
 - make stop-integration
 - make up
+
+## Sequence diagrams
+
+### GET options
+Listing branches, folders, etc., that can be chosen in dropdown and on the connect page is a synchronous call. When retrieved, a branch or folder can be selected by the user as reference from where the files will be synchronized. The listing itself is implemented by a plugin and is described in the following sequence diagram:
+
+```mermaid
+sequenceDiagram
+    Frontend->>+Backend: GET options
+    Backend->>Repo: Specific call, e.g., list branches
+    Repo-->>Backend: List of branches
+    Backend-->>-Frontend: List of options for the dropdown
+```
+
+### Compare files
+
+```mermaid
+sequenceDiagram
+    Frontend->>+Backend: /api/plugin/compare
+    Backend->>+Goroutine: Compare using Key as reference
+    Backend-->>Frontend: Key
+    loop Until Ready is true
+    	Frontend->>Backend: api/common/cached (get compare response for Key from cache)
+	Backend->>Redis: Get(key)
+	Redis->>Backend: Response (not yet ready)
+        Backend-->Frontend: Ready is false
+    end
+    Goroutine->>Dataverse: List files for persistent ID
+    Dataverse->>Goroutine: List of files
+    Goroutine->>Repo: List files
+    Dataverse->>Goroutine: List of files
+    Gouriten->>Redis: Get known hashes for peristant ID in Dataverse
+    Goroutine->>Redis: request new hashing job for unknown hashes
+    Goroutine->>Redis: Cached response ready, but possibly missing hashes
+    Frontend->>Backend: api/common/cached (last call in the loop)
+    Backend->>Redis: Get(key)
+    Redis->>Backend: Response (ready)
+    Backend-->Frontend: Ready is true
+    loop Until Ready is true
+    	Frontend->>Backend: api/common/compare (get compare response for Key from cache)
+	Backend->>Redis: Get(key)
+	Redis->>Backend: Response (more complete with every call)
+        Backend-->Frontend: Ready is false
+    end
+    Worker->>Redis: get new job
+    Redis->>Worker: hashing job
+    activate Worker
+    loop Until all hashes known
+    	Worker-->Worker: calculate n hashes
+	Worker->>Redis: Store calculated hashes
+	Worker->>Redis: update response
+    end
+    deactivate Worker
+    Frontend->>Backend: api/common/compare (last call in the loop)
+    Backend->>Redis: Get(key)
+    Redis->>Backend: Response (ready)
+    Backend-->Frontend: Ready is true, all hashes are known
+```
