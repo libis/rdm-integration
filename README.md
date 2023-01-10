@@ -59,7 +59,7 @@ sequenceDiagram
     Dataverse->>Goroutine: List of files
     Goroutine->>Repo: List files
     Dataverse->>Goroutine: List of files
-    Gouriten->>Redis: Get known hashes for peristant ID in Dataverse
+    Goroutine->>Redis: Get known hashes for peristant ID in Dataverse
     Goroutine->>Redis: request new hashing job for unknown hashes
     Goroutine->>Redis: Cached response ready, but possibly missing hashes
     Frontend->>Backend: api/common/cached (last call in the loop)
