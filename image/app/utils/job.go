@@ -90,7 +90,7 @@ func ProcessJobs() {
 		select {
 		case <-Stop:
 			return
-		case <-time.After(10 * time.Second):
+		case <-time.After(1 * time.Second):
 		}
 		job, ok := popJob()
 		if ok {
