@@ -9,7 +9,7 @@ import (
 )
 
 type NewDatasetRequest struct {
-	Dataverse    string `json:"dataverse"`
+	Collection   string `json:"collection"`
 	DataverseKey string `json:"dataverseKey"`
 }
 
@@ -33,7 +33,7 @@ func NewDataset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pid, err := utils.CreateNewDataset(req.DataverseKey)
+	pid, err := utils.CreateNewDataset(req.Collection, req.DataverseKey)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

@@ -350,13 +350,16 @@ func getUser(dataverseKey string) (dv.User, error) {
 	return res, err
 }
 
-func CreateNewDataset(dataverseKey string) (string, error) {
+func CreateNewDataset(collection, dataverseKey string) (string, error) {
+	if collection == "" {
+		collection = defaultDataverse
+	}
 	user, err := getUser(dataverseKey)
 	if err != nil {
 		return "", err
 	}
 	body := dv.CreateDatasetRequestBody(user)
-	url := dataverseServer + "/api/dataverses/" + defaultDataverse + "/datasets?doNotValidate=true"
+	url := dataverseServer + "/api/dataverses/" + collection + "/datasets?doNotValidate=true"
 	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return "", err
@@ -449,12 +452,16 @@ func swordAddFile(dataverseKey, persistentId string, data []byte) error {
 	return nil
 }
 
-func ListDatasets(token string) ([]dv.Item, error) {
+func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
+	searchTerm := ""
+	if collection != "" {
+		searchTerm = "identifierOfDataverse=" + collection
+	}
 	res := []dv.Item{}
 	hasNextPage := true
 	for page := 1; hasNextPage; page++ {
 		url := dataverseServer + "/api/v1/mydata/retrieve?key=" + token + "&selected_page=" + fmt.Sprint(page) +
-			"&dvobject_types=Dataset&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review&role_ids=2&role_ids=5&role_ids=6&mydata_search_term="
+			"&dvobject_types=" + objectType + "&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review&role_ids=2&role_ids=5&role_ids=6&mydata_search_term=" + searchTerm
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, err

@@ -11,8 +11,8 @@ import (
 )
 
 type StoreResult struct {
-	Status     string `json:"status"`
-	DatsetUrl  string `json:"datasetUrl"`
+	Status    string `json:"status"`
+	DatsetUrl string `json:"datasetUrl"`
 }
 
 type StoreRequest struct {
@@ -62,7 +62,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := StoreResult{
-		Status: "OK",
+		Status:    "OK",
 		DatsetUrl: utils.GetDatasetUrl(req.PersistentId),
 	}
 	b, err = json.Marshal(res)

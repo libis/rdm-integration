@@ -208,6 +208,7 @@ type Item struct {
 	Type                  string    `json:"type"`
 	Url                   string    `json:"url"`
 	GlobalId              string    `json:"global_id"`
+	Identifier            string    `json:"identifier"`
 	Description           string    `json:"description"`
 	Publisher             string    `json:"publisher"`
 	CitationHtml          string    `json:"citationHtml"`
