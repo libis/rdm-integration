@@ -3,6 +3,21 @@ This is a work in progress and at this point only for GitHub, GitLab and Irods i
 
 With this application, files can be synchronized between different source repositories and a Dataverse repository. The application uses background processes for the synchronization of the files, as well as, for hashing of the local files when the source repository uses different hash type from Dataverse. The hashes are then used for the comparing of the files. The frontend application does not need to be running when the synchronization is running on the server, and multiple synchronizations for different users can run simultaneously, each on its own go-routine.
 
+## Prerequisites
+For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. If you want to run the application locally without the Docker containers, you will need to have the latest Go installed. If you wish to build the application's container, you will need to have the Docker installed.
+
+## Running the application
+In order to run the application locally, checkout in the same folder this repository (rdm-integration from https://github.com/libis/rdm-integration) and the frontend (rdm-integration-frontend from https://github.com/libis/rdm-integration-frontend). Then go to /rdm-integration and run "make run". Notice that if you do not run standard Libis rdm (Dataverse) locally, you will need to define environment variables as defined in /image/app/env.go
+
+You can also use make commands to build the docker image (make build) or push to the docker repository (make push).
+
+In order to redeploy the integration application on pilot/prod (after building with make build with env set to prod):
+- ssh to the server
+- make pull
+- make stop-integration
+- make up
+
+## Writting a new plugin
 In order to integrate a new repository type, you need to implement a new plugin for the backend. The plugins are implemented in the /image/app/plugin/impl folder (each having its own package). The new plugin implementation must be then registered in the /image/app/plugin/registry.go file. As can be seen in the same file, a plugin implements functions that are required by the Plugin type:
 ```
 type Plugin struct {
@@ -18,16 +33,6 @@ Note that the Plugin type is a struct and cannot hold any state, as it has no fi
 - Streams: files are synchronized using streams from the source repository to the filesystem, where each file has its own stream. This function implements "types.Stream" objects for the provided files (the "in" parameter contains a filtered list of files that are going to be copied from the repository). Notably, a "types.Stream" object contains a function for opening a stream to the provided file and a function to close that stream.
 
 After implementing the above-mentioned functions on the backend, you need to extend the frontend (https://github.com/libis/rdm-integration-frontend) by adding a frontend plugin in "plugin.service.ts". This is a straight forward implementation of the RepoPlugin type as defined in the "plugin.ts" model. It basically tells the frontend that there is a new repository type, which field should be shown on the connect page and how these fields should be named, etc., for the given repository type.
-
-In order to run the application locally, checkout in the same folder this repository (rdm-integration from https://github.com/libis/rdm-integration) and the frontend (rdm-integration-frontend from https://github.com/libis/rdm-integration-frontend). Then go to /rdm-integration and run "make run". Notice that if you do not run standard Libis rdm (Dataverse) locally, you will need to define environment variables as defined in /image/app/env.go
-
-You can also use make commands to build the docker image (make build) or push to the docker repository (make push).
-
-In order to redeploy the integration application on pilot/prod (after building with make build with env set to prod):
-- ssh to the server
-- make pull
-- make stop-integration
-- make up
 
 ## Sequence diagrams
 
