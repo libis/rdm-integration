@@ -478,3 +478,7 @@ func ListDatasets(token string) ([]dv.Item, error) {
 	}
 	return res, nil
 }
+
+func GetDatasetUrl(pid string) string {
+	return dataverseServer + "/dataset.xhtml?version=DRAFT&persistentId=" + pid
+}

@@ -11,7 +11,8 @@ import (
 )
 
 type StoreResult struct {
-	Status string `json:"status"`
+	Status     string `json:"status"`
+	DatsetUrl  string `json:"datasetUrl"`
 }
 
 type StoreRequest struct {
@@ -60,7 +61,10 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	res := StoreResult{Status: "OK"}
+	res := StoreResult{
+		Status: "OK",
+		DatsetUrl: utils.GetDatasetUrl(req.PersistentId),
+	}
 	b, err = json.Marshal(res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
