@@ -82,7 +82,7 @@ sequenceDiagram
     Frontend->>+Backend: /api/common/newdataset
     Backend->>Dataverse: POST /api/dataverses/{{Dataverse collection}}/datasets
     Dataverse-->>Backend: Response
-    Backend-->>-Frontend: Persistent ID and a URL of the new datase
+    Backend-->>-Frontend: Persistent ID of the new datase
 ```
 
 ### Compare files
