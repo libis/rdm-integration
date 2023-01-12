@@ -21,7 +21,7 @@ RUN addgroup --gid ${GROUP_ID} app \
  && adduser --disabled-password --uid ${USER_ID} --ingroup app --gecos '' app
 
 COPY --from=0 /usr/local/bin/app /usr/local/bin/app
-COPY --from=0 /usr/src/app/dist/datasync /usr/local/bin/dist/datasync
+COPY --from=0 /usr/src/app/dist/datasync /dist/datasync
 
 USER app
 

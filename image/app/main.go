@@ -7,10 +7,10 @@ import (
 	"integration/app/logging"
 	"integration/app/plugin/funcs/compare"
 	"integration/app/plugin/funcs/options"
-	"integration/app/utils"
 	"integration/app/workers/spinner"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -31,7 +31,8 @@ func main() {
 	http.HandleFunc("/api/common/dvobjects", common.DvObjects)
 
 	// serve html
-	fs := http.FileServer(http.Dir(utils.FileServerPath))
+	path, _ := os.Getwd()
+	fs := http.FileServer(http.Dir(path + string(filepath.Separator) + "dist" + string(filepath.Separator) + "datasync"))
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/connect") {
 			r.URL.Path = "/"

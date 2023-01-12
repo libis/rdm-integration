@@ -352,7 +352,7 @@ func getUser(dataverseKey string) (dv.User, error) {
 
 func CreateNewDataset(collection, dataverseKey string) (string, error) {
 	if collection == "" {
-		collection = defaultDataverse
+		collection = rootDataverseId
 	}
 	user, err := getUser(dataverseKey)
 	if err != nil {
@@ -487,5 +487,8 @@ func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
 }
 
 func GetDatasetUrl(pid string) string {
+	if dataverseExternalUrl != "" {
+		return dataverseExternalUrl + "/dataset.xhtml?version=DRAFT&persistentId=" + pid
+	}
 	return dataverseServer + "/dataset.xhtml?version=DRAFT&persistentId=" + pid
 }
