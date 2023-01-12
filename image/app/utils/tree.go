@@ -18,6 +18,9 @@ type CompareResponse struct {
 
 func MergeNodeMaps(to, from map[string]tree.Node) {
 	for k, v := range from {
+		if !v.Attributes.IsFile {
+			continue
+		}
 		node, ok := to[k]
 		if !ok {
 			node = v
