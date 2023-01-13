@@ -21,9 +21,6 @@ build: fmt ## Build Docker image
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
 		--tag "$(IMAGE_TAG)" ./image
 
-redeploy: ## Deploy Docker image
-	cd ../rdm-deployment && make stop-integration && make up
-
 push: ## Push Docker image (only in prod stage)
 	if [ "$(STAGE)" = "prod" ]; then \
 		echo "Pushing Docker image to repository ..."; \
@@ -36,7 +33,6 @@ run: fmt frontend ## Run the server locally
 	echo "Starting redis ..."
 	docker stop redis || true && docker rm redis || true && docker run -p 6379:6379 --name redis -d redis
 	echo "Starting app ..."
-	cd image && go fmt ./app/...
 	cd image && go run ./app 100
 
 fmt: ## Format the go code
@@ -48,6 +44,6 @@ frontend: ## build frontend
 	rm -rf image/app/frontend/dist
 	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist
 
-executable: ## build executable for running locally
+executable: fmt frontend ## build executable for running locally
 	cd image && go fmt ./app/...
-	cd image && go build -v -o ../app.exe ./app/local/
+	cd image && go build -v -o ../datasync.exe ./app/local/

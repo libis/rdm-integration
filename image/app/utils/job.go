@@ -27,17 +27,17 @@ var Wait = sync.WaitGroup{}
 var lockMaxDuration = time.Hour * 24
 
 func IsLocked(persistentId string) bool {
-	l := rdb.Get(context.Background(), "lock: "+persistentId)
+	l := GetRedis().Get(context.Background(), "lock: "+persistentId)
 	return l.Val() != ""
 }
 
 func lock(persistentId string) bool {
-	ok := rdb.SetNX(context.Background(), "lock: "+persistentId, true, lockMaxDuration)
+	ok := GetRedis().SetNX(context.Background(), "lock: "+persistentId, true, lockMaxDuration)
 	return ok.Val()
 }
 
 func unlock(persistentId string) {
-	rdb.Del(context.Background(), "lock: "+persistentId)
+	GetRedis().Del(context.Background(), "lock: "+persistentId)
 }
 
 func AddJob(job Job) error {
@@ -62,12 +62,12 @@ func addJob(job Job, requireLock bool) error {
 	if err != nil {
 		return err
 	}
-	cmd := rdb.LPush(context.Background(), "jobs", string(b))
+	cmd := GetRedis().LPush(context.Background(), "jobs", string(b))
 	return cmd.Err()
 }
 
 func popJob() (Job, bool) {
-	cmd := rdb.RPop(context.Background(), "jobs")
+	cmd := GetRedis().RPop(context.Background(), "jobs")
 	err := cmd.Err()
 	if err != nil {
 		return Job{}, false

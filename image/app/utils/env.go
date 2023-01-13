@@ -8,6 +8,7 @@ import (
 	"integration/app/plugin/types"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v9"
 )
@@ -44,7 +45,7 @@ type S3Config struct {
 var config Config
 
 // static vars
-var rdb *redis.Client                                                  // redis client singleton
+var rdb RedisClient                                                    // redis client singleton
 var unblockKey = ""                                                    // will be read from pathToUnblockKey
 var redisPassword = ""                                                 // will be read from pathToRedisPassword
 var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"       // will be removed when pull request is merged
@@ -82,7 +83,6 @@ func init() {
 		redisPassword = strings.TrimSpace(string(b))
 	}
 
-	// TODO: foresee the sync.Map implementation when no host was provided
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     config.Options.RedisHost,
 		Password: redisPassword,
@@ -90,12 +90,26 @@ func init() {
 	})
 }
 
-func GetRedis() *redis.Client {
+type RedisClient interface {
+	Ping(ctx context.Context) *redis.StatusCmd
+	Get(ctx context.Context, key string) *redis.StringCmd
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd
+	LPush(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
+	RPop(ctx context.Context, key string) *redis.StringCmd
+}
+
+func GetRedis() RedisClient {
 	return rdb
 }
 
+func SetRedis(r RedisClient) {
+	rdb = r
+}
+
 func RedisReady() bool {
-	res, err := rdb.Ping(context.Background()).Result()
+	res, err := GetRedis().Ping(context.Background()).Result()
 	if err != nil {
 		logging.Logger.Printf("redis error: %v", err)
 		return false

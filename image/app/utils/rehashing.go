@@ -69,7 +69,7 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 
 func getKnownHashes(persistentId string) map[string]calculatedHashes {
 	res := map[string]calculatedHashes{}
-	cache := rdb.Get(context.Background(), "hashes: "+persistentId)
+	cache := GetRedis().Get(context.Background(), "hashes: "+persistentId)
 	err := json.Unmarshal([]byte(cache.Val()), &res)
 	if err != nil {
 		return map[string]calculatedHashes{}
@@ -83,12 +83,12 @@ func storeKnownHashes(persistentId string, knownHashes map[string]calculatedHash
 		logging.Logger.Println("marshalling hashes failed")
 		return
 	}
-	res := rdb.Set(context.Background(), "hashes: "+persistentId, knownHashesJson, 0)
+	res := GetRedis().Set(context.Background(), "hashes: "+persistentId, knownHashesJson, 0)
 	logging.Logger.Println("hashes stored for", persistentId, len(knownHashes), res.Err())
 }
 
 func invalidateKnownHashes(persistentId string) {
-	rdb.Del(context.Background(), "hashes: "+persistentId)
+	GetRedis().Del(context.Background(), "hashes: "+persistentId)
 }
 
 func calculateHash(ctx context.Context, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
