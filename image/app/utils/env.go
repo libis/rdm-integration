@@ -2,6 +2,8 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"os"
@@ -10,33 +12,38 @@ import (
 	"github.com/go-redis/redis/v9"
 )
 
-// mandatory settings
-var dataverseServer = "https://localhost:7000" // url of the server where Detaverse API is deployed
-var redisHost = "localhost:6379"               // redis host where the jobs and requests can be stored
-var rootDataverseId = "rdr"                    // root dataverse collection id
-var defaultDriver = "file"                     // default driver as used by the dataverse installation
+// Configuration types
+type Config struct {
+	DataverseServer string         `json:"dataverseServer"` // url of the server where Detaverse API is deployed
+	Options         OptionalConfig `json:"options"`         // customizations
+}
 
-// config if using "file" driver
-var pathToFilesDir = "../../rdm-deployment/data/dv/files/" // path to the folder where dataverse files are stored (only needed when using "file" driver)
-
-// config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
-var awsEndpoint = "http://s3.libis.cloud"
-var awsRegion = "libis-cloud"
-var awsPathstyle = true
-var awsBucket = "dataverse"
+type OptionalConfig struct {
+	DataverseExternalUrl string   `json:"dataverseExternalUrl,omitempty"` // set this if different from dataverseServer -> this is used to generate a link to the dataset based
+	RootDataverseId      string   `json:"rootDataverseId,omitempty"`      // root dataverse collection id, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
+	DefaultHash          string   `json:"defaultHash,omitempty"`          // default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
+	PathToUnblockKey     string   `json:"pathToUnblockKey,omitempty"`     // configure to enable checking permissions before requesting jobs
+	RedisHost            string   `json:"redisHost,omitempty"`            // redis host, if left empty: sync map would be used instead (the workers and the webserver need to run in the same main in this case)
+	PathToRedisPassword  string   `json:"pathToRedisPassword,omitempty"`  // by default no password is set, if you need to authenticate, store here the path to the file containing the redis password
+	RedisDB              int      `json:"redisDB,omitempty"`              // by default DB 0 is used, if you need to use other DB, specify it here
+	DefaultDriver        string   `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
+	PathToFilesDir       string   `json:"pathToFilesDir,omitempty"`       // path to the folder where dataverse files are stored (only needed when using "file" driver)
+	S3Config             S3Config `json:"s3Config,omitempty"`             // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
+}
 
 // Environment variables used for credentials: set these variables when using "s3" driver on the system where this application is deployed
 // * Access Key ID:     AWS_ACCESS_KEY_ID or AWS_ACCESS_KEY
 // * Secret Access Key: AWS_SECRET_ACCESS_KEY or AWS_SECRET_KEY
+type S3Config struct {
+	AWSEndpoint  string `json:"awsEndpoint"`
+	AWSRegion    string `json:"awsRegion"`
+	AWSPathstyle bool   `json:"awsPathstyle"`
+	AWSBucket    string `json:"awsBucket"`
+}
 
-// optional settings
-var dataverseExternalUrl = ""                                       // set this if different from dataverseServer -> this is used to generate a link to the dataset based
-var defaultHash = types.Md5                                         // default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
-var pathToUnblockKey = "../../rdm-deployment/data/.secrets/api/key" // configure to enable checking permissions before requesting jobs
-var pathToRedisPassword = ""                                        // no password set
-var redisDB = 0                                                     // use default DB
+var config Config
 
-// vars
+// static vars
 var rdb *redis.Client                                                  // redis client singleton
 var unblockKey = ""                                                    // will be read from pathToUnblockKey
 var redisPassword = ""                                                 // will be read from pathToRedisPassword
@@ -45,71 +52,41 @@ var directUpload = "https://github.com/IQSS/dataverse/pull/9003"       // will b
 var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be removed when pull request is merged
 
 func init() {
-	server := os.Getenv("DATAVERSE_SERVER")
-	rh := os.Getenv("REDIS_HOST")
-	dv := os.Getenv("ROOT_DATAVERSE")
-	driver := os.Getenv("STORAGE_DRIVER")
-	files := os.Getenv("FILES_PATH")
-	region := os.Getenv("AWS_REGION")
-	endpoint := os.Getenv("AWS_ENDPOINT")
-	style := os.Getenv("AWS_PATH_STYLE_ACCESS")
-	bucket := os.Getenv("AWS_BUCKET")
-	url := os.Getenv("DV_EXT_URL")
-	hash := os.Getenv("HASH_TYPE")
-	pathUK := os.Getenv("PATH_TO_UNBLOCK_KEY")
-	if server != "" {
-		dataverseServer = server
-	}
-	if rh != "" {
-		redisHost = rh
-	}
-	if dv != "" {
-		rootDataverseId = dv
-	}
-	if driver != "" {
-		defaultDriver = driver
-	}
-	if files != "" {
-		pathToFilesDir = files
-	}
-	if region != "" {
-		awsRegion = region
-	}
-	if endpoint != "" {
-		awsEndpoint = endpoint
-	}
-	if style != "" {
-		awsPathstyle = style == "true" || style == "TRUE" || style == "\"TRUE\"" || style == "\"true\""
-	}
-	if bucket != "" {
-		awsBucket = bucket
-	}
-	if url != "" {
-		dataverseExternalUrl = url
-	}
-	if hash != "" {
-		defaultHash = hash
-	}
-	if pathUK != "" {
-		pathToUnblockKey = pathUK
-	}
-	b, err := os.ReadFile(pathToUnblockKey)
+	// read configuration
+	configFile := os.Getenv("DATASYNC_CONFIG_FILE")
+	b, err := os.ReadFile(configFile)
 	if err != nil {
-		logging.Logger.Println("unblock key could not be read from file " + pathToUnblockKey + ": permissions will not be checked prior to requesting jobs: " + err.Error())
+		logging.Logger.Printf("config file %v not found: letting the user to choose the server\n", configFile)
+	} else {
+		err := json.Unmarshal(b, &config)
+		if err != nil {
+			panic(fmt.Errorf("config confing could not be loaded from %v: %v", configFile, err))
+		}
+	}
+	if config.Options.DefaultHash == "" {
+		config.Options.DefaultHash = types.Md5
+	}
+
+	// initialize variables
+	b, err = os.ReadFile(config.Options.PathToUnblockKey)
+	if err != nil {
+		logging.Logger.Println("unblock key could not be read from file " + config.Options.PathToUnblockKey + ": permissions will not be checked prior to requesting jobs: " + err.Error())
 	} else {
 		unblockKey = strings.TrimSpace(string(b))
 	}
-	b, err = os.ReadFile(pathToRedisPassword)
+
+	b, err = os.ReadFile(config.Options.PathToRedisPassword)
 	if err != nil {
-		logging.Logger.Println("redis password could not be read from file " + pathToRedisPassword + ": default empy password will be used: " + err.Error())
+		logging.Logger.Println("redis password could not be read from file " + config.Options.PathToRedisPassword + ": default empy password will be used: " + err.Error())
 	} else {
 		redisPassword = strings.TrimSpace(string(b))
 	}
 
+	// TODO: foresee the sync.Map implementation when no host was provided
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     redisHost,
+		Addr:     config.Options.RedisHost,
 		Password: redisPassword,
-		DB:       redisDB,
+		DB:       config.Options.RedisDB,
 	})
 }
 

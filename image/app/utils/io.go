@@ -69,10 +69,10 @@ func generateFileName() string {
 
 func generateStorageIdentifier(fileName string) string {
 	b := ""
-	if defaultDriver == "s3" {
-		b = awsBucket + ":"
+	if config.Options.DefaultDriver == "s3" {
+		b = config.Options.S3Config.AWSBucket + ":"
 	}
-	return fmt.Sprintf("%s://%s%s", defaultDriver, b, fileName)
+	return fmt.Sprintf("%s://%s%s", config.Options.DefaultDriver, b, fileName)
 }
 
 func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
@@ -173,10 +173,10 @@ func write(ctx context.Context, fileStream types.Stream, storageIdentifier, pers
 		}
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{
-			Region:           aws.String(awsRegion),
-			Endpoint:         aws.String(awsEndpoint),
+			Region:           aws.String(config.Options.S3Config.AWSRegion),
+			Endpoint:         aws.String(config.Options.S3Config.AWSEndpoint),
 			Credentials:      credentials.NewEnvCredentials(),
-			S3ForcePathStyle: aws.Bool(awsPathstyle),
+			S3ForcePathStyle: aws.Bool(config.Options.S3Config.AWSPathstyle),
 		})
 		if err != nil {
 			return nil, nil, b, err
@@ -220,7 +220,7 @@ func getFile(pid string, s storage, b *bytes.Buffer, id string) (io.WriteCloser,
 		writer, err := zipWriter.Create(id)
 		return zipWriterCloser{writer, zipWriter}, err
 	}
-	path := pathToFilesDir + pid + "/"
+	path := config.Options.PathToFilesDir + pid + "/"
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
@@ -249,7 +249,7 @@ func doHash(ctx context.Context, persistentId string, node tree.Node) ([]byte, e
 	s := getStorage(storageIdentifier)
 	var reader io.Reader
 	if s.driver == "file" {
-		file := pathToFilesDir + pid + "/" + s.filename
+		file := config.Options.PathToFilesDir + pid + "/" + s.filename
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, err
@@ -258,10 +258,10 @@ func doHash(ctx context.Context, persistentId string, node tree.Node) ([]byte, e
 		reader = f
 	} else if s.driver == "s3" {
 		sess, _ := session.NewSession(&aws.Config{
-			Region:           aws.String(awsRegion),
-			Endpoint:         aws.String(awsEndpoint),
+			Region:           aws.String(config.Options.S3Config.AWSRegion),
+			Endpoint:         aws.String(config.Options.S3Config.AWSEndpoint),
 			Credentials:      credentials.NewEnvCredentials(),
-			S3ForcePathStyle: aws.Bool(awsPathstyle),
+			S3ForcePathStyle: aws.Bool(config.Options.S3Config.AWSPathstyle),
 		})
 		svc := s3.New(sess)
 		rawObject, err := svc.GetObject(
