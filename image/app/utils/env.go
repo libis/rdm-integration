@@ -15,8 +15,9 @@ import (
 
 // Configuration types
 type Config struct {
-	DataverseServer string         `json:"dataverseServer"` // url of the server where Detaverse API is deployed
-	Options         OptionalConfig `json:"options"`         // customizations
+	DataverseServer string         `json:"dataverseServer"`     // url of the server where Detaverse API is deployed
+	RedisHost       string         `json:"redisHost,omitempty"` // redis host, not used when running the local/main.go (fake redis client with only 1 worker is used when running on local machine)
+	Options         OptionalConfig `json:"options"`             // customizations
 }
 
 type OptionalConfig struct {
@@ -24,7 +25,6 @@ type OptionalConfig struct {
 	RootDataverseId      string   `json:"rootDataverseId,omitempty"`      // root dataverse collection id, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
 	DefaultHash          string   `json:"defaultHash,omitempty"`          // default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
 	PathToUnblockKey     string   `json:"pathToUnblockKey,omitempty"`     // configure to enable checking permissions before requesting jobs
-	RedisHost            string   `json:"redisHost,omitempty"`            // redis host, if left empty: sync map would be used instead (the workers and the webserver need to run in the same main in this case)
 	PathToRedisPassword  string   `json:"pathToRedisPassword,omitempty"`  // by default no password is set, if you need to authenticate, store here the path to the file containing the redis password
 	RedisDB              int      `json:"redisDB,omitempty"`              // by default DB 0 is used, if you need to use other DB, specify it here
 	DefaultDriver        string   `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
@@ -84,7 +84,7 @@ func init() {
 	}
 
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     config.Options.RedisHost,
+		Addr:     config.RedisHost,
 		Password: redisPassword,
 		DB:       config.Options.RedisDB,
 	})
