@@ -13,7 +13,9 @@ import (
 func SpinWorkers(numberWorkers int) {
 	// start workers in background
 	for i := 0; i < numberWorkers; i++ {
-		time.Sleep(time.Duration(rand.Intn(10000/numberWorkers)) * time.Millisecond)
+		if numberWorkers > 1 {
+			time.Sleep(time.Duration(rand.Intn(10000/numberWorkers)) * time.Millisecond)
+		}
 		go utils.ProcessJobs()
 	}
 
