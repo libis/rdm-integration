@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sync"
 )
 
 func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
@@ -179,8 +179,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		remoteHashType := v.Attributes.RemoteHashType
 		var h []byte
 		var remoteH []byte
-		var b *bytes.Buffer
-		h, remoteH, b, err = write(ctx, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
+		h, remoteH, err = write(ctx, dataverseKey, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
 		if err != nil {
 			return
 		}
@@ -201,7 +200,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				return
 			}
 		}
-		if directUpload == "true" {
+		if directUpload == "true" && config.Options.DefaultDriver != "" {
 			directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
 			if *directoryLabel == "" {
 				directoryLabel = nil
@@ -217,11 +216,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				},
 			}
 			err = writeToDV(dataverseKey, persistentId, data)
-			if err != nil {
-				return
-			}
-		} else {
-			err = swordAddFile(dataverseKey, persistentId, b.Bytes())
 			if err != nil {
 				return
 			}
@@ -433,26 +427,28 @@ func noSlashPermissionUrl(persistentId, dataverseKey string) (string, error) {
 	return fmt.Sprintf("%s/api/admin/permissions/%v?&unblock-key=%s", config.DataverseServer, id, unblockKey), nil
 }
 
-func swordAddFile(dataverseKey, persistentId string, data []byte) error {
+func swordAddFile(dataverseKey, persistentId string, pr io.Reader, wg *sync.WaitGroup, err error) {
 	url := config.DataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
-	body := bytes.NewReader(data)
-	request, err := http.NewRequest("POST", url, body)
+	var request *http.Request
+	request, err = http.NewRequest("POST", url, pr)
 	if err != nil {
-		return err
+		return
 	}
 	request.Header.Add("Content-Type", "application/zip")
 	request.Header.Add("Content-Disposition", "filename=example.zip")
 	request.Header.Add("Packaging", "http://purl.org/net/sword/package/SimpleZip")
 	request.SetBasicAuth(dataverseKey, "")
-	r, err := http.DefaultClient.Do(request)
+	var r *http.Response
+	r, err = http.DefaultClient.Do(request)
 	if err != nil {
-		return err
+		return
 	}
 	if r.StatusCode != 201 {
 		b, _ := io.ReadAll(r.Body)
-		return fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
+		err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
 	}
-	return nil
+	wg.Done()
+	return
 }
 
 func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {

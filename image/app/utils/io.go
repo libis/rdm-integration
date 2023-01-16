@@ -2,7 +2,6 @@ package utils
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"crypto/md5"
 	"crypto/sha1"
@@ -15,6 +14,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -129,40 +129,47 @@ func (h FileSizeHash) BlockSize() int {
 	return 256
 }
 
-func write(ctx context.Context, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) ([]byte, []byte, *bytes.Buffer, error) {
-	b := bytes.NewBuffer(nil)
+func write(ctx context.Context, dataverseKey string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) (hash []byte, remoteHash []byte, retErr error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	s := getStorage(storageIdentifier)
 	hasher, err := getHash(hashType, fileSize)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	remoteHasher, err := getHash(remoteHashType, fileSize)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	readStream, err := fileStream.Open()
 	defer fileStream.Close()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	reader := hashingReader{readStream, hasher}
 	reader = hashingReader{reader, remoteHasher}
 
-	if s.driver == "file" || directUpload != "true" {
-		f, err := getFile(pid, s, b, id)
-		if err != nil {
-			return nil, nil, nil, err
+	if s.driver == "file" || s.driver == "" || directUpload != "true" {
+		wg := &sync.WaitGroup{}
+		f, err1 := getFile(wg, dataverseKey, persistentId, pid, s, id)
+		if err1 != nil {
+			return nil, nil, err1
 		}
-		defer f.Close()
+		defer func() {
+			if f != nil {
+				f.Close()
+			}
+			if retErr == nil {
+				retErr = err1
+			}
+		}()
 		buf := make([]byte, 64*1024)
 		for {
 			select {
 			case <-ctx.Done():
-				return nil, nil, nil, ctx.Err()
+				return nil, nil, ctx.Err()
 			default:
 			}
 			n, err2 := reader.Read(buf)
@@ -171,6 +178,8 @@ func write(ctx context.Context, fileStream types.Stream, storageIdentifier, pers
 				break
 			}
 		}
+		f.Close()
+		wg.Wait()
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{
 			Region:           aws.String(config.Options.S3Config.AWSRegion),
@@ -179,7 +188,7 @@ func write(ctx context.Context, fileStream types.Stream, storageIdentifier, pers
 			S3ForcePathStyle: aws.Bool(config.Options.S3Config.AWSPathstyle),
 		})
 		if err != nil {
-			return nil, nil, b, err
+			return nil, nil, err
 		}
 		uploader := s3manager.NewUploader(sess)
 		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
@@ -188,18 +197,19 @@ func write(ctx context.Context, fileStream types.Stream, storageIdentifier, pers
 			Body:   reader,
 		})
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 	} else {
-		return nil, nil, nil, fmt.Errorf("unsupported driver: %s", s.driver)
+		return nil, nil, fmt.Errorf("unsupported driver: %s", s.driver)
 	}
 
-	return hasher.Sum(nil), remoteHasher.Sum(nil), b, nil
+	return hasher.Sum(nil), remoteHasher.Sum(nil), nil
 }
 
 type zipWriterCloser struct {
 	writer    io.Writer
 	zipWriter *zip.Writer
+	pw        io.WriteCloser
 }
 
 func (z zipWriterCloser) Write(p []byte) (n int, err error) {
@@ -211,14 +221,18 @@ func (z zipWriterCloser) Close() error {
 	if err != nil {
 		return err
 	}
+	defer z.pw.Close()
 	return z.zipWriter.Close()
 }
 
-func getFile(pid string, s storage, b *bytes.Buffer, id string) (io.WriteCloser, error) {
-	if directUpload != "true" {
-		zipWriter := zip.NewWriter(b)
+func getFile(wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s storage, id string) (io.WriteCloser, error) {
+	if directUpload != "true" || s.driver == "" {
+		pr, pw := io.Pipe()
+		zipWriter := zip.NewWriter(pw)
 		writer, err := zipWriter.Create(id)
-		return zipWriterCloser{writer, zipWriter}, err
+		wg.Add(1)
+		go swordAddFile(dataverseKey, persistentId, pr, wg, err)
+		return zipWriterCloser{writer, zipWriter, pw}, err
 	}
 	path := config.Options.PathToFilesDir + pid + "/"
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
