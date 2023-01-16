@@ -54,7 +54,7 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 	i := 0
 	total := len(nodes)
 	for k, node := range nodes {
-		err = calculateHash(ctx, persistentId, node, knownHashes)
+		err = calculateHash(ctx, dataverseKey, persistentId, node, knownHashes)
 		if err != nil {
 			return
 		}
@@ -91,7 +91,7 @@ func invalidateKnownHashes(persistentId string) {
 	GetRedis().Del(context.Background(), "hashes: "+persistentId)
 }
 
-func calculateHash(ctx context.Context, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
+func calculateHash(ctx context.Context, dataverseKey, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
 	hashType := node.Attributes.RemoteHashType
 	known, ok := knownHashes[node.Id]
 	if ok && known.LocalHashType == node.Attributes.Metadata.DataFile.Checksum.Type && known.LocalHashValue == node.Attributes.Metadata.DataFile.Checksum.Value {
@@ -106,7 +106,7 @@ func calculateHash(ctx context.Context, persistentId string, node tree.Node, kno
 			RemoteHashes:   map[string]string{},
 		}
 	}
-	h, err := doHash(ctx, persistentId, node)
+	h, err := doHash(ctx, dataverseKey, persistentId, node)
 	if err != nil {
 		return fmt.Errorf("failed to hash local file %v: %v", node.Attributes.Metadata.DataFile.StorageIdentifier, err)
 	}

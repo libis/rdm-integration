@@ -249,7 +249,7 @@ func getFile(wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s stora
 	return f, nil
 }
 
-func doHash(ctx context.Context, persistentId string, node tree.Node) ([]byte, error) {
+func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.Node) ([]byte, error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, err
@@ -288,6 +288,13 @@ func doHash(ctx context.Context, persistentId string, node tree.Node) ([]byte, e
 		}
 		defer rawObject.Body.Close()
 		reader = rawObject.Body
+	} else if s.driver == "" {
+		readCloser, err := downloadFile(dataverseKey, node.Attributes.Metadata.DataFile.PersistentId)
+		if err != nil {
+			return nil, err
+		}
+		defer readCloser.Close()
+		reader = readCloser
 	} else {
 		return nil, fmt.Errorf("unsupported driver: %s", s.driver)
 	}

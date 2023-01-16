@@ -491,3 +491,16 @@ func GetDatasetUrl(pid string) string {
 	}
 	return config.DataverseServer + "/dataset.xhtml?version=DRAFT&persistentId=" + pid
 }
+
+func downloadFile(dataverseKey, persistentId string) (io.ReadCloser, error) {
+	request, err := http.NewRequest("GET", config.DataverseServer+fmt.Sprintf("/api/access/datafile/:persistentId/?persistentId=%s", persistentId), nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("X-Dataverse-key", dataverseKey)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	return response.Body, nil
+}
