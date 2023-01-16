@@ -15,7 +15,13 @@ import (
 	"github.com/go-redis/redis/v9"
 )
 
+var DataverseServer string
+var RootDataverseId string
+var DefaultHash string
+
 func main() {
+	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash)
+	logging.Logger.Printf("DataverseServer=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, RootDataverseId, DefaultHash)
 	go server.Start()
 	utils.SetRedis(newFakeRedis())
 	openbrowser("http://localhost:7788/")

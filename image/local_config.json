@@ -1,10 +1,4 @@
 {
     "dataverseServer": "https://localhost:7000",
-    "redisHost": "localhost:6379",
-    "options": {
-        "rootDataverseId": "rdr",
-        "defaultDriver": "file",
-        "pathToFilesDir": "../../rdm-deployment/data/dv/files/",
-        "pathToUnblockKey": "../../rdm-deployment/data/.secrets/api/key"
-    }
+    "redisHost": "localhost:6379"
 }

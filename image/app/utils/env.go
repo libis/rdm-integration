@@ -108,6 +108,14 @@ func SetRedis(r RedisClient) {
 	rdb = r
 }
 
+func SetConfig(dataverseServer, rootDataverseId, defaultHash string) {
+	config.DataverseServer = dataverseServer
+	config.Options.RootDataverseId = rootDataverseId
+	if defaultHash != "" {
+		config.Options.DefaultHash = defaultHash
+	}
+}
+
 func RedisReady() bool {
 	res, err := GetRedis().Ping(context.Background()).Result()
 	if err != nil {

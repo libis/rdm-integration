@@ -46,4 +46,4 @@ frontend: ## build frontend
 
 executable: fmt frontend ## build executable for running locally
 	cd image && go fmt ./app/...
-	cd image && go build -v -o ../datasync.exe ./app/local/
+	cd image && go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o ../datasync.exe ./app/local/
