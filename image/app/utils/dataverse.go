@@ -41,19 +41,15 @@ func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
 	mapped := mapToNodes(res.Data)
 	//check known hashes cache
 	knownHashes := getKnownHashes(persistentId)
-	invalid := len(mapped) != len(knownHashes)
-	if invalid {
-		invalidateKnownHashes(persistentId)
-		return mapped, nil
-	}
 	for k, v := range mapped {
-		invalid = invalid || knownHashes[k].LocalHashValue != v.Attributes.LocalHash
+		if knownHashes[k].LocalHashValue == "" {
+			continue
+		}
+		invalid := (knownHashes[k].LocalHashValue != v.Attributes.Metadata.DataFile.Checksum.Value)
 		if invalid {
+			invalidateKnownHashes(persistentId)
 			break
 		}
-	}
-	if invalid {
-		invalidateKnownHashes(persistentId)
 	}
 	return mapped, nil
 }
