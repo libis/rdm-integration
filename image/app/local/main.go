@@ -20,7 +20,7 @@ var RootDataverseId string
 var DefaultHash string
 
 func main() {
-	utils.SetConfig(false, DataverseServer, RootDataverseId, DefaultHash)
+	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash)
 	logging.Logger.Printf("DataverseServer=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, RootDataverseId, DefaultHash)
 	go server.Start()
 	utils.SetRedis(newFakeRedis())

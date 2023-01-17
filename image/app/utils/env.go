@@ -89,6 +89,7 @@ func init() {
 		Password: redisPassword,
 		DB:       config.Options.RedisDB,
 	})
+	checkPermissions = unblockKey != ""
 }
 
 type RedisClient interface {
@@ -109,13 +110,12 @@ func SetRedis(r RedisClient) {
 	rdb = r
 }
 
-func SetConfig(checkPerm bool, dataverseServer, rootDataverseId, defaultHash string) {
+func SetConfig(dataverseServer, rootDataverseId, defaultHash string) {
 	config.DataverseServer = dataverseServer
 	config.Options.RootDataverseId = rootDataverseId
 	if defaultHash != "" {
 		config.Options.DefaultHash = defaultHash
 	}
-	checkPermissions = checkPerm
 }
 
 func RedisReady() bool {
