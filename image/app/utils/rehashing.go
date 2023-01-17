@@ -14,7 +14,7 @@ type calculatedHashes struct {
 	RemoteHashes   map[string]string
 }
 
-func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes map[string]tree.Node) bool {
+func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes map[string]tree.Node, addJobs bool) bool {
 	knownHashes := getKnownHashes(persistentId)
 	jobNodes := map[string]tree.Node{}
 	for k, node := range nodes {
@@ -28,7 +28,7 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 			nodes[k] = node
 		}
 	}
-	if len(jobNodes) > 0 && dataverseKey != "" {
+	if len(jobNodes) > 0 && addJobs {
 		AddJob(
 			Job{
 				DataverseKey:  dataverseKey,
@@ -83,7 +83,7 @@ func storeKnownHashes(persistentId string, knownHashes map[string]calculatedHash
 		logging.Logger.Println("marshalling hashes failed")
 		return
 	}
-	res := GetRedis().Set(context.Background(), "hashes: "+persistentId, knownHashesJson, 0)
+	res := GetRedis().Set(context.Background(), "hashes: "+persistentId, string(knownHashesJson), 0)
 	logging.Logger.Println("hashes stored for", persistentId, len(knownHashes), res.Err())
 }
 

@@ -16,6 +16,7 @@ func SpinWorkers(numberWorkers int) {
 		if numberWorkers > 1 {
 			time.Sleep(time.Duration(rand.Intn(10000/numberWorkers)) * time.Millisecond)
 		}
+		utils.Wait.Add(1)
 		go utils.ProcessJobs()
 	}
 

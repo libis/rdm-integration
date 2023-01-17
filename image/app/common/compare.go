@@ -14,6 +14,7 @@ import (
 type CompareRequest struct {
 	Data         []tree.Node `json:"data"`
 	PersistentId string      `json:"persistentId"`
+	DataverseKey string      `json:"dataverseKey"`
 }
 
 type Key struct {
@@ -109,7 +110,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//compare and write response
-	res := utils.Compare(nm, req.PersistentId, "")
+	res := utils.Compare(nm, req.PersistentId, req.DataverseKey, false)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

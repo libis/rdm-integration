@@ -33,8 +33,8 @@ func MergeNodeMaps(to, from map[string]tree.Node) {
 	}
 }
 
-func Compare(in map[string]tree.Node, pid, dataverseKey string) CompareResponse {
-	jobNeeded := localRehashToMatchRemoteHashType(dataverseKey, pid, in)
+func Compare(in map[string]tree.Node, pid, dataverseKey string, addJobs bool) CompareResponse {
+	jobNeeded := localRehashToMatchRemoteHashType(dataverseKey, pid, in, addJobs)
 	data := []tree.Node{}
 	empty := false
 	for _, v := range in {

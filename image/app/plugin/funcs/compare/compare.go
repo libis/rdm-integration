@@ -74,7 +74,7 @@ func doCompare(req types.CompareRequest, key string) {
 	utils.MergeNodeMaps(nm, repoNm)
 
 	//compare and write response
-	res := utils.Compare(nm, req.PersistentId, req.DataverseKey)
+	res := utils.Compare(nm, req.PersistentId, req.DataverseKey, true)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)

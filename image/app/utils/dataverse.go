@@ -279,6 +279,9 @@ func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
 }
 
 func CheckPermission(dataverseKey, persistentId string) error {
+	if !checkPermissions {
+		return nil
+	}
 	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=%s&unblock-key=%s", config.DataverseServer, persistentId, unblockKey)
 	if slashInPermissions != "true" {
 		var err error
@@ -492,8 +495,8 @@ func GetDatasetUrl(pid string) string {
 	return config.DataverseServer + "/dataset.xhtml?version=DRAFT&persistentId=" + pid
 }
 
-func downloadFile(dataverseKey, persistentId string) (io.ReadCloser, error) {
-	request, err := http.NewRequest("GET", config.DataverseServer+fmt.Sprintf("/api/access/datafile/:persistentId/?persistentId=%s", persistentId), nil)
+func downloadFile(dataverseKey string, id int) (io.ReadCloser, error) {
+	request, err := http.NewRequest("GET", config.DataverseServer+fmt.Sprintf("/api/access/datafile/%v", id), nil)
 	if err != nil {
 		return nil, err
 	}

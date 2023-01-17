@@ -20,7 +20,7 @@ var RootDataverseId string
 var DefaultHash string
 
 func main() {
-	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash)
+	utils.SetConfig(false, DataverseServer, RootDataverseId, DefaultHash)
 	logging.Logger.Printf("DataverseServer=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, RootDataverseId, DefaultHash)
 	go server.Start()
 	utils.SetRedis(newFakeRedis())
@@ -63,17 +63,22 @@ func newFakeRedis() *fakeRedis {
 }
 
 func (f *fakeRedis) Ping(ctx context.Context) *redis.StatusCmd {
-	return redis.NewStatusCmd(ctx, "PONG")
+	cmd := redis.NewStatusCmd(ctx)
+	cmd.SetVal("PONG")
+	return cmd
 }
 
 func (f *fakeRedis) Get(ctx context.Context, key string) *redis.StringCmd {
 	f.Lock()
 	defer f.Unlock()
 	v := f.values[key]
-	if f.expirations[key].After(time.Now()) {
+	exp, ok := f.expirations[key]
+	if ok && exp.After(time.Now()) {
 		v = ""
 	}
-	return redis.NewStringCmd(ctx, v)
+	cmd := redis.NewStringCmd(ctx)
+	cmd.SetVal(v)
+	return cmd
 }
 
 func (f *fakeRedis) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
@@ -81,7 +86,9 @@ func (f *fakeRedis) Set(ctx context.Context, key string, value interface{}, expi
 	defer f.Unlock()
 	f.values[key] = fmt.Sprintf("%v", value)
 	delete(f.expirations, key)
-	return redis.NewStatusCmd(ctx, "OK")
+	cmd := redis.NewStatusCmd(ctx)
+	cmd.SetVal("OK")
+	return cmd
 }
 
 func (f *fakeRedis) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd {
@@ -89,7 +96,9 @@ func (f *fakeRedis) SetNX(ctx context.Context, key string, value interface{}, ex
 	defer f.Unlock()
 	f.values[key] = fmt.Sprintf("%v", value)
 	f.expirations[key] = time.Now().Add(expiration)
-	return redis.NewBoolCmd(ctx, true)
+	cmd := redis.NewBoolCmd(ctx)
+	cmd.SetVal(true)
+	return cmd
 }
 
 func (f *fakeRedis) Del(ctx context.Context, keys ...string) *redis.IntCmd {
@@ -98,7 +107,9 @@ func (f *fakeRedis) Del(ctx context.Context, keys ...string) *redis.IntCmd {
 	for _, key := range keys {
 		delete(f.values, key)
 	}
-	return redis.NewIntCmd(ctx, len(keys))
+	cmd := redis.NewIntCmd(ctx)
+	cmd.SetVal(int64(len(keys)))
+	return cmd
 }
 
 func (f *fakeRedis) LPush(ctx context.Context, key string, values ...interface{}) *redis.IntCmd {
@@ -109,7 +120,9 @@ func (f *fakeRedis) LPush(ctx context.Context, key string, values ...interface{}
 		newValues = append(newValues, fmt.Sprintf("%v", v))
 	}
 	f.valueSlices[key] = append(newValues, f.valueSlices[key]...)
-	return redis.NewIntCmd(ctx, len(key))
+	cmd := redis.NewIntCmd(ctx)
+	cmd.SetVal(int64(len(key)))
+	return cmd
 }
 
 func (f *fakeRedis) RPop(ctx context.Context, key string) *redis.StringCmd {
@@ -123,5 +136,7 @@ func (f *fakeRedis) RPop(ctx context.Context, key string) *redis.StringCmd {
 	}
 	v := f.valueSlices[key][l-1]
 	f.valueSlices[key] = f.valueSlices[key][:l-1]
-	return redis.NewStringCmd(ctx, v)
+	cmd := redis.NewStringCmd(ctx)
+	cmd.SetVal(v)
+	return cmd
 }

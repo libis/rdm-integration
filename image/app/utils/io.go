@@ -151,7 +151,7 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 	reader := hashingReader{readStream, hasher}
 	reader = hashingReader{reader, remoteHasher}
 
-	if s.driver == "file" || s.driver == "" || directUpload != "true" {
+	if s.driver == "file" || config.Options.DefaultDriver == "" || directUpload != "true" {
 		wg := &sync.WaitGroup{}
 		f, err1 := getFile(wg, dataverseKey, persistentId, pid, s, id)
 		if err1 != nil {
@@ -226,7 +226,7 @@ func (z zipWriterCloser) Close() error {
 }
 
 func getFile(wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s storage, id string) (io.WriteCloser, error) {
-	if directUpload != "true" || s.driver == "" {
+	if directUpload != "true" || config.Options.DefaultDriver == "" {
 		pr, pw := io.Pipe()
 		zipWriter := zip.NewWriter(pw)
 		writer, err := zipWriter.Create(id)
@@ -262,7 +262,14 @@ func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.No
 	}
 	s := getStorage(storageIdentifier)
 	var reader io.Reader
-	if s.driver == "file" {
+	if config.Options.DefaultDriver == "" {
+		readCloser, err := downloadFile(dataverseKey, node.Attributes.Metadata.DataFile.Id)
+		if err != nil {
+			return nil, err
+		}
+		defer readCloser.Close()
+		reader = readCloser
+	} else if s.driver == "file" {
 		file := config.Options.PathToFilesDir + pid + "/" + s.filename
 		f, err := os.Open(file)
 		if err != nil {
@@ -288,13 +295,6 @@ func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.No
 		}
 		defer rawObject.Body.Close()
 		reader = rawObject.Body
-	} else if s.driver == "" {
-		readCloser, err := downloadFile(dataverseKey, node.Attributes.Metadata.DataFile.PersistentId)
-		if err != nil {
-			return nil, err
-		}
-		defer readCloser.Close()
-		reader = readCloser
 	} else {
 		return nil, fmt.Errorf("unsupported driver: %s", s.driver)
 	}

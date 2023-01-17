@@ -83,7 +83,6 @@ func popJob() (Job, bool) {
 }
 
 func ProcessJobs() {
-	Wait.Add(1)
 	defer Wait.Done()
 	defer logging.Logger.Println("worker exited grecefully")
 	for {
