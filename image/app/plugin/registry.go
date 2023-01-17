@@ -5,6 +5,7 @@ import (
 	"integration/app/plugin/impl/github"
 	"integration/app/plugin/impl/gitlab"
 	"integration/app/plugin/impl/irods"
+	"integration/app/plugin/impl/local"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 )
@@ -30,6 +31,11 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Query:   irods.Query,
 		Options: irods.Options,
 		Streams: irods.Streams,
+	},
+	"local": {
+		Query:   local.Query,
+		Options: nil,
+		Streams: local.Streams,
 	},
 }
 
