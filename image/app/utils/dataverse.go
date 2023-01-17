@@ -172,6 +172,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			delete(out.WritableNodes, k)
 			continue
 		}
+		// delete previous version before writting new version when replacing
+		if v.Attributes.Metadata.DataFile.Id != 0 {
+			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)
+			if err != nil {
+				return
+			}
+		}
 		fileStream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
@@ -193,12 +200,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			LocalHashType:  hashType,
 			LocalHashValue: hashValue,
 			RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
-		}
-		if v.Attributes.Metadata.DataFile.Id != 0 {
-			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)
-			if err != nil {
-				return
-			}
 		}
 		if directUpload == "true" && config.Options.DefaultDriver != "" {
 			directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
