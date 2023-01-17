@@ -7,6 +7,7 @@ import (
 	"integration/app/server"
 	"integration/app/utils"
 	"integration/app/workers/spinner"
+	"os"
 	"os/exec"
 	"runtime"
 	"sync"
@@ -20,6 +21,9 @@ var RootDataverseId string
 var DefaultHash string
 
 func main() {
+	if len(os.Args) > 1 {
+		DataverseServer = os.Args[1]
+	}
 	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash)
 	logging.Logger.Printf("DataverseServer=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, RootDataverseId, DefaultHash)
 	go server.Start()
