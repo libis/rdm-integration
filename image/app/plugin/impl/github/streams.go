@@ -1,7 +1,6 @@
 package github
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"integration/app/plugin/types"
@@ -34,16 +33,35 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		if sha == "" {
 			return nil, fmt.Errorf("streams: sha not found")
 		}
+		var gitErr error
+		var err error
+		var reader io.ReadCloser
 
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
-				b2, _, gitErr := client.Git.GetBlobRaw(ctx, user, repo, sha)
-				return bytes.NewReader(b2), gitErr
+				reader, err = GetBlobRaw(client, ctx, user, repo, sha, gitErr)
+				return reader, err
 			},
 			Close: func() error {
-				return nil
+				reader.Close()
+				return gitErr
 			},
 		}
 	}
 	return res, nil
+}
+
+func GetBlobRaw(client *github.Client, ctx context.Context, owner, repo, sha string, err error) (io.ReadCloser, error) {
+	u := fmt.Sprintf("repos/%v/%v/git/blobs/%v", owner, repo, sha)
+	req, reqErr := client.NewRequest("GET", u, nil)
+	if reqErr != nil {
+		return nil, reqErr
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3.raw")
+	pr, pw := io.Pipe()
+	go func() {
+		_, err = client.Do(ctx, req, pw)
+		pw.Close()
+	}()
+	return pr, nil
 }
