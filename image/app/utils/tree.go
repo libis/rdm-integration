@@ -14,6 +14,7 @@ type CompareResponse struct {
 	Id     string      `json:"id"`
 	Status int         `json:"status"`
 	Data   []tree.Node `json:"data"`
+	Url    string      `json:"url"`
 }
 
 func MergeNodeMaps(to, from map[string]tree.Node) {
@@ -68,5 +69,6 @@ func Compare(in map[string]tree.Node, pid, dataverseKey string, addJobs bool) Co
 		Id:     pid,
 		Status: status,
 		Data:   data,
+		Url:    GetDatasetUrl(pid),
 	}
 }
