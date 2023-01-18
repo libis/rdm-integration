@@ -52,6 +52,7 @@ var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"       // will b
 var directUpload = "https://github.com/IQSS/dataverse/pull/9003"       // will be removed when pull request is merged
 var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be removed when pull request is merged
 var checkPermissions = true
+var AllowQuit = false
 
 func init() {
 	// read configuration
@@ -110,12 +111,13 @@ func SetRedis(r RedisClient) {
 	rdb = r
 }
 
-func SetConfig(dataverseServer, rootDataverseId, defaultHash string) {
+func SetConfig(dataverseServer, rootDataverseId, defaultHash string, allowQuit bool) {
 	config.DataverseServer = dataverseServer
 	config.Options.RootDataverseId = rootDataverseId
 	if defaultHash != "" {
 		config.Options.DefaultHash = defaultHash
 	}
+	AllowQuit = allowQuit
 }
 
 func RedisReady() bool {

@@ -45,9 +45,13 @@ frontend: ## build frontend
 	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist
 
 executable: fmt frontend ## build executable for running locally, e.g. cd image && go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
+	cp ./conf/html/footer.html ./image/app/frontend/dist/datasync/assets/html/footer.html
+	cp ./conf/html/header.html ./image/app/frontend/dist/datasync/assets/html/header.html
 	cd image && go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org" -v -o ../datasync.exe ./app/local/
 
 multiplatform_demo: fmt frontend ## build executable for multiple platforms
+	cp ./conf/html/footer.html ./image/app/frontend/dist/datasync/assets/html/footer.html
+	cp ./conf/html/header.html ./image/app/frontend/distdatasync/assets/html/header.html
 	cd image && env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org" -v -o demo_win.exe ./app/local/
 	cd image && env GOOS=linux GOARCH=amd64 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org" -v -o demo_linux.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org" -v -o demo_darwin_amd64.bin ./app/local/

@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"integration/app/common"
 	"integration/app/frontend"
+	"integration/app/logging"
 	"integration/app/plugin/funcs/compare"
 	"integration/app/plugin/funcs/options"
+	"integration/app/utils"
 	"net/http"
 )
 
@@ -26,6 +28,17 @@ func Start() {
 
 	// frontend config
 	http.HandleFunc("/api/frontend/config", frontend.Config)
+
+	// quit
+	if utils.AllowQuit {
+		http.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("Server shut down and all jobs are cancelled. You can close the browser window now."))
+			defer func() {
+				logging.Logger.Println("quiting...")
+				close(utils.Stop)
+			}()
+		})
+	}
 
 	// serve html
 	http.Handle("/", http.HandlerFunc(frontend.Frontend))
