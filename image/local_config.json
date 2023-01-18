@@ -1,4 +1,0 @@
-{
-    "dataverseServer": "https://localhost:7000",
-    "redisHost": "localhost:6379"
-}
