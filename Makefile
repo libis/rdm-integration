@@ -30,6 +30,10 @@ push: ## Push Docker image (only in prod stage)
 	fi
 
 run: fmt frontend ## Run the server locally
+	echo "Building frontend ..."
+	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration development
+	rm -rf image/app/frontend/dist
+	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist
 	echo "Starting redis ..."
 	docker stop redis || true && docker rm redis || true && docker run -p 6379:6379 --name redis -d redis
 	echo "Starting app ..."
@@ -40,7 +44,7 @@ fmt: ## Format the go code
 
 frontend: ## build frontend
 	echo "Building frontend ..."
-	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration development
+	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production"
 	rm -rf image/app/frontend/dist
 	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist
 
