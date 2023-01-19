@@ -27,7 +27,7 @@ func Start() {
 	http.HandleFunc("/api/common/dvobjects", common.DvObjects)
 
 	// frontend config
-	http.HandleFunc("/api/frontend/config", frontend.Config)
+	http.HandleFunc("/api/frontend/config", frontend.GetConfig)
 
 	// quit
 	if utils.AllowQuit {
