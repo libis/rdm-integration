@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"integration/app/frontend"
 	"integration/app/logging"
 	"integration/app/server"
 	"integration/app/utils"
@@ -17,15 +18,22 @@ import (
 )
 
 var DataverseServer string
+var DataverseServerName string
 var RootDataverseId string
 var DefaultHash string
 
 func main() {
 	if len(os.Args) > 1 {
 		DataverseServer = os.Args[1]
+		if len(os.Args) > 2 {
+			DataverseServerName = os.Args[2]
+		} else {
+			DataverseServerName = DataverseServer
+		}
 	}
+	frontend.Config.DataverseHeader = DataverseServerName
 	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, true)
-	logging.Logger.Printf("DataverseServer=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, RootDataverseId, DefaultHash)
+	logging.Logger.Printf("DataverseServer=%v, DataverseServerName=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, DataverseServerName, RootDataverseId, DefaultHash)
 	go server.Start()
 	utils.SetRedis(newFakeRedis())
 	openbrowser("http://localhost:7788/")

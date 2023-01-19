@@ -21,7 +21,7 @@ type RepoPlugin struct {
 	ParseSourceUrlField       bool   `json:"parseSourceUrlField"`
 	TokenName                 string `json:"tokenName,omitempty"`
 }
-type Config struct {
+type Configuration struct {
 	DataverseHeader         string       `json:"dataverseHeader"`
 	CollectionOptionsHidden bool         `json:"collectionOptionsHidden"`
 	Plugins                 []RepoPlugin `json:"plugins"`
@@ -30,7 +30,7 @@ type Config struct {
 //go:embed default_frontend_config.json
 var configBytes []byte
 
-var config Config
+var Config Configuration
 
 func init() {
 	// read configuration
@@ -41,14 +41,14 @@ func init() {
 	} else {
 		configBytes = b
 	}
-	err = json.Unmarshal(configBytes, &config)
+	err = json.Unmarshal(configBytes, &Config)
 	if err != nil {
 		panic(fmt.Errorf("could not unmarshal config: %v", err))
 	}
 }
 
 func GetConfig(w http.ResponseWriter, r *http.Request) {
-	b, err := json.Marshal(config)
+	b, err := json.Marshal(Config)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
