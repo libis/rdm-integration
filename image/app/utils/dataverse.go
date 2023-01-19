@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 )
 
 func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
@@ -166,6 +167,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			}
 			delete(knownHashes, v.Id)
 			delete(out.WritableNodes, k)
+			GetRedis().SetNX(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Deleted, 10*time.Second)
 			continue
 		}
 		// delete previous version before writting new version when replacing
@@ -190,13 +192,18 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		//updated or new: always rehash
 		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
 		if remoteHashType == types.GitHash {
-			remoteHashVlaue = v.Attributes.RemoteHash
+			remoteHashVlaue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
 		}
-		knownHashes[v.Id] = calculatedHashes{
-			LocalHashType:  hashType,
-			LocalHashValue: hashValue,
-			RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
+
+		if hashValue != remoteHashVlaue {
+			knownHashes[v.Id] = calculatedHashes{
+				LocalHashType:  hashType,
+				LocalHashValue: hashValue,
+				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
+			}
 		}
+		GetRedis().SetNX(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Written, time.Minute)
+
 		if directUpload == "true" && config.Options.DefaultDriver != "" {
 			directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
 			if *directoryLabel == "" {

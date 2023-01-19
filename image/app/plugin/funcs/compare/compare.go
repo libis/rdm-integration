@@ -65,7 +65,7 @@ func doCompare(req types.CompareRequest, key string) {
 	}
 
 	//query irods
-	repoNm, err := plugin.GetPlugin(req.RepoType).Query(req)
+	repoNm, err := plugin.GetPlugin(req.RepoType).Query(req, nm)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)

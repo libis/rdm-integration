@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/logging"
+	"integration/app/plugin/types"
 	"integration/app/tree"
 )
 
@@ -20,6 +21,20 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 	for k, node := range nodes {
 		if node.Attributes.RemoteHashType != "" {
 			value, ok := knownHashes[node.Id].RemoteHashes[node.Attributes.RemoteHashType]
+			if node.Attributes.LocalHash != "" && node.Attributes.RemoteHashType == node.Attributes.Metadata.DataFile.Checksum.Type {
+				value, ok = node.Attributes.LocalHash, true
+			}
+			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
+			redisValue := GetRedis().Get(context.Background(), redisKey).Val()
+			if redisValue == types.Written {
+				value, ok = node.Attributes.RemoteHash, true
+			}
+			if redisValue == types.Deleted {
+				value, ok = "", false
+			}
+			if redisValue != "" {
+				GetRedis().Del(context.Background(), redisKey)
+			}
 			if !ok && node.Attributes.LocalHash != "" {
 				jobNodes[k] = node
 				value = "?"

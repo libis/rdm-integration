@@ -1,16 +1,18 @@
 {
     "dataverseHeader": "KU Leuven RDR",
     "collectionOptionsHidden": true,
+    "createNewDatasetEnabled": false,
+    "datasetFieldEditable": true,
     "plugins": [
         {
             "id": "github",
             "name": "GitHub",
             "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
-            "sourceUrlFieldPlaceholder": "https://github.com/<owner>/<repository>",
             "tokenFieldPlaceholder": "Repository API token",
-            "usernameFieldHidden": true,
-            "zoneFieldHidden": true,
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://github.com/<owner>/<repository>.git",
             "parseSourceUrlField": true,
             "tokenName": "ghToken"
         },
@@ -18,11 +20,11 @@
             "id": "gitlab",
             "name": "GitLab",
             "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
-            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>",
             "tokenFieldPlaceholder": "Repository API token",
-            "usernameFieldHidden": true,
-            "zoneFieldHidden": true,
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>",
             "parseSourceUrlField": true,
             "tokenName": "glToken"
         },
@@ -30,13 +32,15 @@
             "id": "irods",
             "name": "IRODS",
             "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
             "tokenFieldName": "Token (IRODS password)",
-            "sourceUrlFieldPlaceholder": "Hostname",
             "tokenFieldPlaceholder": "Password",
-            "usernameFieldHidden": false,
-            "zoneFieldHidden": false,
-            "parseSourceUrlField": false,
-            "tokenName": null
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "Hostname",
+            "usernameFieldName": "Username",
+            "usernameFieldPlaceholder": "username",
+            "zoneFieldName": "Zone",
+            "zoneFieldPlaceholder": "zone"
         }
     ]
 }

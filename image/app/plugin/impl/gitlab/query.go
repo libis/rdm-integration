@@ -23,7 +23,7 @@ type GitlabEntry struct {
 	Mode string `json:"mode"`
 }
 
-func Query(req types.CompareRequest) (map[string]tree.Node, error) {
+func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
 	entries := []GitlabEntry{}
 	page := 1
 	pageEntries, err := getPageEntries(req, page)
@@ -70,17 +70,21 @@ func getPageEntries(req types.CompareRequest, page int) ([]GitlabEntry, error) {
 func toNodeMap(tr GitlabTree) map[string]tree.Node {
 	res := map[string]tree.Node{}
 	for _, e := range tr.Entries {
-		path := e.Path
 		isFile := e.Type == "blob"
+		if !isFile {
+			continue
+		}
+
+		id := e.Path
 		parentId := ""
-		ancestors := strings.Split(path, "/")
-		fileName := path
+		ancestors := strings.Split(id, "/")
+		fileName := id
 		if len(ancestors) > 1 {
 			parentId = strings.Join(ancestors[:len(ancestors)-1], "/")
 			fileName = ancestors[len(ancestors)-1]
 		}
 		node := tree.Node{
-			Id:   path,
+			Id:   id,
 			Name: fileName,
 			Path: parentId,
 			Attributes: tree.Attributes{
@@ -103,7 +107,7 @@ func toNodeMap(tr GitlabTree) map[string]tree.Node {
 				},
 			},
 		}
-		res[path] = node
+		res[id] = node
 	}
 	return res
 }

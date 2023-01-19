@@ -8,51 +8,55 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 type Entry struct {
 	Path     string
 	ParentId string
+	Id       string
 	FileName string
 	IsDir    bool
 	CheckSum string
 	Size     int64
 }
 
-func Query(req types.CompareRequest) (map[string]tree.Node, error) {
-	entries, err := list(req.Url, req.Url)
+func Query(req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error) {
+	path := req.Url
+	if strings.HasSuffix(path, string(os.PathSeparator)) {
+		path = path[:len(path)-1]
+	}
+	entries, err := list(path, path, dvNodes)
 	if err != nil {
 		return nil, err
 	}
-	return toNodeMap(req.Url, req.Url, entries)
+	return toNodeMap(path, path, entries, dvNodes)
 }
 
-func toNodeMap(root, folder string, entries []Entry) (map[string]tree.Node, error) {
+func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Node) (map[string]tree.Node, error) {
 	res := map[string]tree.Node{}
 	dirs := []string{}
 	for _, e := range entries {
-		path := e.Path[len(folder)+1:]
 		isFile := !e.IsDir
 		if !isFile {
 			dirs = append(dirs, e.Path)
 			continue
 		}
-		parentId := e.ParentId
-		fileName := e.FileName
+
 		node := tree.Node{
-			Id:   path,
-			Name: fileName,
-			Path: parentId,
+			Id:   e.Id,
+			Name: e.FileName,
+			Path: e.ParentId,
 			Attributes: tree.Attributes{
-				ParentId:       parentId,
+				ParentId:       e.ParentId,
 				IsFile:         isFile,
 				RemoteHash:     e.CheckSum,
 				RemoteHashType: types.Md5,
 				Metadata: tree.Metadata{
-					Label:          fileName,
-					DirectoryLabel: parentId,
+					Label:          e.FileName,
+					DirectoryLabel: e.ParentId,
 					DataFile: tree.DataFile{
-						Filename:    fileName,
+						Filename:    e.FileName,
 						ContentType: "application/octet-stream",
 						Filesize:    int(e.Size),
 						Checksum: tree.Checksum{
@@ -63,14 +67,14 @@ func toNodeMap(root, folder string, entries []Entry) (map[string]tree.Node, erro
 				},
 			},
 		}
-		res[path] = node
+		res[e.Id] = node
 	}
 	for _, d := range dirs {
-		subEntries, err := list(root, d)
+		subEntries, err := list(root, d, dvNodes)
 		if err != nil {
 			return nil, err
 		}
-		irodsNm, err := toNodeMap(root, folder, subEntries)
+		irodsNm, err := toNodeMap(root, d, subEntries, dvNodes)
 		for k, v := range irodsNm {
 			res[k] = v
 		}
@@ -78,29 +82,43 @@ func toNodeMap(root, folder string, entries []Entry) (map[string]tree.Node, erro
 	return res, nil
 }
 
-func list(root, folder string) ([]Entry, error) {
+func list(root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
 	files, err := ioutil.ReadDir(folder)
 	if err != nil {
 		return nil, err
 	}
 	res := []Entry{}
-	parent := folder[len(root)+1:]
 	for _, v := range files {
 		path := folder + string(os.PathSeparator) + v.Name()
-		checkSum := ""
-		if !v.IsDir() {
-			checkSum, err = hash(path)
-			if err != nil {
-				return nil, err
+		checkSum := types.NotNeeded
+		parentId := ""
+		id := ""
+		fileName := v.Name()
+		idDir := v.IsDir()
+		size := v.Size()
+		if !idDir {
+			id = fileName
+			ancestors := []string{}
+			if len(folder) > len(root) {
+				ancestors = strings.Split(folder[len(root)+1:], string(os.PathSeparator))
+				parentId = strings.Join(ancestors, "/")
+				id = parentId + "/" + fileName
+			}
+			if _, ok := dvNodes[id]; ok {
+				checkSum, err = hash(path)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		res = append(res, Entry{
 			Path:     path,
-			ParentId: parent,
-			FileName: v.Name(),
-			IsDir:    v.IsDir(),
+			ParentId: parentId,
+			Id:       id,
+			FileName: fileName,
+			IsDir:    idDir,
 			CheckSum: checkSum,
-			Size:     v.Size(),
+			Size:     size,
 		})
 	}
 	return res, nil

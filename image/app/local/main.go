@@ -31,8 +31,14 @@ func main() {
 			DataverseServerName = DataverseServer
 		}
 	}
-	frontend.Config.DataverseHeader = DataverseServerName
 	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, true)
+	frontend.Config.DataverseHeader = DataverseServerName
+	frontend.Config.Plugins = append([]frontend.RepoPlugin{{
+		Id:                        "local",
+		Name:                      "Local filesystem",
+		SourceUrlFieldName:        "Directory",
+		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",
+	}}, frontend.Config.Plugins...)
 	logging.Logger.Printf("DataverseServer=%v, DataverseServerName=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, DataverseServerName, RootDataverseId, DefaultHash)
 	go server.Start()
 	utils.SetRedis(newFakeRedis())

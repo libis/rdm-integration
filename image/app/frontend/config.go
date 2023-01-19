@@ -12,18 +12,24 @@ import (
 type RepoPlugin struct {
 	Id                        string `json:"id"`
 	Name                      string `json:"name"`
-	OptionFieldName           string `json:"optionFieldName"`
-	TokenFieldName            string `json:"tokenFieldName"`
+	OptionFieldName           string `json:"optionFieldName,omitempty"`
+	OptionPlaceholder         string `json:"optionFieldPlaceholder,omitempty"`
+	TokenFieldName            string `json:"tokenFieldName,omitempty"`
+	TokenFieldPlaceholder     string `json:"tokenFieldPlaceholder,omitempty"`
+	SourceUrlFieldName        string `json:"sourceUrlFieldName"`
 	SourceUrlFieldPlaceholder string `json:"sourceUrlFieldPlaceholder"`
-	TokenFieldPlaceholder     string `json:"tokenFieldPlaceholder"`
-	UsernameFieldHidden       bool   `json:"usernameFieldHidden"`
-	ZoneFieldHidden           bool   `json:"zoneFieldHidden"`
+	UsernameFieldName         string `json:"usernameFieldName,omitempty"`
+	UsernameFieldPlaceholder  string `json:"usernameFieldPlaceholder,omitempty"`
+	ZoneFieldName             string `json:"zoneFieldName,omitempty"`
+	ZoneFieldPlaceholder      string `json:"zoneFieldPlaceholder,omitempty"`
 	ParseSourceUrlField       bool   `json:"parseSourceUrlField"`
 	TokenName                 string `json:"tokenName,omitempty"`
 }
 type Configuration struct {
 	DataverseHeader         string       `json:"dataverseHeader"`
 	CollectionOptionsHidden bool         `json:"collectionOptionsHidden"`
+	CreateNewDatasetEnabled bool         `json:"createNewDatasetEnabled"`
+	DatasetFieldEditable    bool         `json:"datasetFieldEditable"`
 	Plugins                 []RepoPlugin `json:"plugins"`
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/cyverse/go-irodsclient/fs"
 )
 
-func Query(req types.CompareRequest) (map[string]tree.Node, error) {
+func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
 	cl, err := NewIrodsClient(req.Url, req.RepoName, req.User, req.Token)
 	if err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 	res := map[string]tree.Node{}
 	dirs := []string{}
 	for _, e := range entries {
-		path := e.Path[len(folder)+1:]
+		id := e.Path[len(folder)+1:]
 		isFile := e.Type == "file"
 		if !isFile {
 			if e.Type == "directory" {
@@ -35,9 +35,10 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 			}
 			continue
 		}
+
 		parentId := ""
-		ancestors := strings.Split(path, "/")
-		fileName := path
+		ancestors := strings.Split(id, "/")
+		fileName := id
 		if len(ancestors) > 1 {
 			parentId = strings.Join(ancestors[:len(ancestors)-1], "/")
 			fileName = ancestors[len(ancestors)-1]
@@ -51,7 +52,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 			hashType = types.FileSize
 		}
 		node := tree.Node{
-			Id:   path,
+			Id:   id,
 			Name: fileName,
 			Path: parentId,
 			Attributes: tree.Attributes{
@@ -74,7 +75,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 				},
 			},
 		}
-		res[path] = node
+		res[id] = node
 	}
 	for _, d := range dirs {
 		subEntries, err := cl.FileSystem.List(d)

@@ -7,6 +7,7 @@ import (
 	"integration/app/tree"
 	"io"
 	"os"
+	"strings"
 )
 
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
@@ -14,14 +15,18 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	if url == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url, got: %v", streamParams)
 	}
+	if strings.HasSuffix(url, string(os.PathSeparator)) {
+		url = url[:len(url)-1]
+	}
 	res := map[string]types.Stream{}
 	for k, v := range in {
 		var err error
 		var reader io.ReadCloser
+		id := v.Id
 
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
-				reader, err = os.Open(url + string(os.PathSeparator) + v.Id)
+				reader, err = os.Open(url + string(os.PathSeparator) + id)
 				return reader, err
 			},
 			Close: func() error {
