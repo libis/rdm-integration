@@ -29,7 +29,7 @@ push: ## Push Docker image (only in prod stage)
 		echo "Not in production stage. Pushing not allowed."; \
 	fi
 
-run: fmt frontend ## Run the server locally
+run: fmt ## Run the server locally
 	echo "Building frontend ..."
 	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration development
 	rm -rf image/app/frontend/dist
