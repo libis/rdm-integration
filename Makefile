@@ -58,3 +58,7 @@ multiplatform_demo: fmt frontend ## build executable for multiple platforms
 	cd image && env GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse"' -v -o demo_linux.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse"' -v -o demo_darwin_amd64.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=arm64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse"' -v -o demo_darwin_arm64.bin ./app/local/
+
+fix_optimization_error: ## angular needs newer version of terser to optimize typescript 4.4 or later (static initiallization blocks)
+	rm -rf ../rdm-integration-frontend/node_modules/@angular-devkit/build-angular/node_modules/terser
+	cp -r ../rdm-integration-frontend/node_modules/terser ../rdm-integration-frontend/node_modules/@angular-devkit/build-angular/node_modules/terser
