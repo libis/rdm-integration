@@ -101,7 +101,6 @@ func storeKnownHashes(persistentId string, knownHashes map[string]calculatedHash
 		return
 	}
 	GetRedis().Set(context.Background(), "hashes: "+persistentId, string(knownHashesJson), 0)
-	logging.Logger.Printf("%v: %v hashes stored\n", persistentId, len(knownHashes))
 }
 
 func invalidateKnownHashes(persistentId string) {

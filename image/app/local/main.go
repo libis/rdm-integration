@@ -111,8 +111,10 @@ func (f *fakeRedis) Get(ctx context.Context, key string) *redis.StringCmd {
 	defer f.Unlock()
 	v := f.values[key]
 	exp, ok := f.expirations[key]
-	if ok && exp.After(time.Now()) {
+	if ok && exp.Before(time.Now()) {
 		v = ""
+		delete(f.values, key)
+		delete(f.expirations, key)
 	}
 	cmd := redis.NewStringCmd(ctx)
 	cmd.SetVal(v)
@@ -123,18 +125,35 @@ func (f *fakeRedis) Set(ctx context.Context, key string, value interface{}, expi
 	f.Lock()
 	defer f.Unlock()
 	f.values[key] = fmt.Sprintf("%v", value)
-	delete(f.expirations, key)
+	if expiration > 0 {
+		f.expirations[key] = time.Now().Add(expiration)
+	} else {
+		delete(f.expirations, key)
+	}
 	cmd := redis.NewStatusCmd(ctx)
 	cmd.SetVal("OK")
 	return cmd
 }
 
+// set if Not eXists
 func (f *fakeRedis) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd {
 	f.Lock()
 	defer f.Unlock()
-	f.values[key] = fmt.Sprintf("%v", value)
-	f.expirations[key] = time.Now().Add(expiration)
 	cmd := redis.NewBoolCmd(ctx)
+	_, ok := f.values[key]
+	if ok {
+		exp, ok2 := f.expirations[key]
+		if !ok2 || exp.After(time.Now()) {
+			cmd.SetVal(false)
+			return cmd
+		}
+	}
+	f.values[key] = fmt.Sprintf("%v", value)
+	if expiration > 0 {
+		f.expirations[key] = time.Now().Add(expiration)
+	} else {
+		delete(f.expirations, key)
+	}
 	cmd.SetVal(true)
 	return cmd
 }
@@ -144,6 +163,7 @@ func (f *fakeRedis) Del(ctx context.Context, keys ...string) *redis.IntCmd {
 	defer f.Unlock()
 	for _, key := range keys {
 		delete(f.values, key)
+		delete(f.expirations, key)
 	}
 	cmd := redis.NewIntCmd(ctx)
 	cmd.SetVal(int64(len(keys)))

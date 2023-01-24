@@ -168,7 +168,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			}
 			delete(knownHashes, v.Id)
 			delete(out.WritableNodes, k)
-			GetRedis().SetNX(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Deleted, 10*time.Second)
+			GetRedis().Set(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Deleted, time.Minute)
 			continue
 		}
 		// delete previous version before writting new version when replacing
@@ -203,7 +203,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
 			}
 		}
-		GetRedis().SetNX(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Written, time.Minute)
+		GetRedis().Set(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Written, time.Minute)
 
 		if directUpload == "true" && config.Options.DefaultDriver != "" {
 			directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)

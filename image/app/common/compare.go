@@ -28,7 +28,7 @@ type CachedResponse struct {
 	ErrorMessage string                `json:"err"`
 }
 
-var cacheMaxDuration = time.Second * 5
+var cacheMaxDuration = time.Minute
 
 func CacheResponse(res CachedResponse) {
 	b, _ := json.Marshal(res)
