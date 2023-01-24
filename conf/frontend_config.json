@@ -3,6 +3,7 @@
     "collectionOptionsHidden": true,
     "createNewDatasetEnabled": false,
     "datasetFieldEditable": false,
+    "collectionFieldEditable": false,
     "plugins": [
         {
             "id": "github",
