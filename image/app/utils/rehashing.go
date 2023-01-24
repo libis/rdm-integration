@@ -15,9 +15,10 @@ type calculatedHashes struct {
 	RemoteHashes   map[string]string
 }
 
-func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes map[string]tree.Node, addJobs bool) bool {
+func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes map[string]tree.Node, addJobs bool) (map[string]tree.Node, bool) {
 	knownHashes := getKnownHashes(persistentId)
 	jobNodes := map[string]tree.Node{}
+	res := map[string]tree.Node{}
 	for k, node := range nodes {
 		if node.Attributes.RemoteHashType != "" {
 			value, ok := knownHashes[node.Id].RemoteHashes[node.Attributes.RemoteHashType]
@@ -40,8 +41,8 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 				value = "?"
 			}
 			node.Attributes.LocalHash = value
-			nodes[k] = node
 		}
+		res[k] = node
 	}
 	if len(jobNodes) > 0 && addJobs {
 		AddJob(
@@ -53,7 +54,7 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 			},
 		)
 	}
-	return len(jobNodes) > 0
+	return res, len(jobNodes) > 0
 }
 
 func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[string]tree.Node, in Job) (out Job, err error) {

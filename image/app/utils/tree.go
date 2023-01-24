@@ -17,7 +17,8 @@ type CompareResponse struct {
 	Url    string      `json:"url"`
 }
 
-func MergeNodeMaps(to, from map[string]tree.Node) {
+func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {
+	res := map[string]tree.Node{}
 	for k, v := range from {
 		if !v.Attributes.IsFile {
 			continue
@@ -30,12 +31,13 @@ func MergeNodeMaps(to, from map[string]tree.Node) {
 			node.Attributes.RemoteHash = v.Attributes.RemoteHash
 			node.Attributes.RemoteHashType = v.Attributes.RemoteHashType
 		}
-		to[k] = node
+		res[k] = node
 	}
+	return res
 }
 
 func Compare(in map[string]tree.Node, pid, dataverseKey string, addJobs bool) CompareResponse {
-	jobNeeded := localRehashToMatchRemoteHashType(dataverseKey, pid, in, addJobs)
+	in, jobNeeded := localRehashToMatchRemoteHashType(dataverseKey, pid, in, addJobs)
 	data := []tree.Node{}
 	empty := false
 	for _, v := range in {
