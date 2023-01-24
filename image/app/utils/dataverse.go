@@ -492,11 +492,16 @@ func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
 	return res, nil
 }
 
-func GetDatasetUrl(pid string) string {
-	if config.Options.DataverseExternalUrl != "" {
-		return config.Options.DataverseExternalUrl + "/dataset.xhtml?version=DRAFT&persistentId=" + pid
+func GetDatasetUrl(pid string, draft bool) string {
+	draftVersion := "version=DRAFT&"
+	if !draft {
+		draftVersion = ""
 	}
-	return config.DataverseServer + "/dataset.xhtml?version=DRAFT&persistentId=" + pid
+	url := config.DataverseServer
+	if config.Options.DataverseExternalUrl != "" {
+		url = config.Options.DataverseExternalUrl
+	}
+	return fmt.Sprintf("%v/dataset.xhtml?%vpersistentId=%v", url, draftVersion, pid)
 }
 
 func downloadFile(dataverseKey string, id int) (io.ReadCloser, error) {

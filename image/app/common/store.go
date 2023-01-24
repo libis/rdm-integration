@@ -63,7 +63,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	}
 	res := StoreResult{
 		Status:    "OK",
-		DatsetUrl: utils.GetDatasetUrl(req.PersistentId),
+		DatsetUrl: utils.GetDatasetUrl(req.PersistentId, true),
 	}
 	b, err = json.Marshal(res)
 	if err != nil {

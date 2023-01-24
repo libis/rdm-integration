@@ -59,7 +59,7 @@ func init() {
 	configFile := os.Getenv("BACKEND_CONFIG_FILE")
 	b, err := os.ReadFile(configFile)
 	if err != nil {
-		logging.Logger.Printf("config file %v not found: letting the user to choose the server\n", configFile)
+		logging.Logger.Printf("config file %v not found: using default backend configuration\n", configFile)
 	} else {
 		err := json.Unmarshal(b, &config)
 		if err != nil {

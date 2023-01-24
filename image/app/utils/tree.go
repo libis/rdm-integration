@@ -69,6 +69,6 @@ func Compare(in map[string]tree.Node, pid, dataverseKey string, addJobs bool) Co
 		Id:     pid,
 		Status: status,
 		Data:   data,
-		Url:    GetDatasetUrl(pid),
+		Url:    GetDatasetUrl(pid, false),
 	}
 }
