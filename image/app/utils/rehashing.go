@@ -76,6 +76,7 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 		i++
 		if i%10 == 0 && i < total {
 			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
+			logging.Logger.Printf("%v: processed %v/%v\n", persistentId, i, total)
 		}
 		delete(out.WritableNodes, k)
 	}
@@ -98,8 +99,8 @@ func storeKnownHashes(persistentId string, knownHashes map[string]calculatedHash
 		logging.Logger.Println("marshalling hashes failed")
 		return
 	}
-	res := GetRedis().Set(context.Background(), "hashes: "+persistentId, string(knownHashesJson), 0)
-	logging.Logger.Println("hashes stored for", persistentId, len(knownHashes), res.Err())
+	GetRedis().Set(context.Background(), "hashes: "+persistentId, string(knownHashesJson), 0)
+	logging.Logger.Printf("%v: %v hashes stored\n", persistentId, len(knownHashes))
 }
 
 func invalidateKnownHashes(persistentId string) {

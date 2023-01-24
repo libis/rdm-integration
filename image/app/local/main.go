@@ -36,6 +36,7 @@ var (
 )
 
 func main() {
+	logging.Logger.Println("execute with -h to see the list of possible arguments")
 	flag.Parse()
 	DataverseServer = *serverUrl
 	DataverseServerName = *serverName
@@ -59,7 +60,6 @@ func main() {
 		SourceUrlFieldName:        "Directory",
 		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",
 	}}, frontend.Config.Plugins...)
-	logging.Logger.Printf("DataverseServer='%v', DataverseServerName='%v', RootDataverseId='%v', DefaultHash='%v', MyDataRoleIds='%v'", DataverseServer, DataverseServerName, RootDataverseId, DefaultHash, MyDataRoleIds)
 	go server.Start()
 	utils.SetRedis(newFakeRedis())
 	openbrowser("http://localhost:7788/")

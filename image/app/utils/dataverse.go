@@ -158,6 +158,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		i++
 		if i%10 == 0 && i < total {
 			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
+			logging.Logger.Printf("%v: processed %v/%v\n", persistentId, i, total)
 		}
 
 		if v.Action == tree.Delete {

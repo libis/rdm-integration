@@ -59,9 +59,8 @@ func init() {
 	// read configuration
 	configFile := os.Getenv("BACKEND_CONFIG_FILE")
 	b, err := os.ReadFile(configFile)
-	if err != nil {
-		logging.Logger.Printf("config file %v not found: using default backend configuration\n", configFile)
-	} else {
+	if err == nil {
+		logging.Logger.Printf("using backend configuration from %v\n", configFile)
 		err := json.Unmarshal(b, &config)
 		if err != nil {
 			panic(fmt.Errorf("config confing could not be loaded from %v: %v", configFile, err))
@@ -73,16 +72,14 @@ func init() {
 
 	// initialize variables
 	b, err = os.ReadFile(config.Options.PathToUnblockKey)
-	if err != nil {
-		logging.Logger.Println("unblock key could not be read from file " + config.Options.PathToUnblockKey + ": permissions will not be checked prior to requesting jobs: " + err.Error())
-	} else {
+	if err == nil {
+		logging.Logger.Println("unblock key could read from file " + config.Options.PathToUnblockKey + ": permissions will be checked prior to requesting jobs")
 		unblockKey = strings.TrimSpace(string(b))
 	}
 
 	b, err = os.ReadFile(config.Options.PathToRedisPassword)
-	if err != nil {
-		logging.Logger.Println("redis password could not be read from file " + config.Options.PathToRedisPassword + ": default empy password will be used: " + err.Error())
-	} else {
+	if err == nil {
+		logging.Logger.Println("redis password read from file " + config.Options.PathToRedisPassword)
 		redisPassword = strings.TrimSpace(string(b))
 	}
 

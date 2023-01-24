@@ -94,6 +94,7 @@ func ProcessJobs() {
 		job, ok := popJob()
 		if ok {
 			persistentId := job.PersistentId
+			logging.Logger.Printf("%v: job started\n", persistentId)
 			job, err := doWork(job)
 			if err != nil {
 				job.ErrCnt = job.ErrCnt + 1
@@ -111,6 +112,7 @@ func ProcessJobs() {
 				}
 			} else {
 				unlock(persistentId)
+				logging.Logger.Printf("%v: job ended\n", persistentId)
 			}
 		}
 	}

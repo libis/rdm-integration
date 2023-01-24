@@ -43,9 +43,8 @@ func init() {
 	// read configuration
 	configFile := os.Getenv("FRONTEND_CONFIG_FILE")
 	b, err := os.ReadFile(configFile)
-	if err != nil {
-		logging.Logger.Printf("config file %v not found: using default frontend config file\n", configFile)
-	} else {
+	if err == nil {
+		logging.Logger.Printf("using frontend configuration from %v\n", configFile)
 		configBytes = b
 	}
 	err = json.Unmarshal(configBytes, &Config)
