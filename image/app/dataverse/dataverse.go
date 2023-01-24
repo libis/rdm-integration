@@ -150,8 +150,9 @@ func RequestBody(data []byte) (io.Reader, string, error) {
 }
 
 type RetrieveResponse struct {
-	Success bool                 `json:"success"`
-	Data    RetrieveResponseData `json:"data"`
+	Success      bool                 `json:"success"`
+	ErrorMessage string               `json:"error_message"`
+	Data         RetrieveResponseData `json:"data"`
 }
 
 type RetrieveResponseData struct {

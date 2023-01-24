@@ -481,10 +481,16 @@ func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
 		if err != nil {
 			return nil, err
 		}
+		if response.StatusCode != 200 && response.StatusCode != 201 {
+			return nil, fmt.Errorf("Listing %v objects failed: %v", objectType, string(responseData))
+		}
 		retrieveResponse := dv.RetrieveResponse{}
 		err = json.Unmarshal(responseData, &retrieveResponse)
 		if err != nil {
 			return nil, err
+		}
+		if !retrieveResponse.Success {
+			return nil, fmt.Errorf("Listing %v objects was not successful: %v", objectType, retrieveResponse.ErrorMessage)
 		}
 		res = append(res, retrieveResponse.Data.Items...)
 		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber
