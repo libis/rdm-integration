@@ -465,9 +465,16 @@ func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
 	}
 	res := []dv.Item{}
 	hasNextPage := true
+	roleIds := ""
+	for _, v := range config.Options.MyDataRoleIds {
+		roleIds = fmt.Sprintf("%v%v%v", roleIds, "&role_ids=", v)
+	}
 	for page := 1; hasNextPage; page++ {
-		url := config.DataverseServer + "/api/v1/mydata/retrieve?key=" + token + "&selected_page=" + fmt.Sprint(page) +
-			"&dvobject_types=" + objectType + "&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review&role_ids=2&role_ids=5&role_ids=6&mydata_search_term=" + searchTerm
+		url := config.DataverseServer + "/api/v1/mydata/retrieve?key=" + token +
+			"&selected_page=" + fmt.Sprint(page) +
+			"&dvobject_types=" + objectType +
+			"&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review" +
+			roleIds + "&mydata_search_term=" + searchTerm
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, err

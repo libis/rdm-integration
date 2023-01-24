@@ -24,12 +24,13 @@ type OptionalConfig struct {
 	DataverseExternalUrl string   `json:"dataverseExternalUrl,omitempty"` // set this if different from dataverseServer -> this is used to generate a link to the dataset based
 	RootDataverseId      string   `json:"rootDataverseId,omitempty"`      // root dataverse collection id, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
 	DefaultHash          string   `json:"defaultHash,omitempty"`          // default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
-	PathToUnblockKey     string   `json:"pathToUnblockKey,omitempty"`     // configure to enable checking permissions before requesting jobs
-	PathToRedisPassword  string   `json:"pathToRedisPassword,omitempty"`  // by default no password is set, if you need to authenticate, store here the path to the file containing the redis password
-	RedisDB              int      `json:"redisDB,omitempty"`              // by default DB 0 is used, if you need to use other DB, specify it here
-	DefaultDriver        string   `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
-	PathToFilesDir       string   `json:"pathToFilesDir,omitempty"`       // path to the folder where dataverse files are stored (only needed when using "file" driver)
-	S3Config             S3Config `json:"s3Config,omitempty"`             // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
+	MyDataRoleIds        []int    `json:"myDataRoleIds"`
+	PathToUnblockKey     string   `json:"pathToUnblockKey,omitempty"`    // configure to enable checking permissions before requesting jobs
+	PathToRedisPassword  string   `json:"pathToRedisPassword,omitempty"` // by default no password is set, if you need to authenticate, store here the path to the file containing the redis password
+	RedisDB              int      `json:"redisDB,omitempty"`             // by default DB 0 is used, if you need to use other DB, specify it here
+	DefaultDriver        string   `json:"defaultDriver,omitempty"`       // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
+	PathToFilesDir       string   `json:"pathToFilesDir,omitempty"`      // path to the folder where dataverse files are stored (only needed when using "file" driver)
+	S3Config             S3Config `json:"s3Config,omitempty"`            // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
 }
 
 // Environment variables used for credentials: set these variables when using "s3" driver on the system where this application is deployed
@@ -91,6 +92,9 @@ func init() {
 		DB:       config.Options.RedisDB,
 	})
 	checkPermissions = unblockKey != ""
+	if len(config.Options.MyDataRoleIds) == 0 {
+		config.Options.MyDataRoleIds = []int{6, 7}
+	}
 }
 
 type RedisClient interface {
@@ -111,13 +115,14 @@ func SetRedis(r RedisClient) {
 	rdb = r
 }
 
-func SetConfig(dataverseServer, rootDataverseId, defaultHash string, allowQuit bool) {
+func SetConfig(dataverseServer, rootDataverseId, defaultHash string, roleIDs []int, allowQuit bool) {
 	config.DataverseServer = dataverseServer
 	config.Options.RootDataverseId = rootDataverseId
 	if defaultHash != "" {
 		config.Options.DefaultHash = defaultHash
 	}
 	AllowQuit = allowQuit
+	config.Options.MyDataRoleIds = roleIDs
 }
 
 func RedisReady() bool {

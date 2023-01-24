@@ -1,8 +1,9 @@
 {
     "dataverseHeader": "KU Leuven RDR",
-    "collectionOptionsHidden": true,
+    "collectionOptionsHidden": false,
     "createNewDatasetEnabled": false,
     "datasetFieldEditable": true,
+    "collectionFieldEditable": true,
     "plugins": [
         {
             "id": "github",

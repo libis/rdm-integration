@@ -30,6 +30,7 @@ type Configuration struct {
 	CollectionOptionsHidden bool         `json:"collectionOptionsHidden"`
 	CreateNewDatasetEnabled bool         `json:"createNewDatasetEnabled"`
 	DatasetFieldEditable    bool         `json:"datasetFieldEditable"`
+	CollectionFieldEditable bool         `json:"collectionFieldEditable"`
 	Plugins                 []RepoPlugin `json:"plugins"`
 }
 

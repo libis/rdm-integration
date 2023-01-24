@@ -2,36 +2,56 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"integration/app/frontend"
 	"integration/app/logging"
 	"integration/app/server"
 	"integration/app/utils"
 	"integration/app/workers/spinner"
-	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v9"
 )
 
-var DataverseServer string
-var DataverseServerName string
-var RootDataverseId string
-var DefaultHash string
+var (
+	DataverseServer     string
+	DataverseServerName string
+	RootDataverseId     string
+	DefaultHash         string = "MD5"
+	MyDataRoleIds       string = "6,7"
+)
+
+var (
+	serverUrl  = flag.String("server", DataverseServer, "URL to the Dataverse server")
+	serverName = flag.String("servername", DataverseServerName, "Dataverse server display name")
+	dvID       = flag.String("dvID", RootDataverseId, "Root Dataverse ID")
+	hashAlg    = flag.String("hash", DefaultHash, "Default hashing algorithm in Dataverse: MD5, SHA-1")
+	roleIDs    = flag.String("roleIDs", MyDataRoleIds, "My data query role IDs: comma separated ints")
+)
 
 func main() {
-	if len(os.Args) > 1 {
-		DataverseServer = os.Args[1]
-		if len(os.Args) > 2 {
-			DataverseServerName = os.Args[2]
-		} else {
-			DataverseServerName = DataverseServer
-		}
+	flag.Parse()
+	DataverseServer = *serverUrl
+	DataverseServerName = *serverName
+	if DataverseServerName == "" {
+		DataverseServerName = DataverseServer
 	}
-	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, true)
+	RootDataverseId = *dvID
+	DefaultHash = *hashAlg
+	MyDataRoleIds = *roleIDs
+	roles := []int{}
+	tmp := strings.Split(MyDataRoleIds, ",")
+	for i := 0; i < len(tmp); i++ {
+		id, _ := strconv.Atoi(strings.TrimSpace(tmp[i]))
+		roles = append(roles, id)
+	}
+	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true)
 	frontend.Config.DataverseHeader = DataverseServerName
 	frontend.Config.Plugins = append([]frontend.RepoPlugin{{
 		Id:                        "local",
@@ -39,7 +59,7 @@ func main() {
 		SourceUrlFieldName:        "Directory",
 		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",
 	}}, frontend.Config.Plugins...)
-	logging.Logger.Printf("DataverseServer=%v, DataverseServerName=%v, RootDataverseId=%v, DefaultHash=%v", DataverseServer, DataverseServerName, RootDataverseId, DefaultHash)
+	logging.Logger.Printf("DataverseServer='%v', DataverseServerName='%v', RootDataverseId='%v', DefaultHash='%v', MyDataRoleIds='%v'", DataverseServer, DataverseServerName, RootDataverseId, DefaultHash, MyDataRoleIds)
 	go server.Start()
 	utils.SetRedis(newFakeRedis())
 	openbrowser("http://localhost:7788/")
