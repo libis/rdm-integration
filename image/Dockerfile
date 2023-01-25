@@ -1,3 +1,4 @@
+# Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 FROM golang:alpine
 
 WORKDIR /usr/src/app
