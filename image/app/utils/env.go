@@ -73,7 +73,7 @@ func init() {
 	// initialize variables
 	b, err = os.ReadFile(config.Options.PathToUnblockKey)
 	if err == nil {
-		logging.Logger.Println("unblock key could read from file " + config.Options.PathToUnblockKey + ": permissions will be checked prior to requesting jobs")
+		logging.Logger.Println("unblock key is read from file " + config.Options.PathToUnblockKey + ": permissions will be checked prior to requesting jobs")
 		unblockKey = strings.TrimSpace(string(b))
 	}
 
