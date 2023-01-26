@@ -8,6 +8,7 @@ import (
 	"integration/app/common"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
+	"integration/app/tree"
 	"integration/app/utils"
 	"io"
 	"net/http"
@@ -66,8 +67,12 @@ func doCompare(req types.CompareRequest, key string) {
 		return
 	}
 
-	//query irods
-	repoNm, err := plugin.GetPlugin(req.RepoType).Query(req, nm)
+	//query repository
+	nmCopy := map[string]tree.Node{}
+	for k, v := range nm {
+		nmCopy[k] = v
+	}
+	repoNm, err := plugin.GetPlugin(req.RepoType).Query(req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
