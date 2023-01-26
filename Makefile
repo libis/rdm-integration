@@ -56,7 +56,7 @@ executable: fmt frontend ## build executable for running locally, e.g. cd image 
 
 multiplatform_demo: fmt frontend ## build executable for multiple platforms
 	cp -r conf/customizations/* image/app/frontend/dist/datasync/
-	cd image && env GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_win.exe ./app/local/
+	cd image && env GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_windows.exe ./app/local/
 	cd image && env GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_linux.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_darwin_amd64.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=arm64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_darwin_arm64.bin ./app/local/

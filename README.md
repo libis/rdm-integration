@@ -3,6 +3,14 @@ This is an application for files synchronization from different source repositor
 
 This application can also be used as a stand-alone tool for uploading and sychronizing files from local storage to the Dataverse installation.
 
+## Getting started
+Download the binary built for your system (Windows, Linux or Darwin/macOS on intel or arm64 architecture) from the latest release and execute it by double-clicking on it or by running it in command-line. By default the application will connect to the [Demo Dataverse](https://demo.dataverse.org). If you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` parameters set to the Dataverse installation of your choice, e.g., on windows system:
+```
+demo_windows.exe -server=https://your.dataverse.installation -serverName="Dataverse Installation"
+```
+
+For more details, see the section about running the application.
+
 ## Prerequisites
 For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. You will need to have the latest [Go](https://go.dev/) installed for compiling the code. If you wish to build the application's container, you will need to have the [Docker](https://www.docker.com) installed. For running and building the applications from source using the make commands, you will need to have [make](https://www.gnu.org/software/make/) installed. Finally, the state of the application (calculated hashes, scheduled jobs, etc.) is maintaind by a [Redis](https://redis.io/) data store. You will need either access to an external Redis server, or one run by you locally, when running this application on the server. The stand-alone tool does not require any Redis server (or any other tool or library installed on your system), and can be simply run by executing a binary built for your operating system.
 
@@ -15,7 +23,14 @@ This application can be used by accessing the API directly (from cron jobs, etc.
 - [OAuth2 for Go](golang.org/x/oauth2)
 
 ## Running the application
+Most straight forward way of running the application is to use the in the release provided binaries. Note that these binaries are only meant to be used by the end users and should not be used on a server. If you wish to build your own binaries or build this application for running on a server, see the section on running and building from source.
 
+By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with -h argument. This will list the possible configuration options. For example, you can run the executable with the following options: ``-roleIDs=6 -server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
+```
+demo_windows.exe -roleIDs=6 -server=https://your.dataverse.installation -serverName="Dataverse Installation"
+```
+
+You can also build your own binaries with different default values for the command-line arguments. See the next section for more detail (in the part about ``-X`` flags).
 
 ### Running and building from source
 In order to run the application locally, checkout in the same folder this repository ([rdm-integration](https://github.com/libis/rdm-integration)) and the frontend repository ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Then go to ``/rdm-integration`` directory and run ``make run``. This script will also start a docker container containing the Redis data store, which is used the by the running application for storing the application state. Notice that if you do not run standard Libis RDM (Dataverse) locally, you will need to configure the backend to connect to your Dataverse installation server. See the "Backend configuration" section for more detail.
@@ -40,12 +55,12 @@ Building binaries with local filesystem plugin, just as the binaries included in
 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
 ```
 
-These are the ``-X`` flags that you can set at the build time:
-- DataverseServer: URL of the Dataverse installation that the built application will connect to by default
-- DataverseServerName: display name of the Dataverse installation, e.g., "Demo Dataverse"
-- RootDataverseId: ID of the root Dataverse collection of the Dataverse installation, e.g., "demo"
-- DefaultHash: most Dataverse installation use "MD5" as hashing algorithm and this flag can be ommited in most cases. The only hash that is supported right now is the "SHA1".
-- MyDataRoleIds: this application uses the api call for retrieving "my data", for providing the user the choice of the dataset that the user wishes to update. However, this API requires the Role ID (primary key of the role table where the particular role is stored on the database), which can be tricky to find. Only the datasets where the user has that particular role are return by server. If your Dataverse installation does not fill the dropdown for dataset choice, then this flag should be adjusted. Otherwise, you can omit this flag. The default setting is ``6,7`` representing the ``contributor`` and ``curator`` roles on most installations.
+These are the ``-X`` flags that you can set at the build time and set the default values for the command line arguments:
+- DataverseServer (sets the default value for the ``server`` argument): URL of the Dataverse installation that the built application will connect to by default
+- DataverseServerName (sets the default value for the ``serverName`` argument): display name of the Dataverse installation, e.g., "Demo Dataverse"
+- RootDataverseId (sets the default value for the ``dvID`` argument): ID of the root Dataverse collection of the Dataverse installation, e.g., "demo"
+- DefaultHash (sets the default value for the ``hash`` argument): most Dataverse installation use "MD5" as hashing algorithm and this flag can be ommited in most cases. The only hash that is supported right now is the "SHA1".
+- MyDataRoleIds (sets the default value for the ``roleIDs`` argument): this application uses the api call for retrieving "my data", for providing the user the choice of the dataset that the user wishes to update. However, this API requires the Role ID (primary key of the role table where the particular role is stored on the database), which can be tricky to find. Only the datasets where the user has that particular role are return by server. If your Dataverse installation does not fill the dropdown for dataset choice, then this flag should be adjusted. Otherwise, you can omit this flag. The default setting is ``6,7`` representing the ``contributor`` and ``curator`` roles on most installations.
 
 You can also build the binaries for multiple architectures at once with the ``make multiplatform_demo`` command. Adapt the build commands in that script in a simmilar way as described for the ``make executable`` command.
 
