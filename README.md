@@ -11,9 +11,9 @@ Support for different repositories is implemented as plugins. More plugins will 
 - [IRODS](https://irods.org/)
 
 ## Getting started
-Download the binary built for your system (Windows, Linux or Darwin/macOS on intel or arm64 architecture) from the latest release and execute it by double-clicking on it or by running it in command-line. By default, the application will connect to the [Demo Dataverse](https://demo.dataverse.org). If you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` parameters set to the Dataverse installation of your choice, e.g., on Windows system:
+Download the binary built for your system (Windows, Linux or Darwin/macOS on intel or arm64 architecture) from the latest release and execute it by double-clicking on it or by running it in command-line. By default, the application will connect to the [Demo Dataverse](https://demo.dataverse.org). If you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` parameters set to the Dataverse installation of your choice, e.g., on Windows system:
 ```
-demo_windows.exe -server=https://your.dataverse.installation -serverName="Dataverse Installation"
+demo_windows.exe -server=https://demo.dataverse.org
 ```
 
 For more details, see the section about running the application.
@@ -32,7 +32,7 @@ This application can be used by accessing the API directly (from cron jobs, etc.
 ## Running the application
 The most straight forward way of running the application is to use the in the release provided binaries. Note that these binaries are only meant to be used by the end users and should not be used on a server. If you wish to build your own binaries or build this application for running on a server, see the section on running and building from source.
 
-By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with -h argument. This will list the possible configuration options. For example, if you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` parameters set to the Dataverse installation of your choice, e.g., or example, you can run the executable with the following options: ``-server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
+By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with -h argument. This will list the possible configuration options. For example, if you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` (display name of the server as show in the UI, e.g. ``My Dataverse``) parameters set to the Dataverse installation of your choice, e.g., or example, you can run the executable with the following options: ``-server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
 ```
 demo_windows.exe -server=https://your.dataverse.installation -serverName="Dataverse Installation"
 ```
