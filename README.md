@@ -47,7 +47,7 @@ You can also use make commands to build the docker image (``make build -e BASE_H
 docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app 100
 ```
 
-After starting the docker container with the command above, verify that the weserver is running by going to [https://localhost:7788](https://localhost:7788). If you wish to have different nuber of simultaniously running workes, change 100 to the desired values. If you only wish the resulting container to function as a webserver, change this command to the following:
+After starting the docker container with the command above, verify that the weserver is running by going to [http://localhost:7788](http://localhost:7788). If you wish to have different nuber of simultaniously running workes, change 100 to the desired values. If you only wish the resulting container to function as a webserver, change this command to the following:
 ```
 docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app
 ```
