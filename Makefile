@@ -1,6 +1,7 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
 STAGE ?= dev
+BASE_HREF ?= /integration/
 
 include env.$(STAGE)
 include .env
@@ -15,7 +16,7 @@ GROUP_ID ?= $(shell id -g)
 
 build: fmt ## Build Docker image
 	echo "Building frontend ..."
-	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production" --base-href /integration/
+	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production" --base-href $(BASE_HREF)
 	echo "Building Docker image ..."
 	rm -rf image/app/frontend/dist
 	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist

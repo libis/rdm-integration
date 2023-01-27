@@ -1,0 +1,8 @@
+{
+    "dataverseServer": "https://demo.dataverse.org",
+    "redisHost": "localhost:6379",
+    "options": {
+        "rootDataverseId": "demo",
+        "myDataRoleIds": [6,7]
+    }
+}

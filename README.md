@@ -1,7 +1,14 @@
 # Dataverse files synchronization application
 This is an application for files synchronization from different source repositories into a [Dataverse](https://dataverse.org) installation. This application uses background processes for the synchronization of the files. The background processes are also used for hashing of the Dataverse files when the source repository uses different hash type than the Dataverse installation. The hashes are then used for the comparing of the files, allowing easier versioning of the files between the dataset versions (only the files that effectively have change would be replaced and added to the overview of changes between different dataset versions). The frontend application does not need to be running when the synchronization is running on the server (users can close their browsers once that the syncronization has been set up), and multiple synchronizations for different users can run simultaneously, each on its own go-routine, scheduled as a "job" in the background. The number of simultaniously running jobs is adjustable and the jobs are scheduled in First-In-First-Out (FIFO) order.
 
-This application can also be used as a stand-alone tool for uploading and sychronizing files from local storage to the Dataverse installation.
+This application can also be used as a stand-alone tool for uploading and sychronizing files from local storage to the Dataverse installation. Only the stand-alone tool allows synchronizing files from your local filesystem to a Dataverse installation. All other plugins (synchronizing from [GitHub](https://github.com/), [GitLab](https://about.gitlab.com/), [IRODS](https://irods.org/), etc.) are the same in the stand-alone and server versions.
+
+## Available plugins
+Support for different repositories is implemented as plugins. More plugins will be added in the feature. At this moment, the following plugins are provided with the latest version:
+- local storage (available only in the stand-alone version)
+- [GitHub](https://github.com/)
+- [GitLab](https://about.gitlab.com/)
+- [IRODS](https://irods.org/)
 
 ## Getting started
 Download the binary built for your system (Windows, Linux or Darwin/macOS on intel or arm64 architecture) from the latest release and execute it by double-clicking on it or by running it in command-line. By default the application will connect to the [Demo Dataverse](https://demo.dataverse.org). If you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` parameters set to the Dataverse installation of your choice, e.g., on windows system:
@@ -12,7 +19,7 @@ demo_windows.exe -server=https://your.dataverse.installation -serverName="Datave
 For more details, see the section about running the application.
 
 ## Prerequisites
-For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. You will need to have the latest [Go](https://go.dev/) installed for compiling the code. If you wish to build the application's container, you will need to have the [Docker](https://www.docker.com) installed. For running and building the applications from source using the make commands, you will need to have [make](https://www.gnu.org/software/make/) installed. Finally, the state of the application (calculated hashes, scheduled jobs, etc.) is maintaind by a [Redis](https://redis.io/) data store. You will need either access to an external Redis server, or one run by you locally, when running this application on the server. The stand-alone tool does not require any Redis server (or any other tool or library installed on your system), and can be simply run by executing a binary built for your operating system.
+For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. You will need to have the latest [Go](https://go.dev/) installed for compiling the code. If you wish to build the application's container, you will need to have the [Docker](https://www.docker.com) installed. For running and building the applications from source using the make commands, you will need to have [make](https://www.gnu.org/software/make/) installed. Finally, the state of the application (calculated hashes, scheduled jobs, etc.) is maintaind by a [Redis](https://redis.io/) data store. When running this application on the server, you will need either access to an external Redis server, or one run by you locally. The stand-alone tool does not require any Redis server (or any other tool or library installed on your system), and can be simply run by executing a binary built for your operating system.
 
 ## Dependencies
 This application can be used by accessing the API directly (from cron jobs, etc.), or with a frontend providing GUI for the end users. The frontend ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)) needs to be checked out sparatly prior to building this application. Besides the frontend dependecy, the build process uses the following libraries and their dependencies (``go build`` command resolves them from ``go.mod`` and ``go.sum`` files and they do not need to be installad separately):
@@ -25,9 +32,9 @@ This application can be used by accessing the API directly (from cron jobs, etc.
 ## Running the application
 Most straight forward way of running the application is to use the in the release provided binaries. Note that these binaries are only meant to be used by the end users and should not be used on a server. If you wish to build your own binaries or build this application for running on a server, see the section on running and building from source.
 
-By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with -h argument. This will list the possible configuration options. For example, you can run the executable with the following options: ``-roleIDs=6 -server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
+By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with -h argument. This will list the possible configuration options. For example, if you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` parameters set to the Dataverse installation of your choice, e.g., or example, you can run the executable with the following options: ``-server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
 ```
-demo_windows.exe -roleIDs=6 -server=https://your.dataverse.installation -serverName="Dataverse Installation"
+demo_windows.exe -server=https://your.dataverse.installation -serverName="Dataverse Installation"
 ```
 
 You can also build your own binaries with different default values for the command-line arguments. See the next section for more detail (in the part about ``-X`` flags).
@@ -35,22 +42,22 @@ You can also build your own binaries with different default values for the comma
 ### Running and building from source
 In order to run the application locally, checkout in the same folder this repository ([rdm-integration](https://github.com/libis/rdm-integration)) and the frontend repository ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Then go to ``/rdm-integration`` directory and run ``make run``. This script will also start a docker container containing the Redis data store, which is used the by the running application for storing the application state. Notice that if you do not run standard Libis RDM (Dataverse) locally, you will need to configure the backend to connect to your Dataverse installation server. See the "Backend configuration" section for more detail.
 
-You can also use make commands to build the docker image (``make build``) or push to the docker repository (``make push``). The resulting container can be used as a web server hosting the API and the frontend, or as container running the workers executing the jobs scheduled by the frontend. For the purpose of scallability, both types of intended usage can have multiple containers running behind a load balancer. The default run command starts a container performing both tasks: web server and a process controlling 100 workers:
+You can also use make commands to build the docker image (``make build -e BASE_HREF='/'``) or push to the docker repository (``make push``). The resulting container can be used as a web server hosting the API and the frontend, or as container running the workers executing the jobs scheduled by the frontend. For the purpose of scallability, both types of intended usage can have multiple containers running behind a load balancer. The default run command starts a container performing both tasks: web server and a process controlling 100 workers:
 ```
-docker run rdm/integration:1.0 app 100
+docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app 100
 ```
 
-If you wish to have different nuber of simultaniously running workes, change 100 to the desired values. If you only wish the resulting container to function as a webserver, change this command to the following:
+After starting the docker container with the command above, verify that the weserver is running by going to [https://localhost:7788](https://localhost:7788). If you wish to have different nuber of simultaniously running workes, change 100 to the desired values. If you only wish the resulting container to function as a webserver, change this command to the following:
 ```
-docker run rdm/integration:1.0 app
+docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app
 ```
 
 When running the web server separately from the workers, you will need at least one container running the workers started with the following command:
 ```
-docker run rdm/integration:1.0 workers 100
+docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 workers 100
 ```
 
-Building binaries with local filesystem plugin, just as the binaries included in the release, meant only for running by the end users and not on a server, is also done with the make command: ``make executable``. You may want to adjust that script by setting the variables to make the application connect to your Dataverse installation. By default the built application connects to the [Demo Dataverse](https://demo.dataverse.org). In order to change that you must adapt the build command the following way:
+Building binaries with local filesystem plugin, just as the binaries included in the release, meant only for running by the end users and not on a server, is also done with the make command: ``make executable``. You may want to adjust that script by setting the variables to make the application connect to your Dataverse installation. By default the built application connects to the [Demo Dataverse](https://demo.dataverse.org). In order to change that you must adapt the build command the following way (in the ``image`` directory):
 ```
 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
 ```
@@ -147,7 +154,7 @@ Note that the Plugin type is a struct and cannot hold any state, as it has no fi
 
 After implementing the above-mentioned functions on the backend, you need to extend the frontend (https://github.com/libis/rdm-integration-frontend) by adding a frontend plugin in "plugin.service.ts". This is a straight forward implementation of the RepoPlugin type as defined in the "plugin.ts" model. It basically tells the frontend that there is a new repository type, which fields should be shown on the connect page and how these fields should be named, etc., for the given repository type.
 
-## Sequence diagrams
+## Appendix: sequence diagrams
 
 ### Get options
 Listing branches, folders, etc. (depending on the repo plugin) that can be chosen in dropdown and on the connect page is a synchronous call. When retrieved, a branch or folder can be selected by the user as reference from where the files will be synchronized. The listing itself is implemented by a plugin and is described in the following sequence diagram:

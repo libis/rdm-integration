@@ -1,5 +1,5 @@
 {
-    "dataverseHeader": "KU Leuven RDR",
+    "dataverseHeader": "Dataverse",
     "collectionOptionsHidden": true,
     "createNewDatasetEnabled": false,
     "datasetFieldEditable": false,
@@ -39,7 +39,7 @@
             "sourceUrlFieldName": "Source URL",
             "sourceUrlFieldPlaceholder": "Hostname",
             "usernameFieldName": "Username",
-            "usernameFieldPlaceholder": "u-number",
+            "usernameFieldPlaceholder": "username",
             "zoneFieldName": "Zone",
             "zoneFieldPlaceholder": "zone"
         }
