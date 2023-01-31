@@ -52,7 +52,7 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 				DataverseKey:  dataverseKey,
 				PersistentId:  persistentId,
 				WritableNodes: jobNodes,
-				StreamType:    "hash-only",
+				Plugin:        "hash-only",
 			},
 		)
 	}

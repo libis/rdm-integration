@@ -3,6 +3,7 @@
 package types
 
 type StreamParams struct {
+	PluginId string `json:"pluginId"`
 	RepoName string `json:"repoName"`
 	Url      string `json:"url"`
 	Option   string `json:"option"`

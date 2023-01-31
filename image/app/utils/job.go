@@ -17,7 +17,7 @@ type Job struct {
 	DataverseKey  string
 	PersistentId  string
 	WritableNodes map[string]tree.Node
-	StreamType    string
+	Plugin        string
 	Streams       map[string]map[string]interface{}
 	StreamParams  types.StreamParams
 	ErrCnt        int

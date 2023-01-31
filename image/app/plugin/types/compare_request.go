@@ -3,7 +3,8 @@
 package types
 
 type CompareRequest struct {
-	RepoType     string `json:"repoType"`
+	PluginId     string `json:"pluginId"`
+	Plugin       string `json:"plugin"`
 	RepoName     string `json:"repoName"`
 	Url          string `json:"url"`
 	Option       string `json:"option"`

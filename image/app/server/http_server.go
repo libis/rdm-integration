@@ -22,6 +22,7 @@ func Start() {
 	http.HandleFunc("/api/plugin/options", options.Options)
 
 	// common
+	http.HandleFunc("/api/common/oauthtoken", common.GetOauthToken)
 	http.HandleFunc("/api/common/newdataset", common.NewDataset)
 	http.HandleFunc("/api/common/compare", common.Compare)
 	http.HandleFunc("/api/common/cached", common.GetCachedResponse)

@@ -1,18 +1,22 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package options
+package common
 
 import (
 	"encoding/json"
 	"fmt"
-	"integration/app/plugin"
-	"integration/app/plugin/types"
+	"integration/app/utils"
 	"io"
 	"net/http"
 )
 
-func Options(w http.ResponseWriter, r *http.Request) {
-	//process requeststream
+type OauthTokenRequest struct {
+	PluginId string `json:"pluginId"`
+	Code     string `json:"code"`
+}
+
+func GetOauthToken(w http.ResponseWriter, r *http.Request) {
+	req := OauthTokenRequest{}
 	b, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -20,33 +24,20 @@ func Options(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-
-	params := types.OptionsRequest{}
-	err = json.Unmarshal(b, &params)
+	err = json.Unmarshal(b, &req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
-	}
-	options, err := plugin.GetPlugin(params.Plugin).Options(params)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
-	res := []types.SelectItem{}
-	for _, v := range options {
-		res = append(res, types.SelectItem{
-			Label: v,
-			Value: v,
-		})
 	}
 
+	res, err := utils.GetOauthToken(req.PluginId, req.Code)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
+
 	b, err = json.Marshal(res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

@@ -18,7 +18,7 @@ type StoreResult struct {
 }
 
 type StoreRequest struct {
-	StreamType    string             `json:"streamType"`
+	Plugin        string             `json:"plugin"`
 	StreamParams  types.StreamParams `json:"streamParams"`
 	PersistentId  string             `json:"persistentId"`
 	DataverseKey  string             `json:"dataverseKey"`
@@ -55,7 +55,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		DataverseKey:  req.DataverseKey,
 		PersistentId:  req.PersistentId,
 		WritableNodes: selected,
-		StreamType:    req.StreamType,
+		Plugin:        req.Plugin,
 		StreamParams:  req.StreamParams,
 	})
 	if err != nil {

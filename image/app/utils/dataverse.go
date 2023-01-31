@@ -90,10 +90,10 @@ func doWork(job Job) (Job, error) {
 		case <-ctx.Done():
 		}
 	}()
-	if job.StreamType == "hash-only" {
+	if job.Plugin == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.PersistentId, job.WritableNodes, job)
 	}
-	streams, err := stream.Streams(ctx, job.WritableNodes, job.StreamType, job.StreamParams)
+	streams, err := stream.Streams(ctx, job.WritableNodes, job.Plugin, job.StreamParams)
 	if err != nil {
 		return job, err
 	}
@@ -531,4 +531,11 @@ func downloadFile(dataverseKey string, id int) (io.ReadCloser, error) {
 		return nil, err
 	}
 	return response.Body, nil
+}
+
+func GetExternalDataverseURL() string {
+	if config.Options.DataverseExternalUrl != "" {
+		return config.Options.DataverseExternalUrl
+	}
+	return config.DataverseServer
 }

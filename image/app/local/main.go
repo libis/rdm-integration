@@ -56,8 +56,9 @@ func main() {
 	}
 	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true)
 	frontend.Config.DataverseHeader = DataverseServerName
-	frontend.Config.Plugins = append([]frontend.RepoPlugin{{
+	frontend.Config.Plugins = append([]utils.RepoPlugin{{
 		Id:                        "local",
+		Plugin:                    "local",
 		Name:                      "Local filesystem",
 		SourceUrlFieldName:        "Directory",
 		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",

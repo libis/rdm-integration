@@ -4,9 +4,11 @@
     "createNewDatasetEnabled": false,
     "datasetFieldEditable": false,
     "collectionFieldEditable": true,
+    "showDvTokenGetter": true,
     "plugins": [
         {
             "id": "github",
+            "plugin": "github",
             "name": "GitHub",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
@@ -19,6 +21,7 @@
         },
         {
             "id": "gitlab",
+            "plugin": "gitlab",
             "name": "GitLab",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
@@ -31,6 +34,7 @@
         },
         {
             "id": "irods",
+            "plugin": "irods",
             "name": "IRODS",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",

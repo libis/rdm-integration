@@ -33,6 +33,7 @@ type OptionalConfig struct {
 	DefaultDriver        string   `json:"defaultDriver,omitempty"`       // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
 	PathToFilesDir       string   `json:"pathToFilesDir,omitempty"`      // path to the folder where dataverse files are stored (only needed when using "file" driver)
 	S3Config             S3Config `json:"s3Config,omitempty"`            // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
+	PathToOauthSecrets   string   `json:"pathToOauthSecrets,omitempty"`
 }
 
 // Environment variables used for credentials: set these variables when using "s3" driver on the system where this application is deployed
@@ -45,7 +46,13 @@ type S3Config struct {
 	AWSBucket    string `json:"awsBucket"`
 }
 
+type OauthSecret struct {
+	PostUrl      string `json:"postURL"`
+	ClientSecret string `json:"clientSecret"`
+}
+
 var config Config
+var oauthSecrets = map[string]OauthSecret{}
 
 // static vars
 var rdb RedisClient                                                    // redis client singleton
@@ -83,6 +90,14 @@ func init() {
 	if err == nil {
 		logging.Logger.Println("redis password read from file " + config.Options.PathToRedisPassword)
 		redisPassword = strings.TrimSpace(string(b))
+	}
+
+	b, err = os.ReadFile(config.Options.PathToOauthSecrets)
+	if err == nil {
+		err := json.Unmarshal(b, &oauthSecrets)
+		if err == nil {
+			logging.Logger.Println("OAUTH secrets read from file " + config.Options.PathToOauthSecrets)
+		}
 	}
 
 	rdb = redis.NewClient(&redis.Options{
@@ -131,4 +146,12 @@ func RedisReady() bool {
 		return false
 	}
 	return res == "PONG"
+}
+
+func ClientSecret(clientId string) (clientSecret, url string, err error) {
+	s, ok := oauthSecrets[clientId]
+	if !ok {
+		return "", "", fmt.Errorf("OATH secret not found")
+	}
+	return s.ClientSecret, s.PostUrl, nil
 }

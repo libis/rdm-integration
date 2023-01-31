@@ -4,9 +4,12 @@
     "createNewDatasetEnabled": false,
     "datasetFieldEditable": false,
     "collectionFieldEditable": false,
+    "showDvTokenGetter": true,
+    "redirect_uri": "http://localhost:7788/connect",
     "plugins": [
         {
             "id": "github",
+            "plugin": "github",
             "name": "GitHub",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
@@ -15,33 +18,58 @@
             "sourceUrlFieldName": "Source URL",
             "sourceUrlFieldPlaceholder": "https://github.com/<owner>/<repository>.git",
             "parseSourceUrlField": true,
-            "tokenName": "ghToken"
+            "tokenGetter": {
+                "URL": "https://github.com/login/oauth/authorize",
+                "oauth_client_id": "Iv1.5a149cba699ac08e"
+            },
+            "showTokenGetter": true
         },
         {
             "id": "gitlab",
+            "plugin": "gitlab",
             "name": "GitLab",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "Repository API token",
             "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>",
+            "sourceUrlFieldPlaceholder": "https://gitlab.com/<group>/<project>.git",
             "parseSourceUrlField": true,
             "tokenName": "glToken"
         },
         {
-            "id": "irods",
-            "name": "IRODS",
+            "id": "kulgitlab",
+            "plugin": "gitlab",
+            "name": "KU Leuven GitLab",
+            "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
+            "tokenFieldName": "Token",
+            "tokenFieldPlaceholder": "Repository API token",
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>.git",
+            "parseSourceUrlField": true,
+            "tokenName": "kulglToken"
+        },
+        {
+            "id": "mango",
+            "plugin": "irods",
+            "name": "ManGO (KU Leuven IRODS)",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
             "tokenFieldName": "Token (IRODS password)",
             "tokenFieldPlaceholder": "Password",
-            "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "Hostname",
+            "sourceUrlFieldValue": "ghum.irods.icts.kuleuven.be",
             "usernameFieldName": "Username",
-            "usernameFieldPlaceholder": "username",
+            "usernameFieldPlaceholder": "u-number",
             "zoneFieldName": "Zone",
-            "zoneFieldPlaceholder": "zone"
+            "zoneFieldPlaceholder": "zone",
+            "zoneFieldEditable": true,
+            "zoneFieldValues": [
+                "ghum"
+            ],
+            "tokenGetter": {
+                "URL": "https://ghum.irods.icts.kuleuven.be/#/"
+            }
         }
     ]
 }
