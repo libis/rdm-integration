@@ -17,6 +17,8 @@ type OauthTokenRequest struct {
 	ClientSecret string `json:"client_secret"`
 	Code         string `json:"code"`
 	RedirectUri  string `json:"redirect_uri"`
+	GrantType    string `json:"grant_type"`
+	CodeVerifier string `json:"code_verifier"`
 }
 
 type OauthTokenResponse struct {
@@ -34,7 +36,7 @@ type OauthTokenResponse struct {
 var PluginConfig = map[string]RepoPlugin{}
 var RedirectUri string
 
-func GetOauthToken(id, code string) (OauthTokenResponse, error) {
+func GetOauthToken(id, code, nounce string) (OauthTokenResponse, error) {
 	res := OauthTokenResponse{AccessToken: code}
 	clientId := PluginConfig[id].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
@@ -42,7 +44,9 @@ func GetOauthToken(id, code string) (OauthTokenResponse, error) {
 	if err != nil {
 		return res, err
 	}
-	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri}
+	//hvalue := sha256.Sum256([]byte(nounce))
+	//verifier := base64.URLEncoding.EncodeToString(hvalue[:])
+	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri, "authorization_code", ""}
 	data, _ := json.Marshal(req)
 	body := bytes.NewBuffer(data)
 	request, _ := http.NewRequest("POST", postUrl, body)

@@ -35,7 +35,11 @@
             "sourceUrlFieldName": "Source URL",
             "sourceUrlFieldPlaceholder": "https://gitlab.com/<group>/<project>.git",
             "parseSourceUrlField": true,
-            "tokenName": "glToken"
+            "tokenName": "glToken",
+            "tokenGetter": {
+                "URL": "https://gitlab.com/oauth/authorize",
+                "oauth_client_id": "f6af278af4af0560f7810f6d2ad7b5820fad98d92cef83c4a38e2211d37815e5"
+            }
         },
         {
             "id": "kulgitlab",
@@ -48,7 +52,11 @@
             "sourceUrlFieldName": "Source URL",
             "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>.git",
             "parseSourceUrlField": true,
-            "tokenName": "kulglToken"
+            "tokenName": "kulglToken",
+            "tokenGetter": {
+                "URL": "https://gitlab.kuleuven.be/oauth/authorize",
+                "oauth_client_id": "08ca36b19888ed2df25fb4d4021b59b80b645699f3744cbcbfb0fbf55e370329"
+            }
         },
         {
             "id": "mango",
