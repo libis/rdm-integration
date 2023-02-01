@@ -38,5 +38,6 @@ type Configuration struct {
 	ExternalURL             string       `json:"externalURL"`
 	ShowDvTokenGetter       bool         `json:"showDvTokenGetter"`
 	RedirectUri             string       `json:"redirect_uri,omitempty"`
+	StoreDvToken            bool         `json:"storeDvToken,omitempty"`
 	Plugins                 []RepoPlugin `json:"plugins"`
 }

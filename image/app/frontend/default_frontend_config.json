@@ -5,6 +5,7 @@
     "datasetFieldEditable": false,
     "collectionFieldEditable": true,
     "showDvTokenGetter": true,
+    "storeDvToken": true,
     "plugins": [
         {
             "id": "github",
