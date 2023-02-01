@@ -29,7 +29,7 @@ func Options(params types.OptionsRequest) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Add("PRIVATE-TOKEN", token)
+	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func Options(params types.OptionsRequest) ([]string, error) {
 		return nil, err
 	}
 	if r.StatusCode != 200 {
-		return nil, fmt.Errorf("getting file failed: %s", string(b))
+		return nil, fmt.Errorf("getting branches failed: %s", string(b))
 	}
 	type Commit struct {
 		CommittedDate string `json:"committed_date"`

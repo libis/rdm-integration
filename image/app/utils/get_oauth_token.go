@@ -67,7 +67,6 @@ func GetOauthToken(id, code, nounce string) (OauthTokenResponse, error) {
 		if str == "" {
 			return res, fmt.Errorf("getting API token failed: response is empty")
 		}
-		fmt.Println(str)
 		params, err := url.ParseQuery(str)
 		if err != nil {
 			return res, fmt.Errorf("getting API token failed: %v", err)

@@ -55,7 +55,7 @@ func getPageEntries(req types.CompareRequest, page int) ([]GitlabEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Add("PRIVATE-TOKEN", req.Token)
+	request.Header.Add("Authorization", "Bearer "+req.Token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, err

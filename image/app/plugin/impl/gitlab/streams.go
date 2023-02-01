@@ -39,7 +39,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		if err != nil {
 			return nil, err
 		}
-		request.Header.Add("PRIVATE-TOKEN", token)
+		request.Header.Add("Authorization", "Bearer "+token)
 		var r *http.Response
 
 		res[k] = types.Stream{
