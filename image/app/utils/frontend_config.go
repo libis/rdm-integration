@@ -5,6 +5,7 @@ package utils
 type RepoPlugin struct {
 	Id                        string      `json:"id"`
 	Plugin                    string      `json:"plugin"`
+	PluginName                string      `json:"pluginName"`
 	Name                      string      `json:"name"`
 	OptionFieldName           string      `json:"optionFieldName,omitempty"`
 	OptionPlaceholder         string      `json:"optionFieldPlaceholder,omitempty"`
