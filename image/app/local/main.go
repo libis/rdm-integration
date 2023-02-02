@@ -58,8 +58,9 @@ func main() {
 	frontend.Config.DataverseHeader = DataverseServerName
 	frontend.Config.Plugins = append([]utils.RepoPlugin{{
 		Id:                        "local",
-		Plugin:                    "local",
 		Name:                      "Local filesystem",
+		Plugin:                    "local",
+		PluginName:                "Local filesystem",
 		SourceUrlFieldName:        "Directory",
 		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",
 	}}, frontend.Config.Plugins...)
