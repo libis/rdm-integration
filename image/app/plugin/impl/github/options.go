@@ -7,14 +7,20 @@ import (
 	"fmt"
 	"integration/app/plugin/types"
 	"sort"
+	"strings"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 )
 
 func Options(params types.OptionsRequest) ([]string, error) {
-	user := params.User
-	repo := params.RepoName
+	user := ""
+	repo := ""
+	splitted := strings.Split(params.RepoName, "/")
+	if len(splitted) > 2 {
+		user = splitted[0]
+		repo = strings.Join(splitted[1:], "/")
+	}
 	token := params.Token
 	if user == "" || repo == "" || token == "" {
 		return nil, fmt.Errorf("branches: missing parameters: expected user, repo and token, got: %v", params)

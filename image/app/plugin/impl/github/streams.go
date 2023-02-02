@@ -8,14 +8,20 @@ import (
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
+	"strings"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 )
 
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
-	user := streamParams.User
-	repo := streamParams.RepoName
+	user := ""
+	repo := ""
+	splitted := strings.Split(streamParams.RepoName, "/")
+	if len(splitted) > 2 {
+		user = splitted[0]
+		repo = strings.Join(splitted[1:], "/")
+	}
 	token := streamParams.Token
 	if user == "" || repo == "" || token == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected user, repo and token, got: %v", streamParams)

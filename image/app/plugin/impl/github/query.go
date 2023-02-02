@@ -19,7 +19,14 @@ func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.No
 	)
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
-	tr, _, err := client.Git.GetTree(ctx, req.User, req.RepoName, req.Option, true)
+	user := ""
+	repo := ""
+	splitted := strings.Split(req.RepoName, "/")
+	if len(splitted) > 2 {
+		user = splitted[0]
+		repo = strings.Join(splitted[1:], "/")
+	}
+	tr, _, err := client.Git.GetTree(ctx, user, repo, req.Option, true)
 	if err != nil {
 		return nil, err
 	}

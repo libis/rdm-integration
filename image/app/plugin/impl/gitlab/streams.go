@@ -14,7 +14,6 @@ import (
 
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
 	base := streamParams.Url
-	group := streamParams.User
 	project := streamParams.RepoName
 	token := streamParams.Token
 	if project == "" || token == "" || base == "" {
@@ -30,11 +29,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		if sha == "" {
 			return nil, fmt.Errorf("streams: sha not found")
 		}
-		sep := "/"
-		if group == "" {
-			sep = ""
-		}
-		url := base + "/api/v4/projects/" + url.PathEscape(group+sep+project) + "/repository/blobs/" + sha + "/raw"
+		url := base + "/api/v4/projects/" + url.PathEscape(project) + "/repository/blobs/" + sha + "/raw"
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, err

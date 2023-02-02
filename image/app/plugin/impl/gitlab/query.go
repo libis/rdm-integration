@@ -46,11 +46,7 @@ func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.No
 
 func getPageEntries(req types.CompareRequest, page int) ([]GitlabEntry, error) {
 	res := []GitlabEntry{}
-	sep := "/"
-	if req.User == "" {
-		sep = ""
-	}
-	url := fmt.Sprintf("%s/api/v4/projects/%s/repository/tree?recursive=true&ref=%s&per_page=100&page=%d", req.Url, url.PathEscape(req.User+sep+req.RepoName), req.Option, page)
+	url := fmt.Sprintf("%s/api/v4/projects/%s/repository/tree?recursive=true&ref=%s&per_page=100&page=%d", req.Url, url.PathEscape(req.RepoName), req.Option, page)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err

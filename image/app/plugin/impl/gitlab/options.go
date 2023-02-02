@@ -14,17 +14,12 @@ import (
 
 func Options(params types.OptionsRequest) ([]string, error) {
 	base := params.Url
-	group := params.User
 	project := params.RepoName
 	token := params.Token
 	if project == "" || token == "" || base == "" {
 		return nil, fmt.Errorf("branches: missing parameters: expected base, group (optional), project and token, got: %v", params)
 	}
-	sep := "/"
-	if group == "" {
-		sep = ""
-	}
-	url := base + "/api/v4/projects/" + url.PathEscape(group+sep+project) + "/repository/branches"
+	url := base + "/api/v4/projects/" + url.PathEscape(project) + "/repository/branches"
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
