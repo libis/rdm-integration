@@ -9,65 +9,6 @@
     "storeDvToken": true,
     "plugins": [
         {
-            "id": "github",
-            "name": "GitHub",
-            "plugin": "github",
-            "optionFieldName": "Branch",
-            "optionFieldPlaceholder": "Select branch",
-            "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://github.com/<owner>/<repository>.git",
-            "parseSourceUrlField": true,
-            "tokenGetter": {
-                "URL": "https://github.com/login/oauth/authorize",
-                "oauth_client_id": "Iv1.5a149cba699ac08e"
-            },
-            "showTokenGetter": true
-        },
-        {
-            "id": "kulgitlab",
-            "name": "KU Leuven GitLab",
-            "plugin": "gitlab",
-            "optionFieldName": "Branch",
-            "optionFieldPlaceholder": "Select branch",
-            "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>.git",
-            "parseSourceUrlField": true,
-            "tokenName": "kulglToken",
-            "tokenGetter": {
-                "URL": "https://gitlab.kuleuven.be/oauth/authorize",
-                "oauth_client_id": "08ca36b19888ed2df25fb4d4021b59b80b645699f3744cbcbfb0fbf55e370329"
-            }
-        },
-        {
-            "id": "gitlab",
-            "name": "gitlab.com",
-            "plugin": "gitlab",
-            "optionFieldName": "Branch",
-            "optionFieldPlaceholder": "Select branch",
-            "tokenFieldName": "Token",
-            "tokenFieldPlaceholder": "Repository API token",
-            "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://gitlab.com/<group>/<project>.git",
-            "parseSourceUrlField": true,
-            "tokenName": "glToken",
-            "tokenGetter": {
-                "URL": "https://gitlab.com/oauth/authorize",
-                "oauth_client_id": "f6af278af4af0560f7810f6d2ad7b5820fad98d92cef83c4a38e2211d37815e5"
-            }
-        },
-        {
-            "id": "othergitlab",
-            "name": "Other GitLab",
-            "plugin": "gitlab",
-            "optionFieldName": "Branch",
-            "optionFieldPlaceholder": "Select branch",
-            "tokenFieldName": "Token",
-            "tokenFieldPlaceholder": "Repository API token",
-            "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://<gitlab_domain>/<group>/<project>.git",
-            "parseSourceUrlField": true
-        },
-        {
             "id": "mango",
             "name": "ManGO (KU Leuven IRODS)",
             "plugin": "irods",
@@ -89,7 +30,7 @@
             }
         },
         {
-            "id": "otherirods",
+            "id": "irods",
             "name": "Other IRODS",
             "plugin": "irods",
             "optionFieldName": "Folder",
@@ -103,6 +44,60 @@
             "repoNameFieldName": "Zone",
             "repoNameFieldPlaceholder": "zone",
             "repoNameFieldEditable": true
+        },
+        {
+            "id": "kulgitlab",
+            "name": "KU Leuven GitLab",
+            "plugin": "gitlab",
+            "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
+            "repoNameFieldName": "Repository",
+            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldHasSearch": true,
+            "tokenGetter": {
+                "URL": "https://gitlab.kuleuven.be/oauth/authorize",
+                "oauth_client_id": "08ca36b19888ed2df25fb4d4021b59b80b645699f3744cbcbfb0fbf55e370329"
+            }
+        },
+        {
+            "id": "gitlab",
+            "name": "gitlab.com",
+            "plugin": "gitlab",
+            "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
+            "repoNameFieldName": "Repository",
+            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldHasSearch": true,
+            "tokenGetter": {
+                "URL": "https://gitlab.com/oauth/authorize",
+                "oauth_client_id": "f6af278af4af0560f7810f6d2ad7b5820fad98d92cef83c4a38e2211d37815e5"
+            }
+        },
+        {
+            "id": "othergitlab",
+            "name": "Other GitLab",
+            "plugin": "gitlab",
+            "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
+            "tokenFieldName": "Token",
+            "tokenFieldPlaceholder": "Repository API token",
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://<gitlab_domain>/<group>/<project>.git",
+            "parseSourceUrlField": true
+        },
+        {
+            "id": "github",
+            "name": "GitHub",
+            "plugin": "github",
+            "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
+            "repoNameFieldName": "Repository",
+            "repoNameFieldPlaceholder": "<user>/<repo>",
+            "repoNameFieldHasSearch": true,
+            "tokenGetter": {
+                "URL": "https://github.com/login/oauth/authorize",
+                "oauth_client_id": "Iv1.5a149cba699ac08e"
+            }
         }
     ]
 }
