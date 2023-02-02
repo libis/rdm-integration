@@ -20,6 +20,7 @@ type RepoPlugin struct {
 	RepoNameFieldPlaceholder  string      `json:"repoNameFieldPlaceholder,omitempty"`
 	RepoNameFieldEditable     bool        `json:"repoNameFieldEditable,omitempty"`
 	RepoNameFieldValues       []string    `json:"repoNameFieldValues,omitempty"`
+	RepoNameFieldHasSearch    bool        `json:"repoNameFieldHasSearch"`
 	ParseSourceUrlField       bool        `json:"parseSourceUrlField"`
 	TokenName                 string      `json:"tokenName,omitempty"`
 	TokenGetter               TokenGetter `json:"tokenGetter,omitempty"`
