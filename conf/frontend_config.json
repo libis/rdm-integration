@@ -14,8 +14,6 @@
             "plugin": "github",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
-            "tokenFieldName": "Token",
-            "tokenFieldPlaceholder": "Repository API token",
             "sourceUrlFieldName": "Source URL",
             "sourceUrlFieldPlaceholder": "https://github.com/<owner>/<repository>.git",
             "parseSourceUrlField": true,
@@ -26,8 +24,23 @@
             "showTokenGetter": true
         },
         {
+            "id": "kulgitlab",
+            "name": "KU Leuven GitLab",
+            "plugin": "gitlab",
+            "optionFieldName": "Branch",
+            "optionFieldPlaceholder": "Select branch",
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>.git",
+            "parseSourceUrlField": true,
+            "tokenName": "kulglToken",
+            "tokenGetter": {
+                "URL": "https://gitlab.kuleuven.be/oauth/authorize",
+                "oauth_client_id": "08ca36b19888ed2df25fb4d4021b59b80b645699f3744cbcbfb0fbf55e370329"
+            }
+        },
+        {
             "id": "gitlab",
-            "name": "GitLab",
+            "name": "gitlab.com",
             "plugin": "gitlab",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
@@ -43,21 +56,16 @@
             }
         },
         {
-            "id": "kulgitlab",
-            "name": "KU Leuven GitLab",
+            "id": "othergitlab",
+            "name": "Other GitLab",
             "plugin": "gitlab",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "Repository API token",
             "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>.git",
-            "parseSourceUrlField": true,
-            "tokenName": "kulglToken",
-            "tokenGetter": {
-                "URL": "https://gitlab.kuleuven.be/oauth/authorize",
-                "oauth_client_id": "08ca36b19888ed2df25fb4d4021b59b80b645699f3744cbcbfb0fbf55e370329"
-            }
+            "sourceUrlFieldPlaceholder": "https://<gitlab_domain>/<group>/<project>.git",
+            "parseSourceUrlField": true
         },
         {
             "id": "mango",
@@ -76,6 +84,25 @@
             "zoneFieldValues": [
                 "ghum"
             ],
+            "tokenGetter": {
+                "URL": "https://ghum.irods.icts.kuleuven.be/#/"
+            }
+        },
+        {
+            "id": "otherirods",
+            "name": "Other IRODS",
+            "plugin": "irods",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "tokenFieldName": "Token (IRODS password)",
+            "tokenFieldPlaceholder": "Password",
+            "sourceUrlFieldName": "Hostname",
+            "sourceUrlFieldPlaceholder": "<hostname>:<port>",
+            "usernameFieldName": "Username",
+            "usernameFieldPlaceholder": "u-number",
+            "zoneFieldName": "Zone",
+            "zoneFieldPlaceholder": "zone",
+            "zoneFieldEditable": true,
             "tokenGetter": {
                 "URL": "https://ghum.irods.icts.kuleuven.be/#/"
             }
