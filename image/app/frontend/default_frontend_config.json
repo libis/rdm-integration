@@ -45,8 +45,8 @@
             "sourceUrlFieldPlaceholder": "Hostname",
             "usernameFieldName": "Username",
             "usernameFieldPlaceholder": "username",
-            "zoneFieldName": "Zone",
-            "zoneFieldPlaceholder": "zone"
+            "repoNameFieldName": "Zone",
+            "repoNameFieldPlaceholder": "zone"
         }
     ]
 }

@@ -78,10 +78,10 @@
             "sourceUrlFieldValue": "ghum.irods.icts.kuleuven.be",
             "usernameFieldName": "Username",
             "usernameFieldPlaceholder": "u-number",
-            "zoneFieldName": "Zone",
-            "zoneFieldPlaceholder": "zone",
-            "zoneFieldEditable": true,
-            "zoneFieldValues": [
+            "repoNameFieldName": "Zone",
+            "repoNameFieldPlaceholder": "zone",
+            "repoNameFieldEditable": true,
+            "repoNameFieldValues": [
                 "ghum"
             ],
             "tokenGetter": {
@@ -100,9 +100,9 @@
             "sourceUrlFieldPlaceholder": "<hostname>:<port>",
             "usernameFieldName": "Username",
             "usernameFieldPlaceholder": "u-number",
-            "zoneFieldName": "Zone",
-            "zoneFieldPlaceholder": "zone",
-            "zoneFieldEditable": true,
+            "repoNameFieldName": "RepoName",
+            "repoNameFieldPlaceholder": "repoName",
+            "repoNameFieldEditable": true,
             "tokenGetter": {
                 "URL": "https://ghum.irods.icts.kuleuven.be/#/"
             }

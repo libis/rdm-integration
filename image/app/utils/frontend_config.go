@@ -16,10 +16,10 @@ type RepoPlugin struct {
 	SourceUrlFieldValue       string      `json:"sourceUrlFieldValue,omitempty"`
 	UsernameFieldName         string      `json:"usernameFieldName,omitempty"`
 	UsernameFieldPlaceholder  string      `json:"usernameFieldPlaceholder,omitempty"`
-	ZoneFieldName             string      `json:"zoneFieldName,omitempty"`
-	ZoneFieldPlaceholder      string      `json:"zoneFieldPlaceholder,omitempty"`
-	ZoneFieldEditable         bool        `json:"zoneFieldEditable,omitempty"`
-	ZoneFieldValues           []string    `json:"zoneFieldValues,omitempty"`
+	RepoNameFieldName         string      `json:"repoNameFieldName,omitempty"`
+	RepoNameFieldPlaceholder  string      `json:"repoNameFieldPlaceholder,omitempty"`
+	RepoNameFieldEditable     bool        `json:"repoNameFieldEditable,omitempty"`
+	RepoNameFieldValues       []string    `json:"repoNameFieldValues,omitempty"`
 	ParseSourceUrlField       bool        `json:"parseSourceUrlField"`
 	TokenName                 string      `json:"tokenName,omitempty"`
 	TokenGetter               TokenGetter `json:"tokenGetter,omitempty"`
