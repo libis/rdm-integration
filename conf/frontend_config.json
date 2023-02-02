@@ -74,7 +74,7 @@
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
             "tokenFieldName": "Token (IRODS password)",
-            "tokenFieldPlaceholder": "Password",
+            "tokenFieldPlaceholder": "password",
             "sourceUrlFieldValue": "ghum.irods.icts.kuleuven.be",
             "usernameFieldName": "Username",
             "usernameFieldPlaceholder": "u-number",
@@ -95,17 +95,14 @@
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
             "tokenFieldName": "Token (IRODS password)",
-            "tokenFieldPlaceholder": "Password",
+            "tokenFieldPlaceholder": "password",
             "sourceUrlFieldName": "Hostname",
             "sourceUrlFieldPlaceholder": "<hostname>:<port>",
             "usernameFieldName": "Username",
-            "usernameFieldPlaceholder": "u-number",
-            "repoNameFieldName": "RepoName",
-            "repoNameFieldPlaceholder": "repoName",
-            "repoNameFieldEditable": true,
-            "tokenGetter": {
-                "URL": "https://ghum.irods.icts.kuleuven.be/#/"
-            }
+            "usernameFieldPlaceholder": "username",
+            "repoNameFieldName": "Zone",
+            "repoNameFieldPlaceholder": "zone",
+            "repoNameFieldEditable": true
         }
     ]
 }
