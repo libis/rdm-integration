@@ -9,8 +9,8 @@
     "plugins": [
         {
             "id": "github",
-            "plugin": "github",
             "name": "GitHub",
+            "plugin": "github",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
@@ -22,8 +22,8 @@
         },
         {
             "id": "gitlab",
-            "plugin": "gitlab",
             "name": "GitLab",
+            "plugin": "gitlab",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
@@ -35,8 +35,8 @@
         },
         {
             "id": "irods",
-            "plugin": "irods",
             "name": "IRODS",
+            "plugin": "irods",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
             "tokenFieldName": "Token (IRODS password)",

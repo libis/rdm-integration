@@ -10,8 +10,8 @@
     "plugins": [
         {
             "id": "github",
-            "plugin": "github",
             "name": "GitHub",
+            "plugin": "github",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
@@ -27,8 +27,8 @@
         },
         {
             "id": "gitlab",
-            "plugin": "gitlab",
             "name": "GitLab",
+            "plugin": "gitlab",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
@@ -44,8 +44,8 @@
         },
         {
             "id": "kulgitlab",
-            "plugin": "gitlab",
             "name": "KU Leuven GitLab",
+            "plugin": "gitlab",
             "optionFieldName": "Branch",
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
@@ -61,8 +61,8 @@
         },
         {
             "id": "mango",
-            "plugin": "irods",
             "name": "ManGO (KU Leuven IRODS)",
+            "plugin": "irods",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
             "tokenFieldName": "Token (IRODS password)",
