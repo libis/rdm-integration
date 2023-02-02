@@ -17,7 +17,7 @@ func Options(params types.OptionsRequest) ([]string, error) {
 	user := ""
 	repo := ""
 	splitted := strings.Split(params.RepoName, "/")
-	if len(splitted) > 2 {
+	if len(splitted) > 1 {
 		user = splitted[0]
 		repo = strings.Join(splitted[1:], "/")
 	}

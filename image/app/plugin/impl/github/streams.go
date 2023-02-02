@@ -18,7 +18,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	user := ""
 	repo := ""
 	splitted := strings.Split(streamParams.RepoName, "/")
-	if len(splitted) > 2 {
+	if len(splitted) > 1 {
 		user = splitted[0]
 		repo = strings.Join(splitted[1:], "/")
 	}
