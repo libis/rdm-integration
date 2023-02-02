@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/logging"
-	"integration/app/plugin"
 	"integration/app/utils"
 	"net/http"
 	"os"
@@ -30,10 +29,8 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("could not unmarshal config: %v", err))
 	}
-	names := plugin.GetPluginToNameMap()
-	for i, v := range Config.Plugins {
-		Config.Plugins[i].PluginName = names[v.Plugin]
-		utils.PluginConfig[v.Id] = Config.Plugins[i]
+	for _, v := range Config.Plugins {
+		utils.PluginConfig[v.Id] = v
 	}
 	utils.RedirectUri = Config.RedirectUri
 }
