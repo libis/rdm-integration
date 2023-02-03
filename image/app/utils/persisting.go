@@ -167,8 +167,10 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				if err != nil {
 					return
 				}
-				written, fileFound = nm[v.Id]
-				time.Sleep(3 * time.Second)
+				written, fileFound = nm[k]
+				if !fileFound {
+					time.Sleep(time.Second)
+				}
 			}
 			if !fileFound {
 				err = fmt.Errorf("file is written but not found back")

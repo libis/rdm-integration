@@ -123,8 +123,8 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 		if err1 != nil {
 			return nil, nil, 0, err1
 		}
-		defer f.Close()
 		_, err = io.Copy(f, reader)
+		f.Close()
 		wg.Wait()
 		if err != nil {
 			return nil, nil, 0, err
@@ -211,7 +211,7 @@ func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.No
 	}
 	s := getStorage(storageIdentifier)
 	var reader io.Reader
-	if config.Options.DefaultDriver == "" {
+	if config.Options.DefaultDriver == "" || directUpload != "true" {
 		readCloser, err := downloadFile(dataverseKey, node.Attributes.Metadata.DataFile.Id)
 		if err != nil {
 			return nil, err
