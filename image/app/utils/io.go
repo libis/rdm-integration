@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/md5"
 	"crypto/sha1"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash"
@@ -87,50 +86,11 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
 	} else if hashType == types.FileSize {
-		hasher = newFileSizeHash()
+		hasher = &FileSizeHash{FileSize: 0}
 	} else {
 		err = fmt.Errorf("unsupported hash type: %v", hashType)
 	}
 	return
-}
-
-func newFileSizeHash() hash.Hash {
-	return &FileSizeHash{FileSize: 0}
-}
-
-type FileSizeHash struct {
-	FileSize int
-}
-
-// Write (via the embedded io.Writer interface) adds more data to the running hash.
-// It never returns an error.
-func (h *FileSizeHash) Write(p []byte) (n int, err error) {
-	h.FileSize = h.FileSize + len(p)
-	return len(p), nil
-}
-
-// Sum appends the current hash to b and returns the resulting slice.
-// It does not change the underlying hash state.
-func (h *FileSizeHash) Sum(b []byte) []byte {
-	res := make([]byte, 8)
-	binary.LittleEndian.PutUint64(res, uint64(h.FileSize))
-	return res
-}
-
-// Reset resets the Hash to its initial state.
-func (h *FileSizeHash) Reset() {}
-
-// Size returns the number of bytes Sum will return.
-func (h *FileSizeHash) Size() int {
-	return 8
-}
-
-// BlockSize returns the hash's underlying block size.
-// The Write method must be able to accept any amount
-// of data, but it may operate more efficiently if all writes
-// are a multiple of the block size.
-func (h *FileSizeHash) BlockSize() int {
-	return 256
 }
 
 func write(ctx context.Context, dataverseKey string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) (hash []byte, remoteHash []byte, size int, retErr error) {
