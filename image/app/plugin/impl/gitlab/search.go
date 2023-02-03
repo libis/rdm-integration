@@ -8,7 +8,6 @@ import (
 	"integration/app/plugin/types"
 	"io"
 	"net/http"
-	"strings"
 )
 
 type Item struct {
