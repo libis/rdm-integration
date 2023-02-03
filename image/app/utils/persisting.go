@@ -184,7 +184,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		if err != nil {
 			return
 		}
-		if v.Attributes.RemoteHash != fmt.Sprintf("%x", newH) {
+		if remoteHashVlaue != fmt.Sprintf("%x", newH) {
 			err = fmt.Errorf("written file hash not equal")
 		}
 
@@ -192,7 +192,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			knownHashes[v.Id] = calculatedHashes{
 				LocalHashType:  hashType,
 				LocalHashValue: hashValue,
-				RemoteHashes:   map[string]string{remoteHashType: v.Attributes.RemoteHash},
+				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
 			}
 		}
 		GetRedis().Set(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Written, time.Minute)
