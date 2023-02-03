@@ -17,7 +17,14 @@
             "optionFieldPlaceholder": "Select folder",
             "tokenFieldName": "Token (IRODS password)",
             "tokenFieldPlaceholder": "password",
-            "sourceUrlFieldValue": "ghum.irods.icts.kuleuven.be",
+            "sourceUrlFieldValue": "PAM://ghum.irods.icts.kuleuven.be:1247",
+            "sourceUrlFieldValueMap": {
+                "gbiomed": "PAM://gbiomed.irods.icts.kuleuven.be:1247",
+                "gbiomed_eximious": "PAM://gbiomed.irods.icts.kuleuven.be:1247",
+                "gbiomed_fbi": "PAM://gbiomed.irods.icts.kuleuven.be:1247",
+                "ghum": "PAM://ghum.irods.icts.kuleuven.be:1247",
+                "set": "PAM://set.irods.icts.kuleuven.be:1247"
+            },
             "usernameFieldName": "Username",
             "usernameFieldPlaceholder": "u-number",
             "repoNameFieldName": "Zone",
