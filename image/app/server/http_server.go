@@ -9,6 +9,7 @@ import (
 	"integration/app/logging"
 	"integration/app/plugin/funcs/compare"
 	"integration/app/plugin/funcs/options"
+	"integration/app/plugin/funcs/search"
 	"integration/app/utils"
 	"net/http"
 )
@@ -20,6 +21,7 @@ func Start() {
 	// serve plugin api
 	http.HandleFunc("/api/plugin/compare", compare.Compare)
 	http.HandleFunc("/api/plugin/options", options.Options)
+	http.HandleFunc("/api/plugin/search", search.Search)
 
 	// common
 	http.HandleFunc("/api/common/oauthtoken", common.GetOauthToken)

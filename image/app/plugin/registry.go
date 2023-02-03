@@ -15,6 +15,7 @@ import (
 type Plugin struct {
 	Query   func(req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error)
 	Options func(params types.OptionsRequest) ([]string, error)
+	Search  func(params types.OptionsRequest) ([]string, error)
 	Streams func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error)
 }
 
@@ -22,21 +23,25 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 	"github": {
 		Query:   github.Query,
 		Options: github.Options,
+		Search:  github.Search,
 		Streams: github.Streams,
 	},
 	"gitlab": {
 		Query:   gitlab.Query,
 		Options: gitlab.Options,
+		Search:  gitlab.Search,
 		Streams: gitlab.Streams,
 	},
 	"irods": {
 		Query:   irods.Query,
 		Options: irods.Options,
+		Search:  nil,
 		Streams: irods.Streams,
 	},
 	"local": {
 		Query:   local.Query,
 		Options: nil,
+		Search:  nil,
 		Streams: local.Streams,
 	},
 }
