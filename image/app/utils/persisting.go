@@ -77,14 +77,12 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	if err != nil {
 		return
 	}
-	defer func() {
-		if err != nil {
-			storeKnownHashes(persistentId, knownHashes)
-		}
-	}()
+	defer storeKnownHashes(persistentId, knownHashes)
+
 	out = in
 	i := 0
 	total := len(writableNodes)
+
 	for k, v := range writableNodes {
 		select {
 		case <-ctx.Done():
@@ -115,11 +113,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				return
 			}
 		}
+
 		fileStream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
 		hashType := config.Options.DefaultHash
 		remoteHashType := v.Attributes.RemoteHashType
+
 		var h []byte
 		var remoteH []byte
 		var size int
@@ -127,6 +127,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		if err != nil {
 			return
 		}
+		
 		v.Attributes.Metadata.DataFile.Filesize = size
 		hashValue := fmt.Sprintf("%x", h)
 		//updated or new: always rehash
