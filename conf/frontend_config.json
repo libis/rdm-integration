@@ -24,7 +24,11 @@
             "repoNameFieldPlaceholder": "zone",
             "repoNameFieldEditable": true,
             "repoNameFieldValues": [
-                "ghum"
+                "gbiomed",
+                "gbiomed_eximious",
+                "gbiomed_fbi",
+                "ghum",
+                "set"
             ],
             "tokenGetter": {
                 "URL": "https://ghum.irods.icts.kuleuven.be/#/"
