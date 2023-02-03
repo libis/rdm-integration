@@ -127,7 +127,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		if err != nil {
 			return
 		}
-		
+
 		v.Attributes.Metadata.DataFile.Filesize = size
 		hashValue := fmt.Sprintf("%x", h)
 		//updated or new: always rehash
