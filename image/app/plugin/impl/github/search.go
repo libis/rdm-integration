@@ -8,7 +8,6 @@ import (
 	"integration/app/plugin/types"
 	"io"
 	"net/http"
-	"strings"
 )
 
 type SearchResults struct {
@@ -24,15 +23,7 @@ func Search(params types.OptionsRequest) ([]string, error) {
 	if token == "" {
 		return nil, fmt.Errorf("not authorized")
 	}
-	searchTerm := ""
-	splitted := strings.Split(params.RepoName, "/")
-	if len(splitted) > 1 {
-		user := splitted[0]
-		searchTerm = strings.Join(splitted[1:], "/") + "+user:" + user
-	} else {
-		searchTerm = params.RepoName
-	}
-	url := "https://api.github.com/search/repositories?q=" + searchTerm
+	url := "https://api.github.com/search/repositories?q=" + params.RepoName
 	request, _ := http.NewRequest("GET", url, nil)
 	request.Header.Add("Accept", "application/vnd.github+json")
 	request.Header.Add("Authorization", "Bearer "+token)

@@ -20,15 +20,7 @@ func Search(params types.OptionsRequest) ([]string, error) {
 	if token == "" {
 		return nil, fmt.Errorf("not authorized")
 	}
-	searchTerm := ""
-	splitted := strings.Split(params.RepoName, "/")
-	if len(splitted) > 1 {
-		user := splitted[0]
-		searchTerm = "groups/" + user + "/search?scope=projects&search=" + strings.Join(splitted[1:], "/")
-	} else {
-		searchTerm = "search?scope=projects&search=" + params.RepoName
-	}
-	url := params.Url + "/api/v4/" + searchTerm
+	url := params.Url + "/api/v4/search?scope=projects&search=" + params.RepoName
 	request, _ := http.NewRequest("GET", url, nil)
 	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
