@@ -145,7 +145,9 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		return
 	}
 	defer func() {
-		storeKnownHashes(persistentId, knownHashes)
+		if err != nil {
+			storeKnownHashes(persistentId, knownHashes)
+		}
 	}()
 	out = in
 	i := 0
@@ -187,25 +189,22 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		remoteHashType := v.Attributes.RemoteHashType
 		var h []byte
 		var remoteH []byte
-		h, remoteH, err = write(ctx, dataverseKey, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
+		var size int
+		h, remoteH, size, err = write(ctx, dataverseKey, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
 		if err != nil {
 			return
 		}
+		v.Attributes.Metadata.DataFile.Filesize = size;
 		hashValue := fmt.Sprintf("%x", h)
 		//updated or new: always rehash
 		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
 		if remoteHashType == types.GitHash {
 			remoteHashVlaue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
 		}
-
-		if hashValue != remoteHashVlaue {
-			knownHashes[v.Id] = calculatedHashes{
-				LocalHashType:  hashType,
-				LocalHashValue: hashValue,
-				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
-			}
+		if v.Attributes.RemoteHash != remoteHashVlaue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
+			err = fmt.Errorf("downloaded file hash not equal")
+			return
 		}
-		GetRedis().Set(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Written, time.Minute)
 
 		if directUpload == "true" && config.Options.DefaultDriver != "" {
 			directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
@@ -226,7 +225,43 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			if err != nil {
 				return
 			}
+		} else {
+			nm := map[string]tree.Node{}
+			fileFound := false
+			written := tree.Node{}
+			for i := 0; !fileFound && i < 5; i++ {
+				nm, err = GetNodeMap(persistentId, dataverseKey)
+				if err != nil {
+					return
+				}
+				written, fileFound = nm[v.Id]
+				time.Sleep(3*time.Second)
+			}
+			if !fileFound {
+				err = fmt.Errorf("file is written but not found back")
+				return
+			}
+			v.Attributes.Metadata.DataFile.Id  = written.Attributes.Metadata.DataFile.Id;
 		}
+
+		newH := []byte{}
+		newH, err = doHash(ctx, dataverseKey, persistentId, v)
+		if err != nil {
+			return
+		}
+		if v.Attributes.RemoteHash != fmt.Sprintf("%x", newH) {
+			err = fmt.Errorf("written file hash not equal")
+		}
+
+		if hashValue != remoteHashVlaue {
+			knownHashes[v.Id] = calculatedHashes{
+				LocalHashType:  hashType,
+				LocalHashValue: hashValue,
+				RemoteHashes:   map[string]string{remoteHashType: v.Attributes.RemoteHash},
+			}
+		}
+		GetRedis().Set(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Written, time.Minute)
+
 		delete(out.WritableNodes, k)
 	}
 	select {
