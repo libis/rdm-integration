@@ -127,7 +127,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		if err != nil {
 			return
 		}
-		v.Attributes.Metadata.DataFile.Filesize = size;
+		v.Attributes.Metadata.DataFile.Filesize = size
 		hashValue := fmt.Sprintf("%x", h)
 		//updated or new: always rehash
 		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
@@ -168,13 +168,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 					return
 				}
 				written, fileFound = nm[v.Id]
-				time.Sleep(3*time.Second)
+				time.Sleep(3 * time.Second)
 			}
 			if !fileFound {
 				err = fmt.Errorf("file is written but not found back")
 				return
 			}
-			v.Attributes.Metadata.DataFile.Id  = written.Attributes.Metadata.DataFile.Id;
+			v.Attributes.Metadata.DataFile.Id = written.Attributes.Metadata.DataFile.Id
 		}
 
 		newH := []byte{}
