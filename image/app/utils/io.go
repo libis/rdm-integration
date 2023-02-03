@@ -14,6 +14,7 @@ import (
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -86,40 +87,41 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
 	} else if hashType == types.FileSize {
-		hasher = newFileSizeHash(int64(fileSize))
+		hasher = newFileSizeHash()
 	} else {
 		err = fmt.Errorf("unsupported hash type: %v", hashType)
 	}
 	return
 }
 
-func newFileSizeHash(fileSize int64) hash.Hash {
-	return FileSizeHash{FileSize: fileSize}
+func newFileSizeHash() hash.Hash {
+	return &FileSizeHash{FileSize: 0}
 }
 
 type FileSizeHash struct {
-	FileSize int64
+	FileSize int
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
 // It never returns an error.
-func (h FileSizeHash) Write(p []byte) (n int, err error) {
+func (h *FileSizeHash) Write(p []byte) (n int, err error) {
+	h.FileSize = h.FileSize + len(p)
 	return len(p), nil
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
-func (h FileSizeHash) Sum(b []byte) []byte {
+func (h *FileSizeHash) Sum(b []byte) []byte {
 	res := make([]byte, 8)
 	binary.LittleEndian.PutUint64(res, uint64(h.FileSize))
 	return res
 }
 
 // Reset resets the Hash to its initial state.
-func (h FileSizeHash) Reset() {}
+func (h *FileSizeHash) Reset() {}
 
 // Size returns the number of bytes Sum will return.
-func (h FileSizeHash) Size() int {
+func (h *FileSizeHash) Size() int {
 	return 8
 }
 
@@ -127,61 +129,46 @@ func (h FileSizeHash) Size() int {
 // The Write method must be able to accept any amount
 // of data, but it may operate more efficiently if all writes
 // are a multiple of the block size.
-func (h FileSizeHash) BlockSize() int {
+func (h *FileSizeHash) BlockSize() int {
 	return 256
 }
 
-func write(ctx context.Context, dataverseKey string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) (hash []byte, remoteHash []byte, retErr error) {
+func write(ctx context.Context, dataverseKey string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) (hash []byte, remoteHash []byte, size int, retErr error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	s := getStorage(storageIdentifier)
 	hasher, err := getHash(hashType, fileSize)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
+	sizeHasher := &FileSizeHash{FileSize: 0}
 	remoteHasher, err := getHash(remoteHashType, fileSize)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	readStream, err := fileStream.Open()
 	defer fileStream.Close()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	reader := hashingReader{readStream, hasher}
+	reader = hashingReader{reader, sizeHasher}
 	reader = hashingReader{reader, remoteHasher}
 
 	if s.driver == "file" || config.Options.DefaultDriver == "" || directUpload != "true" {
 		wg := &sync.WaitGroup{}
 		f, err1 := getFile(wg, dataverseKey, persistentId, pid, s, id)
 		if err1 != nil {
-			return nil, nil, err1
+			return nil, nil, 0, err1
 		}
-		defer func() {
-			if f != nil {
-				f.Close()
-			}
-			if retErr == nil {
-				retErr = err1
-			}
-		}()
-		buf := make([]byte, 64*1024)
-		for {
-			select {
-			case <-ctx.Done():
-				return nil, nil, ctx.Err()
-			default:
-			}
-			n, err2 := reader.Read(buf)
-			f.Write(buf[:n])
-			if err2 == io.EOF {
-				break
-			}
-		}
-		f.Close()
+		defer f.Close()
+		_, err = io.Copy(f, reader)
 		wg.Wait()
+		if err != nil {
+			return nil, nil, 0, err
+		}
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{
 			Region:           aws.String(config.Options.S3Config.AWSRegion),
@@ -190,7 +177,7 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 			S3ForcePathStyle: aws.Bool(config.Options.S3Config.AWSPathstyle),
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, 0, err
 		}
 		uploader := s3manager.NewUploader(sess)
 		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
@@ -199,13 +186,13 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 			Body:   reader,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, 0, err
 		}
 	} else {
-		return nil, nil, fmt.Errorf("unsupported driver: %s", s.driver)
+		return nil, nil, 0, fmt.Errorf("unsupported driver: %s", s.driver)
 	}
 
-	return hasher.Sum(nil), remoteHasher.Sum(nil), nil
+	return hasher.Sum(nil), remoteHasher.Sum(nil), sizeHasher.FileSize, nil
 }
 
 type zipWriterCloser struct {
@@ -302,19 +289,8 @@ func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.No
 	}
 
 	r := hashingReader{reader, hasher}
-	buf := make([]byte, 64*1024)
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-		_, err2 := r.Read(buf)
-		if err2 == io.EOF {
-			break
-		}
-	}
-	return hasher.Sum(nil), nil
+	_, err = io.Copy(ioutil.Discard, r)
+	return hasher.Sum(nil), err
 }
 
 func trimProtocol(persistentId string) (string, error) {
