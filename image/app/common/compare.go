@@ -46,7 +46,7 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	//process request
 	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
+	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
@@ -92,7 +92,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	//process request
 	req := CompareRequest{}
 	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
+	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

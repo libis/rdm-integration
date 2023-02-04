@@ -31,6 +31,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		&oauth2.Token{AccessToken: token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
+	defer tc.CloseIdleConnections()
 
 	client := github.NewClient(tc)
 	for k, v := range in {

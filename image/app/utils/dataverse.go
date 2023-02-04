@@ -87,11 +87,15 @@ func deleteFromDV(dataverseKey string, id int) error {
 	}
 	request.SetBasicAuth(dataverseKey, "")
 	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 && r.StatusCode != 202 && r.StatusCode != 204 {
 		b, _ := io.ReadAll(r.Body)
 		return fmt.Errorf("deleting file %d failed: %d - %s", id, r.StatusCode, string(b))
 	}
-	return err
+	return nil
 }
 
 func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
@@ -107,7 +111,11 @@ func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
 	}
 	request.Header.Add("Content-Type", formDataContentType)
 	request.Header.Add("X-Dataverse-key", dataverseKey)
-	r, _ := http.DefaultClient.Do(request)
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
 		return fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
@@ -151,6 +159,7 @@ func CheckPermission(dataverseKey, persistentId string) error {
 	if err != nil {
 		return err
 	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
 		return fmt.Errorf("getting permissions for dataset %s failed: %s", persistentId, string(b))
@@ -186,6 +195,7 @@ func getUser(dataverseKey string) (dv.User, error) {
 	if err != nil {
 		return dv.User{}, err
 	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
 		return dv.User{}, fmt.Errorf("getting user failed: %s", string(b))
@@ -222,6 +232,7 @@ func CreateNewDataset(collection, dataverseKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer r.Body.Close()
 	if r.StatusCode != 201 {
 		b, _ := io.ReadAll(r.Body)
 		return "", fmt.Errorf("creating dataset failed (%v): %s", r.StatusCode, string(b))
@@ -249,6 +260,7 @@ func cleanup(token, persistentId string) error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
@@ -275,7 +287,11 @@ func noSlashPermissionUrl(persistentId, dataverseKey string) (string, error) {
 	res := Res{}
 	request, _ := http.NewRequest("GET", config.DataverseServer+fmt.Sprintf("/api/datasets/:persistentId?persistentId=%s", persistentId), nil)
 	request.Header.Add("X-Dataverse-key", dataverseKey)
-	response, _ := http.DefaultClient.Do(request)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
 	json.Unmarshal(responseData, &res)
 	id := res.Id
@@ -311,6 +327,7 @@ func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer response.Body.Close()
 		responseData, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -378,6 +395,7 @@ func swordAddFile(dataverseKey, persistentId string, pr io.Reader, wg *sync.Wait
 	if async_err != nil {
 		return
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 201 {
 		b, _ := io.ReadAll(resp.Body)
 		async_err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, resp.StatusCode, string(b))

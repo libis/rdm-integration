@@ -30,6 +30,7 @@ func Options(params types.OptionsRequest) ([]string, error) {
 		&oauth2.Token{AccessToken: token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
+	defer tc.CloseIdleConnections()
 	client := github.NewClient(tc)
 
 	opt := &github.ListOptions{Page: 1, PerPage: 100}

@@ -32,6 +32,7 @@ func Search(params types.OptionsRequest) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %v", err)
 	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
 		return nil, fmt.Errorf("search failed: %d - %s", r.StatusCode, string(b))

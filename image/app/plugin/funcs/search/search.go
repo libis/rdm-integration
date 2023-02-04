@@ -14,7 +14,7 @@ import (
 func Search(w http.ResponseWriter, r *http.Request) {
 	//process requeststream
 	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
+	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

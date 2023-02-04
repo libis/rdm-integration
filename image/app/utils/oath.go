@@ -56,6 +56,7 @@ func GetOauthToken(id, code, nounce string) (OauthTokenResponse, error) {
 	if err != nil {
 		return res, fmt.Errorf("getting API token failed: %v", err)
 	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 {
 		b, _ := io.ReadAll(r.Body)
 		return res, fmt.Errorf("getting API token failed: %d - %s", r.StatusCode, string(b))

@@ -18,6 +18,7 @@ func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.No
 		&oauth2.Token{AccessToken: req.Token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
+	defer tc.CloseIdleConnections()
 	client := github.NewClient(tc)
 	user := ""
 	repo := ""

@@ -45,6 +45,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 				}
 				if r.StatusCode != 200 {
 					b, _ := io.ReadAll(r.Body)
+					r.Body.Close()
 					return nil, fmt.Errorf("getting file failed: %s", string(b))
 				}
 				return r.Body, nil
