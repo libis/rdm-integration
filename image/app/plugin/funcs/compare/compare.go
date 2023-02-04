@@ -97,7 +97,7 @@ func doCompare(req types.CompareRequest, key string) {
 	}
 
 	cachedRes.Response = res
-	cachedRes.MaxFileSize = maxFileSize
-	cachedRes.TooLarge = tooLarge
+	cachedRes.Response.MaxFileSize = maxFileSize
+	cachedRes.Response.TooLarge = tooLarge
 	common.CacheResponse(cachedRes)
 }

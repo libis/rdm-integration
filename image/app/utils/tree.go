@@ -13,10 +13,12 @@ const (
 )
 
 type CompareResponse struct {
-	Id     string      `json:"id"`
-	Status int         `json:"status"`
-	Data   []tree.Node `json:"data"`
-	Url    string      `json:"url"`
+	Id          string      `json:"id"`
+	Status      int         `json:"status"`
+	Data        []tree.Node `json:"data"`
+	Url         string      `json:"url"`
+	MaxFileSize int64       `json:"maxFileSize,omitempty"`
+	TooLarge    []string    `json:"tooLarge,omitempty"`
 }
 
 func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {

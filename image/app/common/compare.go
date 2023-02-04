@@ -27,8 +27,6 @@ type CachedResponse struct {
 	Key          string                `json:"key"`
 	Ready        bool                  `json:"ready"`
 	Response     utils.CompareResponse `json:"res"`
-	MaxFileSize  int64                 `json:"maxFileSize,omitempty"`
-	TooLarge     []string              `json:"tooLarge,omitempty"`
 	ErrorMessage string                `json:"err"`
 }
 
