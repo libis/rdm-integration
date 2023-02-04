@@ -159,7 +159,7 @@ func ClientSecret(clientId string) (clientSecret, url string, err error) {
 
 func GetMaxFileSize() int64 {
 	res := config.Options.MaxFileSize
-	if res < 1 && (directUpload != "true" || config.Options.DefaultDriver == "") {
+	if (res < 1 || res > 2147483647) && (directUpload != "true" || config.Options.DefaultDriver == "") {
 		// sword file size limit: max int32
 		return 2147483647
 	}
