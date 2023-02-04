@@ -60,7 +60,7 @@ func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Nod
 					DataFile: tree.DataFile{
 						Filename:    e.FileName,
 						ContentType: "application/octet-stream",
-						Filesize:    int(e.Size),
+						Filesize:    e.Size,
 						Checksum: tree.Checksum{
 							Type:  types.Md5,
 							Value: e.CheckSum,

@@ -53,7 +53,7 @@ type DataFile struct {
 	PidURL            string   `json:"pidURL"`
 	Filename          string   `json:"filename"`
 	ContentType       string   `json:"contentType"`
-	Filesize          int      `json:"filesize"`
+	Filesize          int64    `json:"filesize"`
 	Description       string   `json:"description"`
 	StorageIdentifier string   `json:"storageIdentifier"`
 	RootDataFileId    int      `json:"rootDataFileId"`

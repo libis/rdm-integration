@@ -77,7 +77,7 @@ func generateStorageIdentifier(fileName string) string {
 	return fmt.Sprintf("%s://%s%s", config.Options.DefaultDriver, b, fileName)
 }
 
-func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
+func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
 	if hashType == types.Md5 {
 		hasher = md5.New()
 	} else if hashType == types.SHA1 {
@@ -93,7 +93,7 @@ func getHash(hashType string, fileSize int) (hasher hash.Hash, err error) {
 	return
 }
 
-func write(ctx context.Context, dataverseKey string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int) (hash []byte, remoteHash []byte, size int, retErr error) {
+func write(ctx context.Context, dataverseKey string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, nil, 0, err

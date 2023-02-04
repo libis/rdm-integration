@@ -68,7 +68,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 					DataFile: tree.DataFile{
 						Filename:    fileName,
 						ContentType: "application/octet-stream",
-						Filesize:    int(e.Size),
+						Filesize:    e.Size,
 						Checksum: tree.Checksum{
 							Type:  hashType,
 							Value: hash,

@@ -5,13 +5,13 @@ package utils
 import "encoding/binary"
 
 type FileSizeHash struct {
-	FileSize int
+	FileSize int64
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
 // It never returns an error.
 func (h *FileSizeHash) Write(p []byte) (n int, err error) {
-	h.FileSize = h.FileSize + len(p)
+	h.FileSize = h.FileSize + int64(len(p))
 	return len(p), nil
 }
 

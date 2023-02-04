@@ -122,7 +122,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		var h []byte
 		var remoteH []byte
-		var size int
+		var size int64
 		h, remoteH, size, err = write(ctx, dataverseKey, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
 		if err != nil {
 			return
