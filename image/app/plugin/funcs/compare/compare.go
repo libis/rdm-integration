@@ -78,6 +78,14 @@ func doCompare(req types.CompareRequest, key string) {
 		common.CacheResponse(cachedRes)
 		return
 	}
+	tooLarge := []string{}
+	maxFileSize := utils.GetMaxFileSize()
+	for k, v := range repoNm {
+		if maxFileSize > 0 && v.Attributes.Metadata.DataFile.Filesize > maxFileSize {
+			delete(repoNm, k)
+			tooLarge = append(tooLarge, v.Id)
+		}
+	}
 	nm = utils.MergeNodeMaps(nm, repoNm)
 
 	//compare and write response
@@ -89,5 +97,7 @@ func doCompare(req types.CompareRequest, key string) {
 	}
 
 	cachedRes.Response = res
+	cachedRes.MaxFileSize = maxFileSize
+	cachedRes.TooLarge = tooLarge
 	common.CacheResponse(cachedRes)
 }

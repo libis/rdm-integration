@@ -7,6 +7,7 @@
         "defaultDriver": "file",
         "pathToFilesDir": "../../rdm-deployment/data/dv/files/",
         "pathToUnblockKey": "../../rdm-deployment/data/.secrets/api/key",
-        "pathToOauthSecrets": "../../rdm-deployment/data/datasync/oauth/secrets.json"
+        "pathToOauthSecrets": "../../rdm-deployment/data/datasync/oauth/secrets.json",
+        "maxFileSize": 0
     }
 }

@@ -34,6 +34,7 @@ type OptionalConfig struct {
 	PathToFilesDir       string   `json:"pathToFilesDir,omitempty"`      // path to the folder where dataverse files are stored (only needed when using "file" driver)
 	S3Config             S3Config `json:"s3Config,omitempty"`            // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
 	PathToOauthSecrets   string   `json:"pathToOauthSecrets,omitempty"`
+	MaxFileSize          int64    `json:"maxFileSize,omitempty"`
 }
 
 // Environment variables used for credentials: set these variables when using "s3" driver on the system where this application is deployed
@@ -154,4 +155,13 @@ func ClientSecret(clientId string) (clientSecret, url string, err error) {
 		return "", "", fmt.Errorf("OATH secret not found")
 	}
 	return s.ClientSecret, s.PostUrl, nil
+}
+
+func GetMaxFileSize() int64 {
+	res := config.Options.MaxFileSize
+	if res < 1 && (directUpload != "true" || config.Options.DefaultDriver == "") {
+		// sword file size limit: max int32
+		return 2147483647
+	}
+	return res
 }
