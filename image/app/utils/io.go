@@ -124,10 +124,10 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 			return nil, nil, 0, err1
 		}
 		_, err = io.Copy(f, reader)
-		f.Close()
+		err2 := f.Close()
 		wg.Wait()
-		if err != nil {
-			return nil, nil, 0, err
+		if err != nil || err1 != nil || err2 != nil { // err 1 is async error
+			return nil, nil, 0, fmt.Errorf("writing failed: %v: %v: %v", err1, err, err2)
 		}
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{
@@ -166,10 +166,6 @@ func (z zipWriterCloser) Write(p []byte) (n int, err error) {
 }
 
 func (z zipWriterCloser) Close() error {
-	err := z.zipWriter.Flush()
-	if err != nil {
-		return err
-	}
 	defer z.pw.Close()
 	return z.zipWriter.Close()
 }
