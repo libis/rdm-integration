@@ -160,7 +160,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				return
 			}
 		} else {
-			nm := map[string]tree.Node{}
+			var nm map[string]tree.Node
 			fileFound := false
 			written := tree.Node{}
 			for i := 0; !fileFound && i < 5; i++ {
@@ -180,7 +180,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			v.Attributes.Metadata.DataFile.Id = written.Attributes.Metadata.DataFile.Id
 		}
 
-		newH := []byte{}
+		var newH []byte
 		newH, err = doHash(ctx, dataverseKey, persistentId, v)
 		if err != nil {
 			return

@@ -8,7 +8,6 @@ import (
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -77,6 +76,9 @@ func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Nod
 			return nil, err
 		}
 		irodsNm, err := toNodeMap(root, d, subEntries, dvNodes)
+		if err != nil {
+			return nil, err
+		}
 		for k, v := range irodsNm {
 			res[k] = v
 		}
@@ -85,7 +87,7 @@ func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Nod
 }
 
 func list(root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
-	files, err := ioutil.ReadDir(folder)
+	files, err := os.ReadDir(folder)
 	if err != nil {
 		return nil, err
 	}
@@ -97,12 +99,15 @@ func list(root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
 		id := ""
 		fileName := v.Name()
 		idDir := v.IsDir()
-		size := v.Size()
+		var size int64
 		if !idDir {
+			info, err := v.Info()
+			if err == nil {
+				size = info.Size()
+			}
 			id = fileName
-			ancestors := []string{}
 			if len(folder) > len(root) {
-				ancestors = strings.Split(folder[len(root)+1:], string(os.PathSeparator))
+				ancestors := strings.Split(folder[len(root)+1:], string(os.PathSeparator))
 				parentId = strings.Join(ancestors, "/")
 				id = parentId + "/" + fileName
 			}

@@ -85,6 +85,9 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 			return nil, err
 		}
 		irodsNm, err := toNodeMap(cl, folder, subEntries)
+		if err != nil {
+			return nil, err
+		}
 		for k, v := range irodsNm {
 			res[k] = v
 		}

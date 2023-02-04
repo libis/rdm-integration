@@ -45,6 +45,9 @@ run: fmt ## Run the server locally
 fmt: ## Format the go code
 	cd image && go fmt ./app/...
 
+staticcheck: ## staticcheck the go code
+	cd image && ~/go/bin/staticcheck ./app/...
+
 frontend: ## build frontend
 	echo "Building frontend ..."
 	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production"

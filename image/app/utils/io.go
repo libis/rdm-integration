@@ -13,7 +13,6 @@ import (
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -49,11 +48,10 @@ func getStorage(storageIdentifier string) storage {
 	filename := ""
 	bucket := ""
 	first := strings.Split(storageIdentifier, "://")
-	second := []string{}
 	if len(first) == 2 {
 		driver = first[0]
 		filename = first[1]
-		second = strings.Split(filename, ":")
+		second := strings.Split(filename, ":")
 		if len(second) == 2 {
 			bucket = second[0]
 			filename = second[1]
@@ -119,7 +117,7 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 
 	if s.driver == "file" || config.Options.DefaultDriver == "" || directUpload != "true" {
 		wg := &sync.WaitGroup{}
-		var async_err error
+		async_err := &ErrorHolder{}
 		f, err := getFile(wg, dataverseKey, persistentId, pid, s, id, async_err)
 		if err != nil {
 			return nil, nil, 0, err
@@ -127,8 +125,8 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 		_, err_copy := io.Copy(f, reader)
 		err_close := f.Close()
 		wg.Wait()
-		if err_copy != nil || err_close != nil || async_err != nil {
-			return nil, nil, 0, fmt.Errorf("writing failed: %v: %v: %v", err_close, err_copy, async_err)
+		if err_copy != nil || err_close != nil || async_err.Err != nil {
+			return nil, nil, 0, fmt.Errorf("writing failed: %v: %v: %v", err_close, err_copy, async_err.Err)
 		}
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{
@@ -171,7 +169,7 @@ func (z zipWriterCloser) Close() error {
 	return z.zipWriter.Close()
 }
 
-func getFile(wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s storage, id string, async_err error) (io.WriteCloser, error) {
+func getFile(wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s storage, id string, async_err *ErrorHolder) (io.WriteCloser, error) {
 	if directUpload != "true" || config.Options.DefaultDriver == "" {
 		pr, pw := io.Pipe()
 		zipWriter := zip.NewWriter(pw)
@@ -249,7 +247,7 @@ func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.No
 	}
 
 	r := hashingReader{reader, hasher}
-	_, err = io.Copy(ioutil.Discard, r)
+	_, err = io.Copy(io.Discard, r)
 	return hasher.Sum(nil), err
 }
 

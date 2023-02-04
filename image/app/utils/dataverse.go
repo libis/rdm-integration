@@ -10,7 +10,6 @@ import (
 	"integration/app/logging"
 	"integration/app/tree"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"sync"
@@ -27,7 +26,7 @@ func GetNodeMap(persistentId, token string) (map[string]tree.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	responseData, err := ioutil.ReadAll(response.Body)
+	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +213,7 @@ func CreateNewDataset(collection, dataverseKey string) (string, error) {
 		collection = config.Options.RootDataverseId
 	}
 	if collection == "" {
-		return "", fmt.Errorf("Dataverse collection was not specified: unable to create a new dataset")
+		return "", fmt.Errorf("dataverse collection was not specified: unable to create a new dataset")
 	}
 	user, err := getUser(dataverseKey)
 	if err != nil {
@@ -261,7 +260,7 @@ func cleanup(token, persistentId string) error {
 		return err
 	}
 	defer response.Body.Close()
-	responseData, err := ioutil.ReadAll(response.Body)
+	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
@@ -292,7 +291,7 @@ func noSlashPermissionUrl(persistentId, dataverseKey string) (string, error) {
 		return "", err
 	}
 	defer response.Body.Close()
-	responseData, _ := ioutil.ReadAll(response.Body)
+	responseData, _ := io.ReadAll(response.Body)
 	json.Unmarshal(responseData, &res)
 	id := res.Id
 	if id == 0 {
@@ -328,12 +327,12 @@ func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
 			return nil, err
 		}
 		defer response.Body.Close()
-		responseData, err := ioutil.ReadAll(response.Body)
+		responseData, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
 		}
 		if response.StatusCode != 200 && response.StatusCode != 201 {
-			return nil, fmt.Errorf("Listing %v objects failed: %v", objectType, string(responseData))
+			return nil, fmt.Errorf("listing %v objects failed: %v", objectType, string(responseData))
 		}
 		retrieveResponse := dv.RetrieveResponse{}
 		err = json.Unmarshal(responseData, &retrieveResponse)
@@ -341,7 +340,7 @@ func ListDvObjects(objectType, collection, token string) ([]dv.Item, error) {
 			return nil, err
 		}
 		if !retrieveResponse.Success {
-			return nil, fmt.Errorf("Listing %v objects was not successful: %v", objectType, retrieveResponse.ErrorMessage)
+			return nil, fmt.Errorf("listing %v objects was not successful: %v", objectType, retrieveResponse.ErrorMessage)
 		}
 		res = append(res, retrieveResponse.Data.Items...)
 		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber
@@ -381,23 +380,28 @@ func GetExternalDataverseURL() string {
 	return config.DataverseServer
 }
 
-func swordAddFile(dataverseKey, persistentId string, pr io.Reader, wg *sync.WaitGroup, async_err error) {
+type ErrorHolder struct {
+	Err error
+}
+
+func swordAddFile(dataverseKey, persistentId string, pr io.Reader, wg *sync.WaitGroup, async_err *ErrorHolder) {
 	defer wg.Done()
-	var request *http.Request
-	var resp *http.Response
 	url := config.DataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
-	request, _ = http.NewRequest("POST", url, pr)
+	request, _ := http.NewRequest("POST", url, pr)
 	request.Header.Add("Content-Type", "application/zip")
 	request.Header.Add("Content-Disposition", "filename=example.zip")
 	request.Header.Add("Packaging", "http://purl.org/net/sword/package/SimpleZip")
 	request.SetBasicAuth(dataverseKey, "")
-	resp, async_err = http.DefaultClient.Do(request)
-	if async_err != nil {
+	resp, err := http.DefaultClient.Do(request)
+	if err != nil {
+		if async_err != nil {
+			async_err.Err = err
+		}
 		return
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 201 {
+	if resp.StatusCode != 201 && async_err != nil {
 		b, _ := io.ReadAll(resp.Body)
-		async_err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, resp.StatusCode, string(b))
+		async_err.Err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, resp.StatusCode, string(b))
 	}
 }
