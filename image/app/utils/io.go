@@ -119,15 +119,16 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 
 	if s.driver == "file" || config.Options.DefaultDriver == "" || directUpload != "true" {
 		wg := &sync.WaitGroup{}
-		f, err1 := getFile(wg, dataverseKey, persistentId, pid, s, id)
-		if err1 != nil {
-			return nil, nil, 0, err1
+		var async_err error
+		f, err := getFile(wg, dataverseKey, persistentId, pid, s, id, async_err)
+		if err != nil {
+			return nil, nil, 0, err
 		}
-		_, err = io.Copy(f, reader)
-		err2 := f.Close()
+		_, err_copy := io.Copy(f, reader)
+		err_close := f.Close()
 		wg.Wait()
-		if err != nil || err1 != nil || err2 != nil { // err 1 is async error
-			return nil, nil, 0, fmt.Errorf("writing failed: %v: %v: %v", err1, err, err2)
+		if err_copy != nil || err_close != nil || async_err != nil {
+			return nil, nil, 0, fmt.Errorf("writing failed: %v: %v: %v", err_close, err_copy, async_err)
 		}
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{
@@ -170,14 +171,17 @@ func (z zipWriterCloser) Close() error {
 	return z.zipWriter.Close()
 }
 
-func getFile(wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s storage, id string) (io.WriteCloser, error) {
+func getFile(wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s storage, id string, async_err error) (io.WriteCloser, error) {
 	if directUpload != "true" || config.Options.DefaultDriver == "" {
 		pr, pw := io.Pipe()
 		zipWriter := zip.NewWriter(pw)
 		writer, err := zipWriter.Create(id)
+		if err != nil {
+			return nil, err
+		}
 		wg.Add(1)
-		go swordAddFile(dataverseKey, persistentId, pr, wg, err)
-		return zipWriterCloser{writer, zipWriter, pw}, err
+		go swordAddFile(dataverseKey, persistentId, pr, wg, async_err)
+		return zipWriterCloser{writer, zipWriter, pw}, nil
 	}
 	path := config.Options.PathToFilesDir + pid + "/"
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {

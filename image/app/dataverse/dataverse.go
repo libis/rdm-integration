@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"integration/app/tree"
 	"io"
-	"mime/multipart"
 	"time"
 )
 
@@ -137,18 +136,6 @@ var createDatasetRequestFormat = `
 func CreateDatasetRequestBody(user User) io.Reader {
 	data := []byte(fmt.Sprintf(createDatasetRequestFormat, user.Data.LastName, user.Data.FirstName))
 	return bytes.NewReader(data)
-}
-
-func RequestBody(data []byte) (io.Reader, string, error) {
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormField("jsonData")
-	if err != nil {
-		return nil, "", err
-	}
-	part.Write(data)
-	writer.Close()
-	return body, writer.FormDataContentType(), nil
 }
 
 type RetrieveResponse struct {

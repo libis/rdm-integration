@@ -3,6 +3,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	dv "integration/app/dataverse"
@@ -10,6 +11,7 @@ import (
 	"integration/app/tree"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"sync"
 )
@@ -98,10 +100,7 @@ func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
 	if err != nil {
 		return err
 	}
-	body, formDataContentType, err := dv.RequestBody(data)
-	if err != nil {
-		return err
-	}
+	body, formDataContentType := requestBody(data)
 	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return err
@@ -116,10 +115,19 @@ func writeToDV(dataverseKey, persistentId string, jsonData dv.JsonData) error {
 	b, _ := io.ReadAll(r.Body)
 	res := dv.AddFilesResponse{}
 	err = json.Unmarshal(b, &res)
-	if res.Data.Result.Added != 1 && len(res.Data.Files) == 1 {
-		return fmt.Errorf("writting file failed: %v", res.Data.Files[0].ErrorMessage)
+	if res.Data.Result.Added != 1 {
+		return fmt.Errorf("writting file failed: %+v", res)
 	}
 	return err
+}
+
+func requestBody(data []byte) (io.Reader, string) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, _ := writer.CreateFormField("jsonData")
+	part.Write(data)
+	writer.Close()
+	return body, writer.FormDataContentType()
 }
 
 func CheckPermission(dataverseKey, persistentId string) error {
@@ -356,30 +364,29 @@ func GetExternalDataverseURL() string {
 	return config.DataverseServer
 }
 
-
 func swordAddFile(dataverseKey, persistentId string, pr io.Reader, wg *sync.WaitGroup, async_err error) {
 	defer wg.Done()
-	url := config.DataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
 	var request *http.Request
+	var resp *http.Response
+	url := config.DataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
 	request, _ = http.NewRequest("POST", url, pr)
 	request.Header.Add("Content-Type", "application/zip")
 	request.Header.Add("Content-Disposition", "filename=example.zip")
 	request.Header.Add("Packaging", "http://purl.org/net/sword/package/SimpleZip")
 	request.SetBasicAuth(dataverseKey, "")
-	var r *http.Response
-	r, async_err = http.DefaultClient.Do(request)
+	resp, async_err = http.DefaultClient.Do(request)
 	if async_err != nil {
 		return
 	}
-	if r.StatusCode != 201 {
-		b, _ := io.ReadAll(r.Body)
-		async_err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
+	if resp.StatusCode != 201 {
+		b, _ := io.ReadAll(resp.Body)
+		async_err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, resp.StatusCode, string(b))
 	}
 }
 
 // does not work on "file" driver, "s3" only
 // !!! untested -> test before considering
-/*func apiAddFile(dataverseKey, persistentId string, jsonData dv.JsonData, wg *sync.WaitGroup) (res io.WriteCloser, async_err error) {
+/*func apiAddFile(dataverseKey, persistentId string, jsonData dv.JsonData, wg *sync.WaitGroup, async_err error) (io.WriteCloser, error) {
 	url := config.DataverseServer + "/api/datasets/:persistentId/add?persistentId=" + persistentId
 	data, err := json.Marshal([]dv.JsonData{jsonData})
 	if err != nil {
@@ -406,8 +413,8 @@ func swordAddFile(dataverseKey, persistentId string, pr io.Reader, wg *sync.Wait
 		b, _ := io.ReadAll(r.Body)
 		res := dv.AddFilesResponse{}
 		json.Unmarshal(b, &res)
-		if res.Data.Result.Added != 1 && len(res.Data.Files) == 1 {
-			async_err = fmt.Errorf("adding file failed: %v", res.Data.Files[0].ErrorMessage)
+		if res.Data.Result.Added != 1 {
+			async_err = fmt.Errorf("adding file failed: %+v", res)
 		}
 	}(request)
 
@@ -415,5 +422,5 @@ func swordAddFile(dataverseKey, persistentId string, pr io.Reader, wg *sync.Wait
 		io.Writer
 		io.Closer
 	}
-	return writeCloser{ part2, writer }, async_err
+	return writeCloser{ part2, writer }, nil
 }*/
