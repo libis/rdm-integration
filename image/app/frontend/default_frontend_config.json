@@ -31,7 +31,7 @@
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "Repository API token",
             "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>",
+            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>.git",
             "parseSourceUrlField": true,
             "tokenName": "glToken"
         },
