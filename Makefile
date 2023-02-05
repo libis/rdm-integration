@@ -48,6 +48,9 @@ fmt: ## Format the go code
 staticcheck: ## staticcheck the go code
 	cd image && ~/go/bin/staticcheck ./app/...
 
+eslint: ## eslint the go code
+	cd ../rdm-integration-frontend && npx eslint src/app/** --fix
+
 frontend: ## build frontend
 	echo "Building frontend ..."
 	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production"
