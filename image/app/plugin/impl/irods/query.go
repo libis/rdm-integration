@@ -3,6 +3,7 @@
 package irods
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"integration/app/plugin/types"
@@ -12,7 +13,7 @@ import (
 	"github.com/cyverse/go-irodsclient/fs"
 )
 
-func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
+func Query(_ context.Context, req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
 	cl, err := NewIrodsClient(req.Url, req.RepoName, req.User, req.Token)
 	if err != nil {
 		return nil, err

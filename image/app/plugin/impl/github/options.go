@@ -13,7 +13,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func Options(params types.OptionsRequest) ([]string, error) {
+func Options(ctx context.Context, params types.OptionsRequest) ([]string, error) {
 	user := ""
 	repo := ""
 	splitted := strings.Split(params.RepoName, "/")
@@ -25,7 +25,6 @@ func Options(params types.OptionsRequest) ([]string, error) {
 	if user == "" || repo == "" || token == "" {
 		return nil, fmt.Errorf("branches: missing parameters: expected user, repo and token, got: %v", params)
 	}
-	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)

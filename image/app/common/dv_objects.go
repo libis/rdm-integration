@@ -35,7 +35,7 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dvObjects, err := utils.ListDvObjects(req.ObjectType, req.Collection, req.Token)
+	dvObjects, err := utils.ListDvObjects(r.Context(), req.ObjectType, req.Collection, req.Token)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

@@ -3,6 +3,7 @@
 package gitlab
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
@@ -25,17 +26,17 @@ type GitlabEntry struct {
 	Mode string `json:"mode"`
 }
 
-func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
+func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
 	entries := []GitlabEntry{}
 	page := 1
-	pageEntries, err := getPageEntries(req, page)
+	pageEntries, err := getPageEntries(ctx, req, page)
 	if err != nil {
 		return nil, err
 	}
 	for len(pageEntries) > 0 {
 		entries = append(entries, pageEntries...)
 		page = page + 1
-		pageEntries, err = getPageEntries(req, page)
+		pageEntries, err = getPageEntries(ctx, req, page)
 		if err != nil {
 			return nil, err
 		}
@@ -44,10 +45,10 @@ func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.No
 	return toNodeMap(tr), nil
 }
 
-func getPageEntries(req types.CompareRequest, page int) ([]GitlabEntry, error) {
+func getPageEntries(ctx context.Context, req types.CompareRequest, page int) ([]GitlabEntry, error) {
 	res := []GitlabEntry{}
 	url := fmt.Sprintf("%s/api/v4/projects/%s/repository/tree?recursive=true&ref=%s&per_page=100&page=%d", req.Url, url.PathEscape(req.RepoName), req.Option, page)
-	request, err := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}

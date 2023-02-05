@@ -28,7 +28,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	options, err := plugin.GetPlugin(params.Plugin).Search(params)
+	options, err := plugin.GetPlugin(params.Plugin).Search(r.Context(), params)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

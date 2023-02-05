@@ -3,6 +3,7 @@
 package gitlab
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
@@ -14,13 +15,13 @@ type Item struct {
 	PathWithBamespace string `json:"path_with_namespace"`
 }
 
-func Search(params types.OptionsRequest) ([]string, error) {
+func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) {
 	token := params.Token
 	if token == "" {
 		return nil, fmt.Errorf("not authorized")
 	}
 	url := params.Url + "/api/v4/search?scope=projects&search=" + params.RepoName
-	request, _ := http.NewRequest("GET", url, nil)
+	request, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
 	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {

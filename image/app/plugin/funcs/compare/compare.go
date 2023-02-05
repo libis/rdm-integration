@@ -3,6 +3,7 @@
 package compare
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/common"
@@ -36,7 +37,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := fmt.Sprintf("cached compare response (%v): %v", types.GitHash, req.PersistentId)
-	go doCompare(req, key)
+	go doCompare(r.Context(), req, key)
 	res := common.Key{Key: key}
 	b, err = json.Marshal(res)
 	if err != nil {
@@ -47,12 +48,12 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func doCompare(req types.CompareRequest, key string) {
+func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	cachedRes := common.CachedResponse{
 		Key: key,
 	}
 	//check permission
-	err := utils.CheckPermission(req.DataverseKey, req.PersistentId)
+	err := utils.CheckPermission(ctx, req.DataverseKey, req.PersistentId)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -60,7 +61,7 @@ func doCompare(req types.CompareRequest, key string) {
 	}
 
 	//query dataverse
-	nm, err := utils.GetNodeMap(req.PersistentId, req.DataverseKey)
+	nm, err := utils.GetNodeMap(ctx, req.PersistentId, req.DataverseKey)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -72,7 +73,7 @@ func doCompare(req types.CompareRequest, key string) {
 	for k, v := range nm {
 		nmCopy[k] = v
 	}
-	repoNm, err := plugin.GetPlugin(req.Plugin).Query(req, nmCopy)
+	repoNm, err := plugin.GetPlugin(req.Plugin).Query(ctx, req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)

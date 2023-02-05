@@ -3,6 +3,7 @@
 package gitlab
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
@@ -12,7 +13,7 @@ import (
 	"sort"
 )
 
-func Options(params types.OptionsRequest) ([]string, error) {
+func Options(ctx context.Context, params types.OptionsRequest) ([]string, error) {
 	base := params.Url
 	project := params.RepoName
 	token := params.Token
@@ -20,7 +21,7 @@ func Options(params types.OptionsRequest) ([]string, error) {
 		return nil, fmt.Errorf("branches: missing parameters: expected base, group (optional), project and token, got: %v", params)
 	}
 	url := base + "/api/v4/projects/" + url.PathEscape(project) + "/repository/branches"
-	request, err := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}

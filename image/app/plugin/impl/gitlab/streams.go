@@ -30,7 +30,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			return nil, fmt.Errorf("streams: sha not found")
 		}
 		url := base + "/api/v4/projects/" + url.PathEscape(project) + "/repository/blobs/" + sha + "/raw"
-		request, err := http.NewRequest("GET", url, nil)
+		request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return nil, err
 		}

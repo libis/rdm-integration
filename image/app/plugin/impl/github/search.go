@@ -3,6 +3,7 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
@@ -18,13 +19,13 @@ type Item struct {
 	FullName string `json:"full_name"`
 }
 
-func Search(params types.OptionsRequest) ([]string, error) {
+func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) {
 	token := params.Token
 	if token == "" {
 		return nil, fmt.Errorf("not authorized")
 	}
 	url := "https://api.github.com/search/repositories?q=" + params.RepoName
-	request, _ := http.NewRequest("GET", url, nil)
+	request, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
 	request.Header.Add("Accept", "application/vnd.github+json")
 	request.Header.Add("Authorization", "Bearer "+token)
 	request.Header.Add("X-GitHub-Api-Version", "2022-11-28")

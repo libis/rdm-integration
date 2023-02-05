@@ -12,8 +12,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func Query(req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
-	ctx := context.Background()
+func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: req.Token},
 	)

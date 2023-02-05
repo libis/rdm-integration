@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"integration/app/logging"
 	"integration/app/plugin/types"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -110,6 +111,8 @@ func init() {
 	if len(config.Options.MyDataRoleIds) == 0 {
 		config.Options.MyDataRoleIds = []int{6, 7}
 	}
+
+	http.DefaultClient.Timeout = lockMaxDuration
 }
 
 type RedisClient interface {

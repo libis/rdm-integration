@@ -3,12 +3,13 @@
 package irods
 
 import (
+	"context"
 	"fmt"
 	"integration/app/plugin/types"
 	"sort"
 )
 
-func Options(params types.OptionsRequest) ([]string, error) {
+func Options(_ context.Context, params types.OptionsRequest) ([]string, error) {
 	user := params.User
 	password := params.Token
 	server := params.Url

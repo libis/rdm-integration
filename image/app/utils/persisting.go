@@ -14,7 +14,7 @@ import (
 )
 
 func doWork(job Job) (Job, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithDeadline(context.Background(), job.Deadline)
 	defer cancel()
 	go func() {
 		select {
@@ -32,7 +32,7 @@ func doWork(job Job) (Job, error) {
 	}
 	knownHashes := getKnownHashes(job.PersistentId)
 	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
-	writableNodes, err := filterRedundant(job, knownHashes)
+	writableNodes, err := filterRedundant(ctx, job, knownHashes)
 	if err != nil {
 		return job, err
 	}
@@ -40,7 +40,7 @@ func doWork(job Job) (Job, error) {
 	return doPersistNodeMap(ctx, streams, job, knownHashes)
 }
 
-func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[string]tree.Node, error) {
+func filterRedundant(ctx context.Context, job Job, knownHashes map[string]calculatedHashes) (map[string]tree.Node, error) {
 	filteredEqual := map[string]tree.Node{}
 	isDelete := false
 	for k, v := range job.WritableNodes {
@@ -57,7 +57,7 @@ func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[stri
 		return filteredEqual, nil
 	}
 	res := map[string]tree.Node{}
-	nm, err := GetNodeMap(job.PersistentId, job.DataverseKey)
+	nm, err := GetNodeMap(ctx, job.PersistentId, job.DataverseKey)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func filterRedundant(job Job, knownHashes map[string]calculatedHashes) (map[stri
 
 func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in Job, knownHashes map[string]calculatedHashes) (out Job, err error) {
 	dataverseKey, persistentId, writableNodes := in.DataverseKey, in.PersistentId, in.WritableNodes
-	err = CheckPermission(dataverseKey, persistentId)
+	err = CheckPermission(ctx, dataverseKey, persistentId)
 	if err != nil {
 		return
 	}
@@ -97,7 +97,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 
 		if v.Action == tree.Delete {
-			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)
+			err = deleteFromDV(ctx, dataverseKey, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
 				return
 			}
@@ -108,7 +108,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 		// delete previous version before writting new version when replacing
 		if v.Attributes.Metadata.DataFile.Id != 0 {
-			err = deleteFromDV(dataverseKey, v.Attributes.Metadata.DataFile.Id)
+			err = deleteFromDV(ctx, dataverseKey, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
 				return
 			}
@@ -155,7 +155,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 					Value: hashValue,
 				},
 			}
-			err = writeToDV(dataverseKey, persistentId, data)
+			err = writeToDV(ctx, dataverseKey, persistentId, data)
 			if err != nil {
 				return
 			}
@@ -164,7 +164,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			fileFound := false
 			written := tree.Node{}
 			for i := 0; !fileFound && i < 5; i++ {
-				nm, err = GetNodeMap(persistentId, dataverseKey)
+				nm, err = GetNodeMap(ctx, persistentId, dataverseKey)
 				if err != nil {
 					return
 				}
@@ -205,7 +205,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = ctx.Err()
 		return
 	default:
-		err = cleanup(in.DataverseKey, in.PersistentId)
+		err = cleanup(ctx, in.DataverseKey, in.PersistentId)
 	}
 	return
 }

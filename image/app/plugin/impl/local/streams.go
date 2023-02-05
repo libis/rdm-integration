@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
+func Streams(_ context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
 	url := streamParams.Url
 	if url == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url, got: %v", streamParams)

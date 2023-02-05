@@ -4,6 +4,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,7 +37,7 @@ type OauthTokenResponse struct {
 var PluginConfig = map[string]RepoPlugin{}
 var RedirectUri string
 
-func GetOauthToken(id, code, nounce string) (OauthTokenResponse, error) {
+func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResponse, error) {
 	res := OauthTokenResponse{AccessToken: code}
 	clientId := PluginConfig[id].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
@@ -49,7 +50,7 @@ func GetOauthToken(id, code, nounce string) (OauthTokenResponse, error) {
 	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri, "authorization_code", ""}
 	data, _ := json.Marshal(req)
 	body := bytes.NewBuffer(data)
-	request, _ := http.NewRequest("POST", postUrl, body)
+	request, _ := http.NewRequestWithContext(ctx, "POST", postUrl, body)
 	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Accept", "application/json")
 	r, err := http.DefaultClient.Do(request)

@@ -28,7 +28,7 @@ func Options(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	options, err := plugin.GetPlugin(params.Plugin).Options(params)
+	options, err := plugin.GetPlugin(params.Plugin).Options(r.Context(), params)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

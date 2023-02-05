@@ -3,6 +3,7 @@
 package local
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"integration/app/plugin/types"
@@ -22,7 +23,7 @@ type Entry struct {
 	Size     int64
 }
 
-func Query(req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error) {
+func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error) {
 	path := req.Url
 	if strings.HasSuffix(path, string(os.PathSeparator)) {
 		path = path[:len(path)-1]

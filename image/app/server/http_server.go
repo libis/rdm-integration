@@ -12,31 +12,31 @@ import (
 	"integration/app/plugin/funcs/search"
 	"integration/app/utils"
 	"net/http"
+	"time"
 )
 
 func Start() {
-	// allow bad certificates
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	srvMux := http.NewServeMux()
 
 	// serve plugin api
-	http.HandleFunc("/api/plugin/compare", compare.Compare)
-	http.HandleFunc("/api/plugin/options", options.Options)
-	http.HandleFunc("/api/plugin/search", search.Search)
+	srvMux.HandleFunc("/api/plugin/compare", compare.Compare)
+	srvMux.HandleFunc("/api/plugin/options", options.Options)
+	srvMux.HandleFunc("/api/plugin/search", search.Search)
 
 	// common
-	http.HandleFunc("/api/common/oauthtoken", common.GetOauthToken)
-	http.HandleFunc("/api/common/newdataset", common.NewDataset)
-	http.HandleFunc("/api/common/compare", common.Compare)
-	http.HandleFunc("/api/common/cached", common.GetCachedResponse)
-	http.HandleFunc("/api/common/store", common.Store)
-	http.HandleFunc("/api/common/dvobjects", common.DvObjects)
+	srvMux.HandleFunc("/api/common/oauthtoken", common.GetOauthToken)
+	srvMux.HandleFunc("/api/common/newdataset", common.NewDataset)
+	srvMux.HandleFunc("/api/common/compare", common.Compare)
+	srvMux.HandleFunc("/api/common/cached", common.GetCachedResponse)
+	srvMux.HandleFunc("/api/common/store", common.Store)
+	srvMux.HandleFunc("/api/common/dvobjects", common.DvObjects)
 
 	// frontend config
-	http.HandleFunc("/api/frontend/config", frontend.GetConfig)
+	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)
 
 	// quit
 	if utils.AllowQuit {
-		http.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
+		srvMux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Server shut down and all jobs are cancelled. You can close the browser window now."))
 			defer func() {
 				logging.Logger.Println("quiting...")
@@ -46,7 +46,19 @@ func Start() {
 	}
 
 	// serve html
-	http.Handle("/", http.HandlerFunc(frontend.Frontend))
+	srvMux.Handle("/", http.HandlerFunc(frontend.Frontend))
 
-	http.ListenAndServe(":7788", nil)
+	// allow bad certificates
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+
+	srv := &http.Server{
+		Addr:              ":7788",
+		ReadTimeout:       1 * time.Second,
+		WriteTimeout:      1 * time.Second,
+		IdleTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+		TLSConfig:         tlsConfig,
+		Handler:           http.TimeoutHandler(srvMux, 5*time.Second, "processing the request took longer than 5 seconds: cancelled"),
+	}
+	srv.ListenAndServe()
 }

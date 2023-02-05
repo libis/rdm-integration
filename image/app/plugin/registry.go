@@ -13,9 +13,9 @@ import (
 )
 
 type Plugin struct {
-	Query   func(req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error)
-	Options func(params types.OptionsRequest) ([]string, error)
-	Search  func(params types.OptionsRequest) ([]string, error)
+	Query   func(ctx context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error)
+	Options func(ctx context.Context, params types.OptionsRequest) ([]string, error)
+	Search  func(ctx context.Context, params types.OptionsRequest) ([]string, error)
 	Streams func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error)
 }
 

@@ -21,6 +21,7 @@ type Job struct {
 	Streams       map[string]map[string]interface{}
 	StreamParams  types.StreamParams
 	ErrCnt        int
+	Deadline      time.Time
 }
 
 var Stop = make(chan struct{})
@@ -59,6 +60,9 @@ func addJob(job Job, requireLock bool) error {
 	}
 	if requireLock && !lock(job.PersistentId) {
 		return fmt.Errorf("Job for this dataverse is already in progress")
+	}
+	if requireLock {
+		job.Deadline = time.Now().Add(lockMaxDuration)
 	}
 	b, err := json.Marshal(job)
 	if err != nil {
