@@ -33,10 +33,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, persist
 				value, ok = node.Attributes.RemoteHash, true
 			}
 			if redisValue == types.Deleted {
-				value, ok = "", false
-			}
-			if redisValue != "" {
-				GetRedis().Del(ctx, redisKey)
+				value, ok = "", true
 			}
 			if !ok && node.Attributes.LocalHash != "" {
 				jobNodes[k] = node
