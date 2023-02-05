@@ -32,7 +32,9 @@ type CachedResponse struct {
 
 var cacheMaxDuration = time.Minute
 
-func CacheResponse(ctx context.Context, res CachedResponse) {
+func CacheResponse(res CachedResponse) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	b, _ := json.Marshal(res)
 	utils.GetRedis().Set(ctx, res.Key, string(b), cacheMaxDuration)
 }

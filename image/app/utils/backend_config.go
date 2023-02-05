@@ -4,6 +4,7 @@ package utils
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"integration/app/logging"
@@ -113,6 +114,8 @@ func init() {
 	}
 
 	http.DefaultClient.Timeout = lockMaxDuration
+	// allow bad certificates
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 }
 
 type RedisClient interface {

@@ -13,6 +13,7 @@ import (
 	"integration/app/utils"
 	"io"
 	"net/http"
+	"time"
 )
 
 func Compare(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +38,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := fmt.Sprintf("cached compare response (%v): %v", types.GitHash, req.PersistentId)
-	go doCompare(r.Context(), req, key)
+	go doCompare(req, key)
 	res := common.Key{Key: key}
 	b, err = json.Marshal(res)
 	if err != nil {
@@ -48,7 +49,9 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func doCompare(ctx context.Context, req types.CompareRequest, key string) {
+func doCompare(req types.CompareRequest, key string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	cachedRes := common.CachedResponse{
 		Key: key,
 	}
@@ -56,7 +59,7 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	err := utils.CheckPermission(ctx, req.DataverseKey, req.PersistentId)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(ctx, cachedRes)
+		common.CacheResponse(cachedRes)
 		return
 	}
 
@@ -64,7 +67,7 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	nm, err := utils.GetNodeMap(ctx, req.PersistentId, req.DataverseKey)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(ctx, cachedRes)
+		common.CacheResponse(cachedRes)
 		return
 	}
 
@@ -76,7 +79,7 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	repoNm, err := plugin.GetPlugin(req.Plugin).Query(ctx, req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(ctx, cachedRes)
+		common.CacheResponse(cachedRes)
 		return
 	}
 	tooLarge := []string{}
@@ -93,12 +96,12 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	res := utils.Compare(ctx, nm, req.PersistentId, req.DataverseKey, true)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(ctx, cachedRes)
+		common.CacheResponse(cachedRes)
 		return
 	}
 
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
 	cachedRes.Response.TooLarge = tooLarge
-	common.CacheResponse(ctx, cachedRes)
+	common.CacheResponse(cachedRes)
 }
