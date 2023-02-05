@@ -70,7 +70,7 @@ func Compare(ctx context.Context, in map[string]tree.Node, pid, dataverseKey str
 		empty = empty || v.Attributes.LocalHash != ""
 	}
 	status := Finished
-	if jobNeeded || IsLocked(pid) {
+	if jobNeeded || IsLocked(ctx, pid) {
 		status = Updating
 	} else if empty {
 		status = New

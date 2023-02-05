@@ -47,7 +47,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, persist
 		res[k] = node
 	}
 	if len(jobNodes) > 0 && addJobs {
-		AddJob(
+		AddJob(ctx,
 			Job{
 				DataverseKey:  dataverseKey,
 				PersistentId:  persistentId,

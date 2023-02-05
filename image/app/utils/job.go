@@ -27,34 +27,39 @@ type Job struct {
 var Stop = make(chan struct{})
 var Wait = sync.WaitGroup{}
 
-var lockMaxDuration = time.Hour * 24
+var lockMaxDuration = 24 * time.Hour
+var redisCtxDuration = 5 * time.Second
 
-func IsLocked(persistentId string) bool {
-	l := GetRedis().Get(context.Background(), "lock: "+persistentId)
+func IsLocked(ctx context.Context, persistentId string) bool {
+	l := GetRedis().Get(ctx, "lock: "+persistentId)
 	return l.Val() != ""
 }
 
 func lock(persistentId string) bool {
-	ok := GetRedis().SetNX(context.Background(), "lock: "+persistentId, true, lockMaxDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
+	defer cancel()
+	ok := GetRedis().SetNX(ctx, "lock: "+persistentId, true, lockMaxDuration)
 	return ok.Val()
 }
 
 func unlock(persistentId string) {
-	GetRedis().Del(context.Background(), "lock: "+persistentId)
+	ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
+	defer cancel()
+	GetRedis().Del(ctx, "lock: "+persistentId)
 }
 
-func AddJob(job Job) error {
+func AddJob(ctx context.Context, job Job) error {
 	if len(job.WritableNodes) == 0 {
 		return nil
 	}
-	err := addJob(job, true)
+	err := addJob(ctx, job, true)
 	if err == nil {
 		logging.Logger.Println("job added for " + job.PersistentId)
 	}
 	return err
 }
 
-func addJob(job Job, requireLock bool) error {
+func addJob(ctx context.Context, job Job, requireLock bool) error {
 	if len(job.WritableNodes) == 0 {
 		return nil
 	}
@@ -68,12 +73,14 @@ func addJob(job Job, requireLock bool) error {
 	if err != nil {
 		return err
 	}
-	cmd := GetRedis().LPush(context.Background(), "jobs", string(b))
+	cmd := GetRedis().LPush(ctx, "jobs", string(b))
 	return cmd.Err()
 }
 
 func popJob() (Job, bool) {
-	cmd := GetRedis().RPop(context.Background(), "jobs")
+	ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
+	defer cancel()
+	cmd := GetRedis().RPop(ctx, "jobs")
 	err := cmd.Err()
 	if err != nil {
 		return Job{}, false
@@ -111,7 +118,9 @@ func ProcessJobs() {
 				}
 			}
 			if len(job.WritableNodes) > 0 && job.ErrCnt < 3 {
-				err = addJob(job, false)
+				ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
+				err = addJob(ctx, job, false)
+				cancel()
 				if err != nil {
 					logging.Logger.Println("re-adding job failed (no retry):", persistentId, err)
 					unlock(persistentId)

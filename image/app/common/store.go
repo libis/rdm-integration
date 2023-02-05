@@ -51,7 +51,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		selected[v.Id] = v
 	}
 
-	err = utils.AddJob(utils.Job{
+	err = utils.AddJob(r.Context(), utils.Job{
 		DataverseKey:  req.DataverseKey,
 		PersistentId:  req.PersistentId,
 		WritableNodes: selected,
