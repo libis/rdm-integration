@@ -3,6 +3,7 @@
 package utils
 
 import (
+	"context"
 	"integration/app/tree"
 )
 
@@ -43,8 +44,8 @@ func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {
 	return res
 }
 
-func Compare(in map[string]tree.Node, pid, dataverseKey string, addJobs bool) CompareResponse {
-	in, jobNeeded := localRehashToMatchRemoteHashType(dataverseKey, pid, in, addJobs)
+func Compare(ctx context.Context, in map[string]tree.Node, pid, dataverseKey string, addJobs bool) CompareResponse {
+	in, jobNeeded := localRehashToMatchRemoteHashType(ctx, dataverseKey, pid, in, addJobs)
 	data := []tree.Node{}
 	empty := false
 	for _, v := range in {

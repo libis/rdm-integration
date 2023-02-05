@@ -17,8 +17,8 @@ type calculatedHashes struct {
 	RemoteHashes   map[string]string
 }
 
-func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes map[string]tree.Node, addJobs bool) (map[string]tree.Node, bool) {
-	knownHashes := getKnownHashes(persistentId)
+func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, persistentId string, nodes map[string]tree.Node, addJobs bool) (map[string]tree.Node, bool) {
+	knownHashes := getKnownHashes(ctx, persistentId)
 	jobNodes := map[string]tree.Node{}
 	res := map[string]tree.Node{}
 	for k, node := range nodes {
@@ -28,7 +28,7 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 				value, ok = node.Attributes.LocalHash, true
 			}
 			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
-			redisValue := GetRedis().Get(context.Background(), redisKey).Val()
+			redisValue := GetRedis().Get(ctx, redisKey).Val()
 			if redisValue == types.Written {
 				value, ok = node.Attributes.RemoteHash, true
 			}
@@ -36,7 +36,7 @@ func localRehashToMatchRemoteHashType(dataverseKey, persistentId string, nodes m
 				value, ok = "", false
 			}
 			if redisValue != "" {
-				GetRedis().Del(context.Background(), redisKey)
+				GetRedis().Del(ctx, redisKey)
 			}
 			if !ok && node.Attributes.LocalHash != "" {
 				jobNodes[k] = node
@@ -64,9 +64,9 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 	if err != nil {
 		return
 	}
-	knownHashes := getKnownHashes(persistentId)
+	knownHashes := getKnownHashes(ctx, persistentId)
 	defer func() {
-		storeKnownHashes(persistentId, knownHashes)
+		storeKnownHashes(ctx, persistentId, knownHashes)
 	}()
 	out = in
 	i := 0
@@ -78,7 +78,7 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 		}
 		i++
 		if i%10 == 0 && i < total {
-			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
+			storeKnownHashes(ctx, persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
 			logging.Logger.Printf("%v: processed %v/%v\n", persistentId, i, total)
 		}
 		delete(out.WritableNodes, k)
@@ -86,9 +86,9 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 	return
 }
 
-func getKnownHashes(persistentId string) map[string]calculatedHashes {
+func getKnownHashes(ctx context.Context, persistentId string) map[string]calculatedHashes {
 	res := map[string]calculatedHashes{}
-	cache := GetRedis().Get(context.Background(), "hashes: "+persistentId)
+	cache := GetRedis().Get(ctx, "hashes: "+persistentId)
 	err := json.Unmarshal([]byte(cache.Val()), &res)
 	if err != nil {
 		return map[string]calculatedHashes{}
@@ -96,17 +96,17 @@ func getKnownHashes(persistentId string) map[string]calculatedHashes {
 	return res
 }
 
-func storeKnownHashes(persistentId string, knownHashes map[string]calculatedHashes) {
+func storeKnownHashes(ctx context.Context, persistentId string, knownHashes map[string]calculatedHashes) {
 	knownHashesJson, err := json.Marshal(knownHashes)
 	if err != nil {
 		logging.Logger.Println("marshalling hashes failed")
 		return
 	}
-	GetRedis().Set(context.Background(), "hashes: "+persistentId, string(knownHashesJson), 0)
+	GetRedis().Set(ctx, "hashes: "+persistentId, string(knownHashesJson), 0)
 }
 
-func invalidateKnownHashes(persistentId string) {
-	GetRedis().Del(context.Background(), "hashes: "+persistentId)
+func invalidateKnownHashes(ctx context.Context, persistentId string) {
+	GetRedis().Del(ctx, "hashes: "+persistentId)
 }
 
 func calculateHash(ctx context.Context, dataverseKey, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {

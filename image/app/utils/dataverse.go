@@ -41,14 +41,14 @@ func GetNodeMap(ctx context.Context, persistentId, token string) (map[string]tre
 	}
 	mapped := mapToNodes(res.Data)
 	//check known hashes cache
-	knownHashes := getKnownHashes(persistentId)
+	knownHashes := getKnownHashes(ctx, persistentId)
 	for k, v := range mapped {
 		if knownHashes[k].LocalHashValue == "" {
 			continue
 		}
 		invalid := (knownHashes[k].LocalHashValue != v.Attributes.Metadata.DataFile.Checksum.Value)
 		if invalid {
-			invalidateKnownHashes(persistentId)
+			invalidateKnownHashes(ctx, persistentId)
 			break
 		}
 	}

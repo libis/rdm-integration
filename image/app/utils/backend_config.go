@@ -143,8 +143,8 @@ func SetConfig(dataverseServer, rootDataverseId, defaultHash string, roleIDs []i
 	config.Options.MyDataRoleIds = roleIDs
 }
 
-func RedisReady() bool {
-	res, err := GetRedis().Ping(context.Background()).Result()
+func RedisReady(ctx context.Context) bool {
+	res, err := GetRedis().Ping(ctx).Result()
 	if err != nil {
 		logging.Logger.Printf("redis error: %v", err)
 		return false

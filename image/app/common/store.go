@@ -26,7 +26,7 @@ type StoreRequest struct {
 }
 
 func Store(w http.ResponseWriter, r *http.Request) {
-	if !utils.RedisReady() {
+	if !utils.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return

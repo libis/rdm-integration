@@ -16,7 +16,7 @@ import (
 )
 
 func Compare(w http.ResponseWriter, r *http.Request) {
-	if !utils.RedisReady() {
+	if !utils.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return
@@ -56,7 +56,7 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	err := utils.CheckPermission(ctx, req.DataverseKey, req.PersistentId)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(cachedRes)
+		common.CacheResponse(ctx, cachedRes)
 		return
 	}
 
@@ -64,7 +64,7 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	nm, err := utils.GetNodeMap(ctx, req.PersistentId, req.DataverseKey)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(cachedRes)
+		common.CacheResponse(ctx, cachedRes)
 		return
 	}
 
@@ -76,7 +76,7 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	repoNm, err := plugin.GetPlugin(req.Plugin).Query(ctx, req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(cachedRes)
+		common.CacheResponse(ctx, cachedRes)
 		return
 	}
 	tooLarge := []string{}
@@ -90,15 +90,15 @@ func doCompare(ctx context.Context, req types.CompareRequest, key string) {
 	nm = utils.MergeNodeMaps(nm, repoNm)
 
 	//compare and write response
-	res := utils.Compare(nm, req.PersistentId, req.DataverseKey, true)
+	res := utils.Compare(ctx, nm, req.PersistentId, req.DataverseKey, true)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(cachedRes)
+		common.CacheResponse(ctx, cachedRes)
 		return
 	}
 
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
 	cachedRes.Response.TooLarge = tooLarge
-	common.CacheResponse(cachedRes)
+	common.CacheResponse(ctx, cachedRes)
 }

@@ -30,7 +30,7 @@ func doWork(job Job) (Job, error) {
 	if err != nil {
 		return job, err
 	}
-	knownHashes := getKnownHashes(job.PersistentId)
+	knownHashes := getKnownHashes(ctx, job.PersistentId)
 	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
 	writableNodes, err := filterRedundant(ctx, job, knownHashes)
 	if err != nil {
@@ -77,7 +77,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	if err != nil {
 		return
 	}
-	defer storeKnownHashes(persistentId, knownHashes)
+	defer storeKnownHashes(ctx, persistentId, knownHashes)
 
 	out = in
 	i := 0
@@ -92,7 +92,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 		i++
 		if i%10 == 0 && i < total {
-			storeKnownHashes(persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
+			storeKnownHashes(ctx, persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
 			logging.Logger.Printf("%v: processed %v/%v\n", persistentId, i, total)
 		}
 
