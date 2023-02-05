@@ -14,11 +14,17 @@ import (
 	"mime/multipart"
 	"net/http"
 	"sync"
+	"time"
 )
 
+var dvContextDuration = 5 * time.Second
+var deleteAndCleanupCtxDuration = 2 * time.Minute
+
 func GetNodeMap(ctx context.Context, persistentId, token string) (map[string]tree.Node, error) {
+	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
+	defer cancel()
 	url := config.DataverseServer + "/api/datasets/:persistentId/versions/:latest/files?persistentId=" + persistentId
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	request, err := http.NewRequestWithContext(shortContext, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +85,10 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 }
 
 func deleteFromDV(ctx context.Context, dataverseKey string, id int) error {
+	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
+	defer cancel()
 	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.DataverseServer, id)
-	request, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	request, err := http.NewRequestWithContext(shortContext, "DELETE", url, nil)
 	if err != nil {
 		logging.Logger.Println(err)
 		return err
@@ -139,18 +147,20 @@ func requestBody(data []byte) (io.Reader, string) {
 }
 
 func CheckPermission(ctx context.Context, dataverseKey, persistentId string) error {
+	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
+	defer cancel()
 	if !checkPermissions {
 		return nil
 	}
 	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=%s&unblock-key=%s", config.DataverseServer, persistentId, unblockKey)
 	if slashInPermissions != "true" {
 		var err error
-		url, err = noSlashPermissionUrl(ctx, persistentId, dataverseKey)
+		url, err = noSlashPermissionUrl(shortContext, persistentId, dataverseKey)
 		if err != nil {
 			return err
 		}
 	}
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	request, err := http.NewRequestWithContext(shortContext, "GET", url, nil)
 	if err != nil {
 		return err
 	}
@@ -247,11 +257,13 @@ func CreateNewDataset(ctx context.Context, collection, dataverseKey string) (str
 }
 
 func cleanup(ctx context.Context, token, persistentId string) error {
+	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
+	defer cancel()
 	if filesCleanup != "true" {
 		return nil
 	}
 	url := config.DataverseServer + "/api/datasets/:persistentId/cleanStorage?persistentId=" + persistentId
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	request, err := http.NewRequestWithContext(shortContext, "GET", url, nil)
 	if err != nil {
 		return err
 	}
@@ -278,6 +290,8 @@ func cleanup(ctx context.Context, token, persistentId string) error {
 }
 
 func noSlashPermissionUrl(ctx context.Context, persistentId, dataverseKey string) (string, error) {
+	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
+	defer cancel()
 	type Data struct {
 		Id int `json:"id"`
 	}
@@ -285,7 +299,7 @@ func noSlashPermissionUrl(ctx context.Context, persistentId, dataverseKey string
 		Data `json:"data"`
 	}
 	res := Res{}
-	request, _ := http.NewRequestWithContext(ctx, "GET", config.DataverseServer+fmt.Sprintf("/api/datasets/:persistentId?persistentId=%s", persistentId), nil)
+	request, _ := http.NewRequestWithContext(shortContext, "GET", config.DataverseServer+fmt.Sprintf("/api/datasets/:persistentId?persistentId=%s", persistentId), nil)
 	request.Header.Add("X-Dataverse-key", dataverseKey)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {

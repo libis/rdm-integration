@@ -87,8 +87,10 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 }
 
 func getKnownHashes(ctx context.Context, persistentId string) map[string]calculatedHashes {
+	shortContext, cancel := context.WithTimeout(ctx, redisCtxDuration)
+	defer cancel()
 	res := map[string]calculatedHashes{}
-	cache := GetRedis().Get(ctx, "hashes: "+persistentId)
+	cache := GetRedis().Get(shortContext, "hashes: "+persistentId)
 	err := json.Unmarshal([]byte(cache.Val()), &res)
 	if err != nil {
 		return map[string]calculatedHashes{}
@@ -97,16 +99,20 @@ func getKnownHashes(ctx context.Context, persistentId string) map[string]calcula
 }
 
 func storeKnownHashes(ctx context.Context, persistentId string, knownHashes map[string]calculatedHashes) {
+	shortContext, cancel := context.WithTimeout(ctx, redisCtxDuration)
+	defer cancel()
 	knownHashesJson, err := json.Marshal(knownHashes)
 	if err != nil {
 		logging.Logger.Println("marshalling hashes failed")
 		return
 	}
-	GetRedis().Set(ctx, "hashes: "+persistentId, string(knownHashesJson), 0)
+	GetRedis().Set(shortContext, "hashes: "+persistentId, string(knownHashesJson), 0)
 }
 
 func invalidateKnownHashes(ctx context.Context, persistentId string) {
-	GetRedis().Del(ctx, "hashes: "+persistentId)
+	shortContext, cancel := context.WithTimeout(ctx, redisCtxDuration)
+	defer cancel()
+	GetRedis().Del(shortContext, "hashes: "+persistentId)
 }
 
 func calculateHash(ctx context.Context, dataverseKey, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
