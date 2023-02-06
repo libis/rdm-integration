@@ -203,7 +203,7 @@ After implementing the above-mentioned functions on the backend, the plugin need
 ## Appendix: sequence diagrams
 
 ### Get options
-Listing branches, folders, etc. (depending on the repo plugin) that can be chosen in dropdown and on the connect page is a synchronous call. When retrieved, a branch or folder can be selected by the user as reference from where the files will be synchronized. The listing itself is implemented by a plugin and is described in the following sequence diagram:
+The sequence diagrams for ``search`` and ``oauthtoken`` are very similar to this one, and are not shown.
 
 ```mermaid
 sequenceDiagram
@@ -213,11 +213,11 @@ sequenceDiagram
     Backend-->>-Frontend: List of options for the dropdown
 ```
 
-### Get dataverse collections
+### Get dataverse objects
 
 ```mermaid
 sequenceDiagram
-    Frontend->>+Backend: /api/common/collections
+    Frontend->>+Backend: /api/common/dvobjects
     loop Until all pages are retrieved
     	Backend->>Dataverse: /api/v1/mydata/retrieve
 	Dataverse->>Backend: Dataverse collections
@@ -225,23 +225,7 @@ sequenceDiagram
     Backend-->>-Frontend: Dataverse collections
 ```
 
-### Get datasets
-Another dropdown on the connect page lets the user specify to which dataset the files should be synchronized. This is also a synchronous call, and the dropdown displays "Loading..." (the same is true for the get options call) until a response is received from the backend. The backend uses the Dataverse /api/v1/mydata/retrieve API call and retrieves all pages in a loop (the call supports paging for the cases where the user has many datasets). This is depicted in the diagram below:
-
-```mermaid
-sequenceDiagram
-    Frontend->>+Backend: /api/common/datasets
-    loop Until all pages are retrieved
-    	Backend->>Dataverse: /api/v1/mydata/retrieve
-	Dataverse->>Backend: Datasets
-    end
-    Backend-->>-Frontend: Datasets
-```
-
 ### Create new dataset
-When a user wishes to synchronize the files to a new (not yet existing) dataset, the frontend provides an option of creating a new incomplete dataset. The newly created dataset has a minimal metadata that does is not valid. After the synchronization (in this case simply an upload from the source repository to the new dataset) is complete, the user is presented with a link to this dataset on the Dataverse installation where the dataset was created. The user can then complete the metadata and make the new dataset valid and ready for review or publication.
-
-The frontend needs to provide two parameters before the call to the backend can be made: a Dataverse application token proving the identity of the user (and proving that the user has permission to create new datasets), and optional Dataverse collection (depicted as "{{Datavere collection}}" path parameter in the sequence diagram below). When the collection is not provided (e.g., the collection selection is disabled in the frontend for the Libis RDM Dataverse installation), the default collection configured in the backend is used.
 
 ```mermaid
 sequenceDiagram
@@ -252,7 +236,6 @@ sequenceDiagram
 ```
 
 ### Compare files
-
 
 ```mermaid
 sequenceDiagram
@@ -293,4 +276,23 @@ sequenceDiagram
 ```
 
 ### Store changes
-/api/common/store
+
+```mermaid
+sequenceDiagram
+    Frontend->>+Backend: /api/common/store
+    Backend->>Redis: Add new job
+    Backend->>Frontend: Job added
+    loop Until all files processed
+        Frontend->>Backend: /api/common/compare
+        Backend->>Redis: get processed files list
+        Redis-->>Backend: Response
+        Backend-->>Frontend: Not all files processed
+    end
+    Worker->>Redis: Get new job
+    Redis-->>Worker: Persisting job
+    activate Worker
+    loop Until all files processed
+        Worker-->>Worker: Process file
+        Worker-->>Redis: Notify file is processed
+    end
+```
