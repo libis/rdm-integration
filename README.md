@@ -260,7 +260,7 @@ sequenceDiagram
     deactivate Goroutine
     loop Until all hashes known
     	Frontend->>Backend: /api/common/compare
-	Backend->>Redis: Get(key)
+	Backend->>Redis: Get known hashes
 	Redis-->>Backend: Response
         Backend-->>Frontend: Not all hashes known
     end
