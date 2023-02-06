@@ -14,6 +14,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func Compare(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +39,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	key := fmt.Sprintf("cached compare response (%v): %v", types.GitHash, req.PersistentId)
+	key := uuid.New().String()
 	go doCompare(req, key)
 	res := common.Key{Key: key}
 	b, err = json.Marshal(res)
