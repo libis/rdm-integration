@@ -94,10 +94,10 @@ Additionally, the configuration can contain the following fields in the optional
 - defaultDriver: default driver as used by the Dataverse installation, only "file" and "s3" are supported. See also the next section.
 - pathToFilesDir: path to the folder where Dataverse files are stored (only needed when using the "file" driver)
 - s3Config: configuration when using the "s3" driver, set in similarly to the settings for the s3 driver in your Dataverse installation. Only needed when using S3 file system that is not mounted as a volume. See also the next section.
-- pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). Further details can be found in the sections on frontend and OAuth configurations.
+- pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). As shown in that example, each OAuth client has its own entry, identified by the application ID, and contains two fields: clientSecret containing the client secret, and postURL containing the URL where the post request for acquiring tokens should be sent to.
 - maxFileSize: maximum size of a file that can be uploaded to the Dataverse installation. When not set, or set to 0 (or value less than 0), there is no limit on file size that can be uploaded. The exception to that rule is when no driver is configured and direct upload is not possible (this is always the case for the version run locally, not on the server). The file size is then limited by the SWORD API in Dataverse, where the maximum size is equal to ``2,147,483,647 bytes`` (maximum for the ``int32`` type). The files that cannot be uploaded due to the file size limit are filtered out by the frontend and the user is notified with a warning.
 
-An example backend configuration file, also used by default by the examples in the running from source section, is provided in the source code: [backend-config.json](conf/backend_config.json).
+An example backend configuration file, also used by default by the examples in the running from source section, is provided in the source code: [backend-config.json](conf/backend_config.json). An extra example, as can be used to connect to the [Demo Dataverse](https://demo.dataverse.org), can be found in [backend_config_demo.json](conf/backend_config_demo.json). Set the ``BACKEND_CONFIG_FILE`` environment variable accordingly to change used configuration files.
 
 ### Dataverse file system drivers
 When running this tool on the server, you can take advantage of directly uploading files to the file system where Dataverse files are stored, assuming that you have direct access to that file system from the location where this application is running. The most generic way is simply mounting the file system as a volume and configuring the tool to use the "file" driver pointing to the mounted volume. This works well for native file systems as well as other remote file systems. For example, you can use (AWS or locally deployed) S3 file system by first mounting a bucket with [s3fs](https://github.com/s3fs-fuse/s3fs-fuse). You can do that either on the host system where the application is running, on the container where the application is running (e.g., you can use the [s3fs-fuse](https://pkgs.alpinelinux.org/package/edge/testing/x86/s3fs-fuse) package for the Alpine Linux that the Docker image is based on), or use a separate Docker container that mounts the volume and makes it available to other docker containers (e.g. [efrecon/s3fs](https://hub.docker.com/r/efrecon/s3fs)). There are other, countless examples of mounting different native or remote file systems as a volume. All of them are configured similarly, for example:
@@ -118,7 +118,7 @@ As an alternative, you can access a s3 storage directly from this application, w
 - Access Key ID: ``AWS_ACCESS_KEY_ID`` or ``AWS_ACCESS_KEY``
 - Secret Access Key: ``AWS_SECRET_ACCESS_KEY`` or ``AWS_SECRET_KEY``
 
-The s3 driver is then further configured in the ``backend_config.json``, for example (copy the setting values from your Datavarse installation):
+The s3 driver is then further configured in the backend configuration file, for example (copy the setting values from your Datavarse installation):
 ```
 {
     "dataverseServer": "localhost:8080",
@@ -139,7 +139,45 @@ The s3 driver is then further configured in the ``backend_config.json``, for exa
 Notice that the driver configuration is optional. When it is not set, no direct uploading is in use and simply the Dataverse API is called for storing the files. However, this can result in unnecessary usage of resources (network, CPU, etc.) and might slow down the Dataverse installation.
 
 ### Frontend configuration
-frontend_config.json, header.hml and footer.html
+There are two types of possible configurations to the frontend. The first type are the customizations of the visual aspect, done by replacement of files, e.g., the [footer.html](conf/customizations/assets/html/footer.html) and the [header.html](conf/customizations/assets/html/header.html). Also, other files can be replaced by custom version, e.g., ``index.html``, for even more custom look. The files that are going to be replaced are placed in the [conf/customizations](conf/customizations/) directory, that can also contain files referenced by the custom HTML files, e.g., [dataverse_r_project.png](conf/customizations/assets/img/dataverse_r_project.png). The directory from where de customizations are copied can be changed by adjusting the make scripts accordingly. By default, only the ``make executable`` and ``make multiplatform_demo`` commands effectively replace files while building. In order to add customizations into your make script, add the following line to the script: ``cp -r conf/customizations/* image/app/frontend/dist/datasync/``.
+
+The second type is the configuration of the frontend options and the plugins. The default configuration, used when the frontend configuration file is not specified in the ``FRONTEND_CONFIG_FILE`` environment variable, can be found in [default_frontend_config.json](image/app/frontend/default_frontend_config.json). This file should not be changed, unless a new plugin is added. In that case, this files should be extended with a default configuration for that plugin. In order to use a different configuration, set the ``FRONTEND_CONFIG_FILE`` environment variable accordingly. An example of the configuration file, also used by the default make scripts and docker commands, can be found in [frontend_config.json](conf/frontend_config.json).
+
+The configuration file can contain the following options for the frontend:
+- dataverseHeader: the display name of the Dataverse installation.
+- collectionOptionsHidden: if set to ``true``, an extra dropdown is shown that allows for collection selection within the Dataverse installation. The selected installation is then used for creating new dataset, when that option is enabled, and for filtering of the available datasets.
+- collectionFieldEditable: if set to ``true``, the user can paste or type collection identifiers directly, without the use of the dropdown.
+- createNewDatasetEnabled: if set to ``true``, it enables the "Create new dataset" button.
+- datasetFieldEditable: if set to ``true``, the user can paste or type DOI identifiers directly, without the use of the dropdown.
+- externalURL: this option if filled bout by the backend from the ``dataverseExternalUrl`` backend configuration option, and should not be set manually.
+- showDvTokenGetter: set it to ``true`` to show the "Get token" button next to the Dataverse token field.
+- redirect_uri: when using OAuth, this option should be set to the ``redirect_uri`` as configured in the OAuth application setting, e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps). The redirect URI must point to the ``/connect`` page of the application.
+- storeDvToken: set it to ``true`` to allow storing Dataverse API token in the browser of the user.
+- plugins: contains one entry for each repository instance, as described below.
+
+Having multiple instances for plugin types is useful when certain features, e.g., OAuth authentication, can be configured for specific installations of a given repository type. It is perfectly possible to have at most one instance for each plugin type, as it is the case in the [default_frontend_config.json](image/app/frontend/default_frontend_config.json). Plugins that er not configured will not be shown in the UI. The repository instance, configured as an entry in ``plugins`` setting of the frontend configuration, can contain the following fields:
+- id: unique identifier for the repository instance configuration.
+- name: name of the instance, as displayed in the "Repository instance" field on the connect page, e.g. "KU Leuven GitLab".
+- plugin: the identifier of the plugin, as implemented in [registry.go](image/app/plugin/registry.go), e.g., ``irods``, ``github``, ``gitlab``, etc.
+- pluginName: Display name of the plugin, as displayed in the "Repository type" dropdown.
+- optionFieldName: when the plugin implements ``Options`` function, this field is set to the name of the implemented option, e.g., "branch" or "folder".
+- optionFieldPlaceholder: the placeholder for option field.
+- tokenFieldName: when the user needs to authenticate with a API token or password to the given repository (e.g., OAuth is not configured for this repository instance), this field should be set to the name of the needed credential, e.g., "Token" or "Password"
+- tokenFieldPlaceholder: the placeholder for the token field.
+- sourceUrlFieldName: when configured, the UI will show the source URL field, where the user can enter the URL of the repository to connect to.
+- sourceUrlFieldPlaceholder: the placeholder for the source URL field.
+- sourceUrlFieldValue: when configured, it contains the default value for the source URL field. When this value is always the same for a given plugin, e.g., ``https://github.com``, then the tokenFieldPlaceholder can be left empty, and the field will not be shown (but will always contain the configured default value). 
+- sourceUrlFieldValueMap: the same as sourceUrlFieldValue, but in contains mapping between a repository name and a URL. This can be used when, e.g., different IRODS zones use different URLs.
+- usernameFieldName: when the user needs to authenticate with a username to the given repository (e.g., OAuth is not configured for this repository instance), this field should be set to the name of this field, e.g., "Username"
+- usernameFieldPlaceholder: the placeholder for the username field.
+- repoNameFieldName: repository selection field name.
+- repoNameFieldPlaceholder: the placeholder for the repository selection field.
+- repoNameFieldEditable: if set to ``true``, the user can paste or type repository name directly, without the use of the dropdown.
+- repoNameFieldValues: suggested or possible repository names. When this is filled out, a dropdown will be presented to the user, otherwise a text field will be presented.
+- repoNameFieldHasSearch: when the plugin implements ``Search`` function, this field can be set to ``true`` for searchable repository names. 
+- parseSourceUrlField: when set to true, the repoName field can be left not configured and the repository name is parsed from the source URL field.
+- tokenName: when set to a unique value, the credential needed for authentication is stored in the browser.
+- tokenGetter: OAuth configuration for the repository instance containing the URL where authorizations should be redirected to, and the oauth_client_id from the OAuth application setting, e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps). See also the backend configuration section on how to configure the needed client secrets.
 
 ## Writing a new plugin
 In order to integrate a new repository type, you need to implement a new plugin for the backend. The plugins are implemented in the [image/app/plugin/impl](image/app/plugin/impl) folder (each having its own package). The new plugin implementation must be then registered in the [registry.go](image/app/plugin/registry.go) file. As can be seen in the same file, a plugin implements functions that are required by the Plugin type:
