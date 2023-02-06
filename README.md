@@ -1,7 +1,7 @@
 # rdm-integration
-This is an application for files synchronization from different source repositories into a [Dataverse](https://dataverse.org) installation. This application uses background processes for the synchronization of the files. The background processes are also used for hashing of the Dataverse files when the source repository uses different hash type than the Dataverse installation. The hashes are then used for the comparing of the files, allowing easier versioning of the files between the dataset versions (only the files that effectively have change would be replaced and added to the overview of changes between different dataset versions). The frontend application does not need to be running when the synchronization is running on the server (users can close their browsers once that the synchronization has been set up), and multiple synchronizations for different users can run simultaneously, each on its own goroutine, scheduled as a "job" in the background. The number of simultaneously running jobs is adjustable, and the jobs are scheduled in First-In-First-Out (FIFO) order.
+This is an application for files synchronization from different source repositories into a [Dataverse](https://dataverse.org) installation. This application uses background processes for the synchronization of the files. The background processes are also used for hashing of the Dataverse files when the source repository uses different hash type than the Dataverse installation. These hashes are needed for the comparison of the files, allowing easier versioning of the files between the dataset versions (only the files that effectively have changed would be replaced and added to the overview of changes between different dataset versions). The frontend application does not need to be running when the synchronization is running on the server (users can close their browsers once that the synchronization has been set up), and multiple synchronizations for different users can run simultaneously, each on its own goroutine, scheduled as a "job" in the background. The number of simultaneously running jobs is adjustable, and the jobs are scheduled in "First In First Out" order.
 
-This application can also be used as a stand-alone tool for uploading and synchronizing files from local storage to the Dataverse installation. Only the stand-alone tool allows synchronizing files from your local file system to a Dataverse installation. All other plugins (synchronizing from [GitHub](https://github.com/), [GitLab](https://about.gitlab.com/), [IRODS](https://irods.org/), etc.) are the same in the stand-alone and server versions.
+This application can also be used as a stand-alone tool for uploading and synchronizing files from local storage to the Dataverse installation. Only the stand-alone tool allows synchronizing files from your local file system to a Dataverse installation.
 
 ## Available plugins
 Support for different repositories is implemented as plugins. More plugins will be added in the feature. At this moment, the following plugins are provided with the latest version:
@@ -11,7 +11,7 @@ Support for different repositories is implemented as plugins. More plugins will 
 - [IRODS](https://irods.org/)
 
 ## Getting started
-Download the binary built for your system (Windows, Linux or Darwin/macOS on intel or arm64 architecture) from the latest release and execute it by double-clicking on it or by running it in command-line. By default, the application will connect to the [Demo Dataverse](https://demo.dataverse.org). If you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` parameters set to the Dataverse installation of your choice, e.g., on Windows system:
+Download the binary built for your system (Windows, Linux or Darwin/macOS) from the latest release and execute it by double-clicking on it or by running it in command-line. By default, the application will connect to the [Demo Dataverse](https://demo.dataverse.org). If you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` parameters set to the Dataverse installation of your choice, e.g., on Windows system:
 ```
 demo_windows.exe -server=https://demo.dataverse.org
 ```
@@ -40,9 +40,9 @@ demo_windows.exe -server=https://your.dataverse.installation -serverName="Datave
 You can also build your own binaries with different default values for the command-line arguments. See the next section for more detail (in the part about ``-X`` flags).
 
 ### Running and building from source
-In order to run the application locally, checkout in the same folder, this repository ([rdm-integration](https://github.com/libis/rdm-integration)) and the frontend repository ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Then go to ``/rdm-integration`` directory (i.e., the directory where this repository is checked out) and run ``make run``. This script will also start a docker container containing the Redis data store, which is used the by the running application for storing the application state. Notice that if you do not run standard Libis RDM (Dataverse) locally, you will need to configure the backend to connect to your Dataverse installation server. See the "Backend configuration" section for more detail.
+In order to run the application locally, checkout in the same folder: this repository ([rdm-integration](https://github.com/libis/rdm-integration)), and the frontend repository ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Then go to ``/rdm-integration`` directory (i.e., the directory where this repository is checked out) and run ``make run``. This script will also start a docker container containing the Redis data store, which is used the by the running application for storing the application state. Notice that if you do not run standard Libis RDM (Dataverse) locally, you will need to configure the backend to connect to your Dataverse installation server. See the "Backend configuration" section for more details.
 
-You can also use make commands to build the docker image (``make build -e BASE_HREF='/'``). The resulting container can be used as a web server hosting the API and the frontend, or as a container running the workers executing the jobs scheduled by the frontend. For the purpose of scalability, both types of intended usage can have multiple containers running behind a load balancer. The default run command starts a container performing both tasks: a web server and a process controlling 100 workers:
+You can also use the make commands to build the docker image (``make build -e BASE_HREF='/'``). The resulting container can be used as a web server hosting the API and the frontend, or as a container running the workers executing the jobs requested by the frontend. For the purpose of scalability, both types of intended usage can have multiple containers running behind a load balancer. The default run command starts a container performing both tasks: a web server and a process controlling 100 workers:
 ```
 docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app 100
 ```
@@ -62,12 +62,12 @@ Building binaries with local file system plugin, just as the binaries included i
 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
 ```
 
-These are the ``-X`` flags that you can use at the build time and set the default values for the command line arguments (as listed by the ``datasync.exe -h`` command):
+These are the ``-X`` flags that you can use at the build time to set the default values for the command line arguments (as listed by the ``datasync.exe -h`` command):
 - DataverseServer (sets the default value for the ``server`` argument): URL of the Dataverse installation that the built application will connect to by default
 - DataverseServerName (sets the default value for the ``serverName`` argument): display name of the Dataverse installation, e.g., "Demo Dataverse"
 - RootDataverseId (sets the default value for the ``dvID`` argument): ID of the root Dataverse collection of the Dataverse installation, e.g., "demo"
-- DefaultHash (sets the default value for the ``hash`` argument): most Dataverse installation use "MD5" as hashing algorithm, and this flag can be omitted in most cases.
-- MyDataRoleIds (sets the default value for the ``roleIDs`` argument): this application uses the ``retrieve`` "my data" API call, however, this API requires the Role ID (primary key of the role table where the particular role is stored on the database), which can be tricky to find. Only the datasets where the user has that particular role are return by the server. If your Dataverse installation does not fill the dropdown for the dataset choice, then this flag should be adjusted. Otherwise, you can omit this flag. The default setting is ``6,7`` representing the ``contributor`` and ``curator`` roles on most installations.
+- DefaultHash (sets the default value for the ``hash`` argument): most Dataverse installation use "MD5" as hashing algorithm: this flag can be omitted in most cases.
+- MyDataRoleIds (sets the default value for the ``roleIDs`` argument): this application uses the ``retrieve`` "my data" API call. However, this API requires the Role ID (primary key of the role table where the particular role is stored on the database), which can be tricky to find. Only the datasets where the user has that particular role are returned by the server. If your Dataverse installation does not fill the dropdown for the dataset choice, then this flag should be adjusted. Otherwise, you can omit this flag. The default setting is ``6,7`` representing the ``contributor`` and ``curator`` roles on most installations.
 
 You can also build the binaries for multiple architectures at once with the ``make multiplatform_demo`` command. Adapt the build commands in that script similarly as described for the ``make executable`` command.
 
@@ -77,28 +77,28 @@ The backend configuration is loaded by the application from a file specified by 
 export BACKEND_CONFIG_FILE=../conf/backend_config.json
 ```
 
-Note that the stand-alone version does not need the backend configuration file and is configured by the ``-X`` ldflags passed to the build command. You can also override these flags by adding arguments to the execution command, as described above.
+Note that the stand-alone version does not need the backend configuration file and is configured by the ``-X`` ldflags passed to the build command. You can also override these flags by adding arguments to the execution command, as described in the sections above.
 
-An example of backend configuration can be found in [backend-config.json](conf/backend_config.json). Another example, as can be used to connect to the [Demo Dataverse](https://demo.dataverse.org), can be found in [backend_config_demo.json](conf/backend_config_demo.json). The ``BACKEND_CONFIG_FILE`` environment variable specifies which configuration file will be loaded. The only two mandatory fields are the following:
-- dataverseServer: URL of the server where Detaverse API is deployed
-- redisHost: the host containing the Redis data store (storing the application state)
+An example of backend configuration can be found in [backend-config.json](conf/backend_config.json). Another example, as can be used to connect to the [Demo Dataverse](https://demo.dataverse.org), can be found in [backend_config_demo.json](conf/backend_config_demo.json). The ``BACKEND_CONFIG_FILE`` environment variable specifies which configuration file will be loaded. The only two mandatory fields in the configuration file are the following:
+- dataverseServer: URL of the server where Detaverse API is deployed.
+- redisHost: the host containing the Redis data store (storing the application state).
 
 Additionally, the configuration can contain the following fields in the optional "options" field:
 - dataverseExternalUrl: this field is used to generate a link to the dataset presented to the user. Set this value if it is different from dataverseServer value, otherwise you can omit it.
-- rootDataverseId: root Dataverse collection ID, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection).
+- rootDataverseId: root Dataverse collection ID, needed for creating new dataset when no collection was chosen in the UI.
 - defaultHash: as mentioned earlier, "MD5" is the default hash for most Dataverse installations. Change this only when your installation uses a different hashing algorithm (e.g., SHA-1).
 - myDataRoleIds: role IDs for querying my data, as explained earlier in this section.
 - pathToUnblockKey: path to the file containing the API unblock key. Configure this value to enable checking permissions before requesting jobs.
-- pathToRedisPassword: by default no password is set, if you need to authenticate, store here the path to the file containing the Redis password here.
-- redisDB: by default, DB 0 is used. If you need to use other DB, specify it here.
+- pathToRedisPassword: by default no password is set, if you need to authenticate with Redis, store the path to the file containing the Redis password in this field.
+- redisDB: by default, DB 0 is used. If you need to use another DB, specify it here.
 - defaultDriver: default driver as used by the Dataverse installation, only "file" and "s3" are supported. See also the next section.
 - pathToFilesDir: path to the folder where Dataverse files are stored (only needed when using the "file" driver).
 - s3Config: configuration when using the "s3" driver, similar to the settings for the s3 driver in your Dataverse installation. Only needed when using S3 file system that is not mounted as a volume. See also the next section.
-- pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). As shown in that example, each OAuth client has its own entry, identified by the application ID, and contains two fields: clientSecret containing the client secret, and postURL containing the URL where the post request for acquiring tokens should be sent to. See the frontend configuration section for information on configuration of OAuth authorization for the plugins.
+- pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). As shown in that example, each OAuth client has its own entry, identified by the application ID. Each entry contains two fields: clientSecret containing the client secret, and postURL containing the URL where the post request for acquiring tokens should be sent to. See the frontend configuration section for information on configuration of OAuth authorization for the plugins.
 - maxFileSize: maximum size of a file that can be uploaded to the Dataverse installation. When not set, or set to 0 (or value less than 0), there is no limit on file size that can be uploaded. The exception to that rule is when no driver is configured and direct upload is not possible (this is always the case for the version run locally, not on the server). The file size is then limited by the SWORD API in Dataverse, where the maximum size is equal to ``2,147,483,647 bytes`` (maximum for the ``int32`` type). The files that cannot be uploaded due to the file size limit are filtered out by the frontend and the user is notified with a warning.
 
 ### Dataverse file system drivers
-When running this tool on the server, you can take the advantage of directly uploading files to the file system where Dataverse files are stored (assuming that you have direct access to that file system from the location where this application is running). The most generic way is simply mounting the file system as a volume and configuring the application to use the "file" driver pointing to the mounted volume. For example:
+When running this tool on the server, you can take the advantage of directly uploading files to the file system where Dataverse files are stored (assuming that you have direct access to that file system from the location where this application is running). The most generic way is simply mounting the file system as a volume and configuring the application (in the backend configuration file) to use the "file" driver pointing to the mounted volume. For example:
 
 ```
 {
@@ -143,13 +143,13 @@ The second type is the configuration with a configuration file. The default conf
 
 The configuration file can contain the following options for the frontend:
 - dataverseHeader: the display name of the Dataverse installation.
-- collectionOptionsHidden: if set to ``true``, an extra dropdown is shown that allows for collection selection within the Dataverse installation. The selected installation is then used for creating new dataset, when that option is enabled, and for filtering of the available datasets.
+- collectionOptionsHidden: if set to ``false`` (or omitted), an extra dropdown is shown that allows for collection selection within the Dataverse installation. The selected installation is then used for creating new dataset, when that option is enabled, and for filtering of the available datasets.
 - collectionFieldEditable: if set to ``true``, the user can paste or type collection identifiers directly, without the use of the dropdown.
 - createNewDatasetEnabled: if set to ``true``, it enables the "Create new dataset" button.
 - datasetFieldEditable: if set to ``true``, the user can paste or type DOI identifiers directly, without the use of the dropdown.
-- externalURL: this option if filled bout by the backend from the ``dataverseExternalUrl`` backend configuration option, and should not be set manually.
+- externalURL: this option if filled out by the backend from the ``dataverseExternalUrl`` backend configuration file field, and should not be set manually.
 - showDvTokenGetter: set it to ``true`` to show the "Get token" button next to the Dataverse token field.
-- redirect_uri: when using OAuth, this option should be set to the ``redirect_uri`` as configured in the OAuth application setting, e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps). The redirect URI must point to the ``/connect`` page of the application.
+- redirect_uri: when using OAuth, this option should be set to the ``redirect_uri`` as configured in the OAuth application setting (e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps)). The redirect URI must point to the ``/connect`` page of this application.
 - storeDvToken: set it to ``true`` to allow storing Dataverse API token in the browser of the user.
 - plugins: contains one entry for each repository instance, as described below.
 
@@ -164,8 +164,8 @@ Having multiple instances for plugin types is useful when certain features, e.g.
 - tokenFieldPlaceholder: the placeholder for the token field.
 - sourceUrlFieldName: when configured, the UI will show the source URL field, where the user can enter the URL of the repository to connect to.
 - sourceUrlFieldPlaceholder: the placeholder for the source URL field.
-- sourceUrlFieldValue: when configured, it contains the default value for the source URL field. When this value is always the same for a given plugin, e.g., ``https://github.com``, then the tokenFieldPlaceholder can be left empty, and the field will not be shown (but will always contain the configured default value). 
-- sourceUrlFieldValueMap: the same as sourceUrlFieldValue, but in contains mapping between a repository name and a URL. This can be used when, e.g., different IRODS zones use different URLs.
+- sourceUrlFieldValue: when configured, it contains the default value for the source URL field. When this value is always the same for a given plugin, e.g., ``https://github.com``, then the sourceUrlFieldName can be left empty, and the field will not be shown (but will always contain the configured default value). 
+- sourceUrlFieldValueMap: the same as sourceUrlFieldValue, but it contains mapping between a repository name and a URL. This can be used when, e.g., different IRODS zones use different URLs.
 - usernameFieldName: when the user needs to authenticate with a username to the given repository (e.g., OAuth is not configured for this repository instance), this field should be set to the name of this field, e.g., "Username"
 - usernameFieldPlaceholder: the placeholder for the username field.
 - repoNameFieldName: repository selection field name.
@@ -175,7 +175,7 @@ Having multiple instances for plugin types is useful when certain features, e.g.
 - repoNameFieldHasSearch: when the plugin implements ``Search`` function, this field can be set to ``true`` for searchable repository names. 
 - parseSourceUrlField: when set to true, the repoName field can be left not configured and the repository name is parsed from the source URL field.
 - tokenName: when set to a unique value, the credential needed for authentication is stored in the browser.
-- tokenGetter: OAuth configuration for the repository instance containing the URL where authorizations should be redirected to, and the oauth_client_id from the OAuth application setting, e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps). See also the backend configuration section on how to configure the needed client secrets.
+- tokenGetter: OAuth configuration for the repository instance containing the URL where authorizations should be redirected to, and the oauth_client_id from the OAuth application setting (e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps)). See also the backend configuration section on how to configure the needed client secrets.
 
 ## Writing a new plugin
 In order to integrate a new repository type, you need to implement a new plugin for the backend. The plugins are implemented in the [image/app/plugin/impl](image/app/plugin/impl) folder (each having its own package). The new plugin implementation must be then registered in the [registry.go](image/app/plugin/registry.go) file. As can be seen in the same file, a plugin implements functions that are required by the Plugin type:
@@ -188,8 +188,8 @@ type Plugin struct {
 }
 ```
 
-Note that the Plugin type is a struct and cannot hold any state, as it has only function fields. Therefore, the plugin implementations are stateless and all state, caching, etc., are handled by the application, independently of the used plugin. This makes the plugins easier to implement. Each plugin implements at leas these two functions:
-- Query: using the standard fields as provided in the "types.CompareRequest" (username, API token, URL, etc.) this function queries the repository for files. The result is a flat mapping of files found on the repository to their paths. A file is represented by a "tree.Node" type containing the file name, file path, hash type and hash value, etc. Notice that it does not contain the file itself. The ``dvNodes`` parameters holds a copy of the nodes as present in the Dataset on the Dataverse installation.
+Each plugin implements at leas these two functions:
+- Query: using the standard fields as provided in the "types.CompareRequest" (username, API token, URL, etc.) this function queries the repository for files. The result is a flat mapping of files found on the repository to their paths. A file is represented by a "tree.Node" type containing the file name, file path, hash type and hash value, etc. Notice that it does not contain the file itself. The ``dvNodes`` parameters holds a copy of the nodes as present in the Dataset on the Dataverse installation (and can be ignored in most cases).
 - Streams: files are synchronized using streams from the source repository to the file system, where each file has its own stream. This function implements "types.Stream" objects for the provided files (the "in" parameter contains a filtered list of files that are going to be copied from the repository). Notably, a "types.Stream" object contains a function for opening a stream to the provided file and a function to close that stream.
 
 Additionally, the plugins can implement the following functions:
@@ -201,7 +201,7 @@ After implementing the above-mentioned functions on the backend, the plugin need
 ## Appendix: sequence diagrams
 
 ### Get options
-The sequence diagrams for ``search`` and ``oauthtoken`` are very similar to this one, and are not shown.
+The sequence diagrams for ``search`` and ``oauthtoken`` are very similar to this one, and are not shown separately.
 
 ```mermaid
 sequenceDiagram
