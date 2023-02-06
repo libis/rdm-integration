@@ -22,7 +22,7 @@ For more details, see the section about running the application.
 For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. You will need to have the latest [Go](https://go.dev/) installed for compiling the code. If you wish to build the application's container, you will need to have the [Docker](https://www.docker.com) installed. For running and building the applications from source using the make commands, you will need to have [make](https://www.gnu.org/software/make/) installed. Finally, the state of the application (calculated hashes, scheduled jobs, etc.) is maintained by a [Redis](https://redis.io/) data store. When running this application on the server, you will need either access to an external Redis server, or one run by you locally. The stand-alone tool does not require any Redis server (or any other tool or library installed on your system), and can be simply run by executing a binary built for your operating system.
 
 ## Dependencies
-This application can be used by accessing the API directly (from cron jobs, etc.), or with a frontend providing GUI for the end users. The frontend ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)) needs to be checked out separately prior to building this application. Besides the frontend dependency, the build process uses the following libraries and their dependencies (``go build`` command resolves them from ``go.mod`` and ``go.sum`` files, and they do not need to be installed separately):
+This application can be used by accessing the API directly (from cron jobs, etc.), or with a frontend providing GUI for the end users. The frontend ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)) needs to be checked out separately prior to building this application. Besides the frontend dependency, the build process use the following libraries and their dependencies (``go build`` command resolves them from ``go.mod`` and ``go.sum`` files, and they do not need to be installed separately):
 - [AWS SDK for Go](https://github.com/aws/aws-sdk-go)
 - [Redis client for Go](https://github.com/go-redis/redis)
 - [go-github](https://github.com/google/go-github)
@@ -32,7 +32,7 @@ This application can be used by accessing the API directly (from cron jobs, etc.
 ## Running the application
 The most straight forward way of running the application is to use the in the release provided binaries. Note that these binaries are only meant to be used by the end users and should not be used on a server. If you wish to build your own binaries or build this application for running on a server, see the section on running and building from source.
 
-By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with -h argument. This will list the possible configuration options. For example, if you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` (display name of the server as show in the UI, e.g. ``My Dataverse``) parameters set to the Dataverse installation of your choice, e.g., or example, you can run the executable with the following options: ``-server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
+By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with ``-h`` argument. This will list the possible configuration options. For example, if you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` (display name of the server as show in the UI, e.g. ``My Dataverse``) parameters set to the Dataverse installation of your choice, e.g., you can run the executable with the following options: ``-server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
 ```
 demo_windows.exe -server=https://your.dataverse.installation -serverName="Dataverse Installation"
 ```
@@ -40,14 +40,14 @@ demo_windows.exe -server=https://your.dataverse.installation -serverName="Datave
 You can also build your own binaries with different default values for the command-line arguments. See the next section for more detail (in the part about ``-X`` flags).
 
 ### Running and building from source
-In order to run the application locally, checkout in the same folder, this repository ([rdm-integration](https://github.com/libis/rdm-integration)) and the frontend repository ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Then go to ``/rdm-integration`` directory and run ``make run``. This script will also start a docker container containing the Redis data store, which is used the by the running application for storing the application state. Notice that if you do not run standard Libis RDM (Dataverse) locally, you will need to configure the backend to connect to your Dataverse installation server. See the "Backend configuration" section for more detail.
+In order to run the application locally, checkout in the same folder, this repository ([rdm-integration](https://github.com/libis/rdm-integration)) and the frontend repository ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Then go to ``/rdm-integration`` directory (i.e., the directory where this repository is checked out) and run ``make run``. This script will also start a docker container containing the Redis data store, which is used the by the running application for storing the application state. Notice that if you do not run standard Libis RDM (Dataverse) locally, you will need to configure the backend to connect to your Dataverse installation server. See the "Backend configuration" section for more detail.
 
 You can also use make commands to build the docker image (``make build -e BASE_HREF='/'``) or push to the docker repository (``make push``). The resulting container can be used as a web server hosting the API and the frontend, or as a container running the workers executing the jobs scheduled by the frontend. For the purpose of scalability, both types of intended usage can have multiple containers running behind a load balancer. The default run command starts a container performing both tasks: a web server and a process controlling 100 workers:
 ```
 docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app 100
 ```
 
-After starting the docker container with the command above, verify that the web server is running by going to [http://localhost:7788](http://localhost:7788). If you wish to have different number of simultaneously running works, change 100 to the desired values. If you only wish the resulting container to function as a web server, change this command to the following:
+After starting the docker container with the command above, verify that the web server is running by going to [http://localhost:7788](http://localhost:7788). If you wish to have different number of simultaneously running workers, change 100 to the desired values. If you only wish the resulting container to function as a web server only, change this command to the following:
 ```
 docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app
 ```
@@ -57,17 +57,17 @@ When running the web server separately from the workers, you will need at least 
 docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 workers 100
 ```
 
-Building binaries with local file system plugin, just as the binaries included in the release, meant only for running by the end users and not on a server, is also done with the make command: ``make executable``. You may want to adjust that script by setting the variables to make the application connect to your Dataverse installation. By default, the built application connects to the [Demo Dataverse](https://demo.dataverse.org). In order to change that, you must adapt the build command the following way (in the ``image`` directory):
+Building binaries with local file system plugin, just as the binaries included in the release, meant only for running by the end users and not on a server, is also done with the make command: ``make executable``. You may want to adjust that script by setting the variables to make the application connect to your Dataverse installation. By default, the built application connects to the [Demo Dataverse](https://demo.dataverse.org). In order to change that, you must adapt the build command the following way (you can also run this command in the [image](image) directory, without the script):
 ```
 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
 ```
 
-These are the ``-X`` flags that you can set at the build time and set the default values for the command line arguments:
+These are the ``-X`` flags that you can use at the build time and set the default values for the command line arguments (as listed by the ``datasync.exe -h`` command):
 - DataverseServer (sets the default value for the ``server`` argument): URL of the Dataverse installation that the built application will connect to by default
 - DataverseServerName (sets the default value for the ``serverName`` argument): display name of the Dataverse installation, e.g., "Demo Dataverse"
 - RootDataverseId (sets the default value for the ``dvID`` argument): ID of the root Dataverse collection of the Dataverse installation, e.g., "demo"
-- DefaultHash (sets the default value for the ``hash`` argument): most Dataverse installation use "MD5" as hashing algorithm, and this flag can be omitted in most cases. The only hash that is supported right now is the "SHA1".
-- MyDataRoleIds (sets the default value for the ``roleIDs`` argument): this application uses the API call for retrieving "my data", for providing the user the choice of the dataset that the user wishes to update. However, this API requires the Role ID (primary key of the role table where the particular role is stored on the database), which can be tricky to find. Only the datasets where the user has that particular role are return by the server. If your Dataverse installation does not fill the dropdown for dataset choice, then this flag should be adjusted. Otherwise, you can omit this flag. The default setting is ``6,7`` representing the ``contributor`` and ``curator`` roles on most installations.
+- DefaultHash (sets the default value for the ``hash`` argument): most Dataverse installation use "MD5" as hashing algorithm, and this flag can be omitted in most cases.
+- MyDataRoleIds (sets the default value for the ``roleIDs`` argument): this application uses the ``retrieve`` "my data" API call, however, this API requires the Role ID (primary key of the role table where the particular role is stored on the database), which can be tricky to find. Only the datasets where the user has that particular role are return by the server. If your Dataverse installation does not fill the dropdown for the dataset choice, then this flag should be adjusted. Otherwise, you can omit this flag. The default setting is ``6,7`` representing the ``contributor`` and ``curator`` roles on most installations.
 
 You can also build the binaries for multiple architectures at once with the ``make multiplatform_demo`` command. Adapt the build commands in that script similarly as described for the ``make executable`` command.
 
@@ -79,28 +79,26 @@ export BACKEND_CONFIG_FILE=../conf/backend_config.json
 
 Note that the stand-alone version does not need the backend configuration file and is configured by the ``-X`` ldflags passed to the build command. You can also override these flags by adding arguments to the execution command, as described above.
 
-The only two required fields that must be configured for the application to work are the following:
+An example of backend configuration can be found in [backend-config.json](conf/backend_config.json). Another example, as can be used to connect to the [Demo Dataverse](https://demo.dataverse.org), can be found in [backend_config_demo.json](conf/backend_config_demo.json). The ``BACKEND_CONFIG_FILE`` environment variable specifies which configuration file will be loaded. The only two mandatory fields are the following:
 - dataverseServer: URL of the server where Detaverse API is deployed
 - redisHost: the host containing the Redis data store (storing the application state)
 
 Additionally, the configuration can contain the following fields in the optional "options" field:
-- dataverseExternalUrl: used to generate a link to the dataset presented to the user. Set this value if it is different from dataverseServer value, otherwise you can omit it.
-- rootDataverseId: root Dataverse collection ID, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
-- defaultHash: as mentioned earlier, "MD5" is the default hash for most Dataverse installations. Change this only when your installation uses a different hashing algorithm (e.g., SHA-1)
+- dataverseExternalUrl: this field is used to generate a link to the dataset presented to the user. Set this value if it is different from dataverseServer value, otherwise you can omit it.
+- rootDataverseId: root Dataverse collection ID, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection).
+- defaultHash: as mentioned earlier, "MD5" is the default hash for most Dataverse installations. Change this only when your installation uses a different hashing algorithm (e.g., SHA-1).
 - myDataRoleIds: role IDs for querying my data, as explained earlier in this section.
-- pathToUnblockKey: path to the file containing the API unblock key. Configure this value to enable checking permissions before requesting jobs
-- pathToRedisPassword: by default no password is set, if you need to authenticate, store here the path to the file containing the Redis password
-- redisDB: by default, DB 0 is used. If you need to use other DB, specify it here
+- pathToUnblockKey: path to the file containing the API unblock key. Configure this value to enable checking permissions before requesting jobs.
+- pathToRedisPassword: by default no password is set, if you need to authenticate, store here the path to the file containing the Redis password here.
+- redisDB: by default, DB 0 is used. If you need to use other DB, specify it here.
 - defaultDriver: default driver as used by the Dataverse installation, only "file" and "s3" are supported. See also the next section.
-- pathToFilesDir: path to the folder where Dataverse files are stored (only needed when using the "file" driver)
-- s3Config: configuration when using the "s3" driver, set in similarly to the settings for the s3 driver in your Dataverse installation. Only needed when using S3 file system that is not mounted as a volume. See also the next section.
-- pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). As shown in that example, each OAuth client has its own entry, identified by the application ID, and contains two fields: clientSecret containing the client secret, and postURL containing the URL where the post request for acquiring tokens should be sent to.
+- pathToFilesDir: path to the folder where Dataverse files are stored (only needed when using the "file" driver).
+- s3Config: configuration when using the "s3" driver, similar to the settings for the s3 driver in your Dataverse installation. Only needed when using S3 file system that is not mounted as a volume. See also the next section.
+- pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). As shown in that example, each OAuth client has its own entry, identified by the application ID, and contains two fields: clientSecret containing the client secret, and postURL containing the URL where the post request for acquiring tokens should be sent to. See the frontend configuration section for information on configuration of OAuth authorization for the plugins.
 - maxFileSize: maximum size of a file that can be uploaded to the Dataverse installation. When not set, or set to 0 (or value less than 0), there is no limit on file size that can be uploaded. The exception to that rule is when no driver is configured and direct upload is not possible (this is always the case for the version run locally, not on the server). The file size is then limited by the SWORD API in Dataverse, where the maximum size is equal to ``2,147,483,647 bytes`` (maximum for the ``int32`` type). The files that cannot be uploaded due to the file size limit are filtered out by the frontend and the user is notified with a warning.
 
-An example backend configuration file, also used by default by the examples in the running from source section, is provided in the source code: [backend-config.json](conf/backend_config.json). An extra example, as can be used to connect to the [Demo Dataverse](https://demo.dataverse.org), can be found in [backend_config_demo.json](conf/backend_config_demo.json). Set the ``BACKEND_CONFIG_FILE`` environment variable accordingly to change used configuration files.
-
 ### Dataverse file system drivers
-When running this tool on the server, you can take advantage of directly uploading files to the file system where Dataverse files are stored, assuming that you have direct access to that file system from the location where this application is running. The most generic way is simply mounting the file system as a volume and configuring the tool to use the "file" driver pointing to the mounted volume. This works well for native file systems as well as other remote file systems. For example, you can use (AWS or locally deployed) S3 file system by first mounting a bucket with [s3fs](https://github.com/s3fs-fuse/s3fs-fuse). You can do that either on the host system where the application is running, on the container where the application is running (e.g., you can use the [s3fs-fuse](https://pkgs.alpinelinux.org/package/edge/testing/x86/s3fs-fuse) package for the Alpine Linux that the Docker image is based on), or use a separate Docker container that mounts the volume and makes it available to other docker containers (e.g. [efrecon/s3fs](https://hub.docker.com/r/efrecon/s3fs)). There are other, countless examples of mounting different native or remote file systems as a volume. All of them are configured similarly, for example:
+When running this tool on the server, you can take the advantage of directly uploading files to the file system where Dataverse files are stored (assuming that you have direct access to that file system from the location where this application is running). The most generic way is simply mounting the file system as a volume and configuring the application to use the "file" driver pointing to the mounted volume. For example:
 
 ```
 {
@@ -114,11 +112,11 @@ When running this tool on the server, you can take advantage of directly uploadi
 }
 ```
 
-As an alternative, you can access a s3 storage directly from this application, without the need of mounting it. First, you will need to configure the authentication by setting the following environment variables on the OS running this application:
+As an alternative, you can access an s3 storage directly from this application, without the need of mounting it. First, you will need to configure the authentication by setting the following environment variables on the OS running this application:
 - Access Key ID: ``AWS_ACCESS_KEY_ID`` or ``AWS_ACCESS_KEY``
 - Secret Access Key: ``AWS_SECRET_ACCESS_KEY`` or ``AWS_SECRET_KEY``
 
-The s3 driver is then further configured in the backend configuration file, for example (copy the setting values from your Datavarse installation):
+The s3 driver is then further configured in the backend configuration file, for example:
 ```
 {
     "dataverseServer": "localhost:8080",
@@ -139,9 +137,9 @@ The s3 driver is then further configured in the backend configuration file, for 
 Notice that the driver configuration is optional. When it is not set, no direct uploading is in use and simply the Dataverse API is called for storing the files. However, this can result in unnecessary usage of resources (network, CPU, etc.) and might slow down the Dataverse installation.
 
 ### Frontend configuration
-There are two types of possible configurations to the frontend. The first type are the customizations of the visual aspect, done by replacement of files, e.g., the [footer.html](conf/customizations/assets/html/footer.html) and the [header.html](conf/customizations/assets/html/header.html). Also, other files can be replaced by custom version, e.g., ``index.html``, for even more custom look. The files that are going to be replaced are placed in the [conf/customizations](conf/customizations/) directory, that can also contain files referenced by the custom HTML files, e.g., [dataverse_r_project.png](conf/customizations/assets/img/dataverse_r_project.png). The directory from where de customizations are copied can be changed by adjusting the make scripts accordingly. By default, only the ``make executable`` and ``make multiplatform_demo`` commands effectively replace files while building. In order to add customizations into your make script, add the following line to the script: ``cp -r conf/customizations/* image/app/frontend/dist/datasync/``.
+There are two types of possible customizations to the frontend. The first type is the customization done by replacement of the HTML files, e.g., the [footer.html](conf/customizations/assets/html/footer.html) and the [header.html](conf/customizations/assets/html/header.html). The files that are going to be replaced are placed in the [conf/customizations](conf/customizations/) directory, that can also contain the files referenced by the custom HTML files. By default, only the ``make executable`` and ``make multiplatform_demo`` commands effectively replace these files while building. In order to add customizations into your make script, add the following line to the script: ``cp -r conf/customizations/* image/app/frontend/dist/datasync/``.
 
-The second type is the configuration of the frontend options and the plugins. The default configuration, used when the frontend configuration file is not specified in the ``FRONTEND_CONFIG_FILE`` environment variable, can be found in [default_frontend_config.json](image/app/frontend/default_frontend_config.json). This file should not be changed, unless a new plugin is added. In that case, this files should be extended with a default configuration for that plugin. In order to use a different configuration, set the ``FRONTEND_CONFIG_FILE`` environment variable accordingly. An example of the configuration file, also used by the default make scripts and docker commands, can be found in [frontend_config.json](conf/frontend_config.json).
+The second type is the configuration with a configuration file. The default configuration file (used when the configuration file is not specified in the ``FRONTEND_CONFIG_FILE`` environment variable) can be found in [default_frontend_config.json](image/app/frontend/default_frontend_config.json). In order to use a custom configuration file, set the ``FRONTEND_CONFIG_FILE`` environment variable accordingly. An example of the configuration file, also used by the make scripts and the docker commands, can be found in [frontend_config.json](conf/frontend_config.json).
 
 The configuration file can contain the following options for the frontend:
 - dataverseHeader: the display name of the Dataverse installation.
