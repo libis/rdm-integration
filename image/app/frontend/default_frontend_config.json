@@ -16,9 +16,10 @@
             "optionFieldPlaceholder": "Select branch",
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "Repository API token",
-            "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://github.com/<owner>/<repository>.git",
-            "parseSourceUrlField": true,
+            "sourceUrlFieldValue": "https://github.com",
+            "repoNameFieldName": "Repository",
+            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldHasSearch": true,
             "tokenName": "ghToken"
         },
         {
@@ -31,8 +32,10 @@
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "Repository API token",
             "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://gitlab.kuleuven.be/<group>/<project>.git",
-            "parseSourceUrlField": true,
+            "sourceUrlFieldPlaceholder": "https://gitlab.com",
+            "repoNameFieldName": "Repository",
+            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldHasSearch": true,
             "tokenName": "glToken"
         },
         {

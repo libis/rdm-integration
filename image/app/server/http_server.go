@@ -53,12 +53,12 @@ func Start() {
 
 	srv := &http.Server{
 		Addr:              ":7788",
-		ReadTimeout:       1 * time.Second,
-		WriteTimeout:      1 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       30 * time.Second,
-		ReadHeaderTimeout: 2 * time.Second,
+		ReadHeaderTimeout: 20 * time.Second,
 		TLSConfig:         tlsConfig,
-		Handler:           http.TimeoutHandler(srvMux, 5*time.Second, "processing the request took longer than 5 seconds: cancelled"),
+		Handler:           http.TimeoutHandler(srvMux, 50*time.Second, "processing the request took longer than 50 seconds: cancelled"),
 	}
 	srv.ListenAndServe()
 }
