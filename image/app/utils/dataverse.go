@@ -256,12 +256,13 @@ func CreateNewDataset(ctx context.Context, collection, dataverseKey string) (str
 	return res.Data.PersistentId, err
 }
 
-func cleanup(ctx context.Context, token, persistentId string) error {
-	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
-	defer cancel()
+func cleanup(ctx context.Context, token, persistentId string, writtenKeys []string) error {
+	go cleanRedis(writtenKeys)
 	if filesCleanup != "true" {
 		return nil
 	}
+	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
+	defer cancel()
 	url := config.DataverseServer + "/api/datasets/:persistentId/cleanStorage?persistentId=" + persistentId
 	request, err := http.NewRequestWithContext(shortContext, "GET", url, nil)
 	if err != nil {
@@ -287,6 +288,15 @@ func cleanup(ctx context.Context, token, persistentId string) error {
 	}
 	//logging.Logger.Println(res.Data.Message)
 	return nil
+}
+
+func cleanRedis(writtenKeys []string) {
+	time.Sleep(fileNamesInCacheDuration)
+	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
+	defer cancel()
+	for _, k := range writtenKeys {
+		GetRedis().Del(shortContext, k)
+	}
 }
 
 func noSlashPermissionUrl(ctx context.Context, persistentId, dataverseKey string) (string, error) {

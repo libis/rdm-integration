@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var fileNamesInCacheDuration = 1 * time.Minute
+
 func doWork(job Job) (Job, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), job.Deadline)
 	defer cancel()
@@ -82,6 +84,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	out = in
 	i := 0
 	total := len(writableNodes)
+	writtenKeys := []string{}
 
 	for k, v := range writableNodes {
 		select {
@@ -96,6 +99,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			logging.Logger.Printf("%v: processed %v/%v\n", persistentId, i, total)
 		}
 
+		redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
 		if v.Action == tree.Delete {
 			err = deleteFromDV(ctx, dataverseKey, v.Attributes.Metadata.DataFile.Id)
 			if err != nil {
@@ -103,7 +107,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			}
 			delete(knownHashes, v.Id)
 			delete(out.WritableNodes, k)
-			GetRedis().Set(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Deleted, time.Minute)
+			GetRedis().Set(ctx, redisKey, types.Deleted, fileNamesInCacheDuration)
+			writtenKeys = append(writtenKeys, redisKey)
 			continue
 		}
 		// delete previous version before writting new version when replacing
@@ -196,7 +201,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
 			}
 		}
-		GetRedis().Set(ctx, fmt.Sprintf("%v -> %v", persistentId, k), types.Written, time.Minute)
+		GetRedis().Set(ctx, redisKey, types.Written, fileNamesInCacheDuration)
+		writtenKeys = append(writtenKeys, redisKey)
 
 		delete(out.WritableNodes, k)
 	}
@@ -205,7 +211,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = ctx.Err()
 		return
 	default:
-		err = cleanup(ctx, in.DataverseKey, in.PersistentId)
+		err = cleanup(ctx, in.DataverseKey, in.PersistentId, writtenKeys)
 	}
 	return
 }

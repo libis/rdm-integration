@@ -65,9 +65,26 @@ func main() {
 		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",
 	}}, frontend.Config.Plugins...)
 	go server.Start()
-	utils.SetRedis(newFakeRedis())
+	fr := newFakeRedis()
+	utils.SetRedis(fr)
 	openbrowser("http://localhost:7788/")
+
+	ticker := time.NewTicker(5 * time.Second)
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				fr.cleanupExpired()
+			}
+		}
+	}()
+
 	spinner.SpinWorkers(1)
+	ticker.Stop()
+	done <- true
 }
 
 func openbrowser(url string) {
@@ -201,4 +218,15 @@ func (f *fakeRedis) RPop(ctx context.Context, key string) *redis.StringCmd {
 	cmd := redis.NewStringCmd(ctx)
 	cmd.SetVal(v)
 	return cmd
+}
+
+func (f *fakeRedis) cleanupExpired() {
+	f.Lock()
+	defer f.Unlock()
+	for k, v := range f.expirations {
+		if v.Before(time.Now()) {
+			delete(f.expirations, k)
+			delete(f.values, k)
+		}
+	}
 }
