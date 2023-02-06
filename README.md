@@ -292,7 +292,7 @@ sequenceDiagram
     Redis-->>Worker: Persisting job
     activate Worker
     loop Until all files processed
-        Worker-->>Worker: Process file
+        Worker-->>Worker: Process file (write or delete in dataset)
         Worker-->>Redis: Notify file is processed
     end
 ```
