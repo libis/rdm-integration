@@ -57,7 +57,7 @@ When running the web server separately from the workers, you will need at least 
 docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 workers 100
 ```
 
-Building binaries with local file system plugin, just as the binaries included in the release, meant only for running by the end users and not on a server, is also done with the make command: ``make executable``. You may want to adjust that script by setting the variables to make the application connect to your Dataverse installation. By default, the built application connects to the [Demo Dataverse](https://demo.dataverse.org). In order to change that, you must adapt the build command the following way (you can also run this command in the [image](image) directory, without the script):
+Building binaries with local file system plugin, just as the binaries included in the release (meant only for running by the end users and not on a server) is also done with the make command: ``make executable``. You may want to adjust that script by setting the variables to make the application connect to your Dataverse installation. By default, the built application connects to the [Demo Dataverse](https://demo.dataverse.org). In order to change that, you must adapt the build command the following way (you can also run this command in the [image](image) directory, without the script):
 ```
 go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
 ```
@@ -116,7 +116,7 @@ As an alternative, you can access an s3 storage directly from this application, 
 - Access Key ID: ``AWS_ACCESS_KEY_ID`` or ``AWS_ACCESS_KEY``
 - Secret Access Key: ``AWS_SECRET_ACCESS_KEY`` or ``AWS_SECRET_KEY``
 
-The s3 driver is then further configured in the backend configuration file, for example:
+The s3 driver is then configured in the backend configuration file, for example:
 ```
 {
     "dataverseServer": "localhost:8080",
