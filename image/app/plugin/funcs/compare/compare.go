@@ -13,6 +13,7 @@ import (
 	"integration/app/utils"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,6 +91,10 @@ func doCompare(req types.CompareRequest, key string) {
 		if maxFileSize > 0 && v.Attributes.Metadata.DataFile.Filesize > maxFileSize {
 			delete(repoNm, k)
 			tooLarge = append(tooLarge, v.Id)
+		}
+		// filter out the files and folders starting with "."
+		if strings.HasPrefix(v.Path, ".") || strings.HasPrefix(v.Name, ".") {
+			delete(repoNm, k)
 		}
 	}
 	nm = utils.MergeNodeMaps(nm, repoNm)
