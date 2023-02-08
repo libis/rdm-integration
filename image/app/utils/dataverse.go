@@ -513,7 +513,7 @@ func signUrl(ctx context.Context, inUrl, token, user string) (string, bool, erro
 	if token != "" || user == "" {
 		return inUrl, true, nil
 	}
-	jsonString := fmt.Sprintf(`{"url":"%v","timeOut":500,"user":"%v"}`, inUrl, user)
+	jsonString := fmt.Sprintf(`{"url":"%v","timeOut":5,"user":"%v"}`, inUrl, user)
 	url := config.DataverseServer + "/api/admin/requestSignedUrl?unblock-key=" + unblockKey
 	request, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer([]byte(jsonString)))
 	request.Header.Add("X-Dataverse-key", apiKey)
