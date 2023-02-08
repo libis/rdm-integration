@@ -40,6 +40,7 @@ type Configuration struct {
 	CollectionFieldEditable bool         `json:"collectionFieldEditable"`
 	ExternalURL             string       `json:"externalURL"`
 	ShowDvTokenGetter       bool         `json:"showDvTokenGetter"`
+	ShowDvToken             bool         `json:"showDvToken"`
 	RedirectUri             string       `json:"redirect_uri,omitempty"`
 	StoreDvToken            bool         `json:"storeDvToken,omitempty"`
 	Plugins                 []RepoPlugin `json:"plugins"`

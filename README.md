@@ -92,6 +92,7 @@ Additionally, the configuration can contain the following fields in the optional
 - defaultHash: as mentioned earlier, "MD5" is the default hash for most Dataverse installations. Change this only when your installation uses a different hashing algorithm (e.g., SHA-1).
 - myDataRoleIds: role IDs for querying my data, as explained earlier in this section.
 - pathToUnblockKey: path to the file containing the API unblock key. Configure this value to enable checking permissions before requesting jobs.
+- pathToApiKey: path to the file containing the admin API key. Configure this value to enable url signing i.s.o. using the users Dataverse API tokens.
 - pathToRedisPassword: by default no password is set, if you need to authenticate with Redis, store the path to the file containing the Redis password in this field.
 - redisDB: by default, DB 0 is used. If you need to use another DB, specify it here.
 - defaultDriver: default driver as used by the Dataverse installation, only "file" and "s3" are supported. See also the next section.
@@ -99,6 +100,7 @@ Additionally, the configuration can contain the following fields in the optional
 - s3Config: configuration when using the "s3" driver, similar to the settings for the s3 driver in your Dataverse installation. Only needed when using S3 file system that is not mounted as a volume. See also the next section.
 - pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). As shown in that example, each OAuth client has its own entry, identified by the application ID. Each entry contains two fields: clientSecret containing the client secret, and postURL containing the URL where the post request for acquiring tokens should be sent to. See the frontend configuration section for information on configuration of OAuth authorization for the plugins.
 - maxFileSize: maximum size of a file that can be uploaded to the Dataverse installation. When not set, or set to 0 (or value less than 0), there is no limit on file size that can be uploaded. The exception to that rule is when no driver is configured and direct upload is not possible (this is always the case for the version run locally, not on the server). The file size is then limited by the SWORD API in Dataverse, where the maximum size is equal to ``2,147,483,647 bytes`` (maximum for the ``int32`` type). The files that cannot be uploaded due to the file size limit are filtered out by the frontend and the user is notified with a warning.
+- UserHeaderName: URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
 
 ### Dataverse file system drivers
 When running this tool on the server, you can take the advantage of directly uploading files to the file system where Dataverse files are stored (assuming that you have direct access to that file system from the location where this application is running). The most generic way is simply mounting the file system as a volume and configuring the application (in the backend configuration file) to use the "file" driver pointing to the mounted volume. For example:
@@ -152,6 +154,7 @@ The configuration file can contain the following options for the frontend:
 - datasetFieldEditable: if set to ``true``, the user can paste or type DOI identifiers directly, without the use of the dropdown.
 - externalURL: this option if filled out by the backend from the ``dataverseExternalUrl`` backend configuration file field, and should not be set manually.
 - showDvTokenGetter: set it to ``true`` to show the "Get token" button next to the Dataverse token field.
+- showDvToken: set it to ``true`` to show the token field (set it to ``false`` when using URL signing).
 - redirect_uri: when using OAuth, this option should be set to the ``redirect_uri`` as configured in the OAuth application setting (e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps)). The redirect URI must point to the ``/connect`` page of this application.
 - storeDvToken: set it to ``true`` to allow storing Dataverse API token in the browser of the user.
 - plugins: contains one entry for each repository instance, as described below.

@@ -15,6 +15,7 @@ import (
 
 type Job struct {
 	DataverseKey  string
+	User          string
 	PersistentId  string
 	WritableNodes map[string]tree.Node
 	Plugin        string

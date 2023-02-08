@@ -6,6 +6,7 @@
         "myDataRoleIds": [6],
         "defaultDriver": "file",
         "pathToFilesDir": "../../rdm-deployment/data/dv/files/",
+        "pathToApiKey": "../../rdm-deployment/data/.secrets/api/adminkey",
         "pathToUnblockKey": "../../rdm-deployment/data/.secrets/api/key",
         "pathToOauthSecrets": "../../rdm-deployment/data/datasync/oauth/secrets.json",
         "maxFileSize": 0

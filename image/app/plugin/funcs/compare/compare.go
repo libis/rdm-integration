@@ -25,6 +25,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("500 - cache not ready"))
 		return
 	}
+	user := utils.GetUserFromHeader(r.Header)
 	//process request
 	req := types.CompareRequest{}
 	b, err := io.ReadAll(r.Body)
@@ -41,7 +42,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := uuid.New().String()
-	go doCompare(req, key)
+	go doCompare(req, key, user)
 	res := common.Key{Key: key}
 	b, err = json.Marshal(res)
 	if err != nil {
@@ -52,14 +53,14 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func doCompare(req types.CompareRequest, key string) {
+func doCompare(req types.CompareRequest, key, user string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	cachedRes := common.CachedResponse{
 		Key: key,
 	}
 	//check permission
-	err := utils.CheckPermission(ctx, req.DataverseKey, req.PersistentId)
+	err := utils.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -67,7 +68,7 @@ func doCompare(req types.CompareRequest, key string) {
 	}
 
 	//query dataverse
-	nm, err := utils.GetNodeMap(ctx, req.PersistentId, req.DataverseKey)
+	nm, err := utils.GetNodeMap(ctx, req.PersistentId, req.DataverseKey, user)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -100,7 +101,7 @@ func doCompare(req types.CompareRequest, key string) {
 	nm = utils.MergeNodeMaps(nm, repoNm)
 
 	//compare and write response
-	res := utils.Compare(ctx, nm, req.PersistentId, req.DataverseKey, true)
+	res := utils.Compare(ctx, nm, req.PersistentId, req.DataverseKey, user, true)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)

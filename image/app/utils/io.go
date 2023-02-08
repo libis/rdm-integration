@@ -91,7 +91,7 @@ func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
 	return
 }
 
-func write(ctx context.Context, dataverseKey string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
+func write(ctx context.Context, dataverseKey, user string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, nil, 0, err
@@ -118,7 +118,7 @@ func write(ctx context.Context, dataverseKey string, fileStream types.Stream, st
 	if s.driver == "file" || config.Options.DefaultDriver == "" || directUpload != "true" {
 		wg := &sync.WaitGroup{}
 		async_err := &ErrorHolder{}
-		f, err := getFile(ctx, wg, dataverseKey, persistentId, pid, s, id, async_err)
+		f, err := getFile(ctx, wg, dataverseKey, user, persistentId, pid, s, id, async_err)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -169,7 +169,7 @@ func (z zipWriterCloser) Close() error {
 	return z.zipWriter.Close()
 }
 
-func getFile(ctx context.Context, wg *sync.WaitGroup, dataverseKey, persistentId, pid string, s storage, id string, async_err *ErrorHolder) (io.WriteCloser, error) {
+func getFile(ctx context.Context, wg *sync.WaitGroup, dataverseKey, user, persistentId, pid string, s storage, id string, async_err *ErrorHolder) (io.WriteCloser, error) {
 	if directUpload != "true" || config.Options.DefaultDriver == "" {
 		pr, pw := io.Pipe()
 		zipWriter := zip.NewWriter(pw)
@@ -178,7 +178,7 @@ func getFile(ctx context.Context, wg *sync.WaitGroup, dataverseKey, persistentId
 			return nil, err
 		}
 		wg.Add(1)
-		go swordAddFile(ctx, dataverseKey, persistentId, pr, wg, async_err)
+		go swordAddFile(ctx, dataverseKey, user, persistentId, pr, wg, async_err)
 		return zipWriterCloser{writer, zipWriter, pw}, nil
 	}
 	path := config.Options.PathToFilesDir + pid + "/"
@@ -196,7 +196,7 @@ func getFile(ctx context.Context, wg *sync.WaitGroup, dataverseKey, persistentId
 	return f, nil
 }
 
-func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.Node) ([]byte, error) {
+func doHash(ctx context.Context, dataverseKey, user, persistentId string, node tree.Node) ([]byte, error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func doHash(ctx context.Context, dataverseKey, persistentId string, node tree.No
 	s := getStorage(storageIdentifier)
 	var reader io.Reader
 	if config.Options.DefaultDriver == "" || directUpload != "true" {
-		readCloser, err := downloadFile(ctx, dataverseKey, node.Attributes.Metadata.DataFile.Id)
+		readCloser, err := downloadFile(ctx, dataverseKey, user, node.Attributes.Metadata.DataFile.Id)
 		if err != nil {
 			return nil, err
 		}

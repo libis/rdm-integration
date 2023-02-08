@@ -20,15 +20,21 @@ import (
 var dvContextDuration = 5 * time.Second
 var deleteAndCleanupCtxDuration = 2 * time.Minute
 
-func GetNodeMap(ctx context.Context, persistentId, token string) (map[string]tree.Node, error) {
+func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[string]tree.Node, error) {
 	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
 	defer cancel()
 	url := config.DataverseServer + "/api/datasets/:persistentId/versions/:latest/files?persistentId=" + persistentId
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return nil, err
+	}
 	request, err := http.NewRequestWithContext(shortContext, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Add("X-Dataverse-key", token)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, err
@@ -84,16 +90,21 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 	return res
 }
 
-func deleteFromDV(ctx context.Context, dataverseKey string, id int) error {
+func deleteFromDV(ctx context.Context, token, user string, id int) error {
 	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
 	defer cancel()
 	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.DataverseServer, id)
-	request, err := http.NewRequestWithContext(shortContext, "DELETE", url, nil)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
 	if err != nil {
-		logging.Logger.Println(err)
 		return err
 	}
-	request.SetBasicAuth(dataverseKey, "")
+	request, err := http.NewRequestWithContext(shortContext, "DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	if addTokenToHeader {
+		request.SetBasicAuth(token, "")
+	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return err
@@ -106,8 +117,12 @@ func deleteFromDV(ctx context.Context, dataverseKey string, id int) error {
 	return nil
 }
 
-func writeToDV(ctx context.Context, dataverseKey, persistentId string, jsonData dv.JsonData) error {
+func writeToDV(ctx context.Context, token, user, persistentId string, jsonData dv.JsonData) error {
 	url := config.DataverseServer + "/api/datasets/:persistentId/addFiles?persistentId=" + persistentId
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return err
+	}
 	data, err := json.Marshal([]dv.JsonData{jsonData})
 	if err != nil {
 		return err
@@ -118,7 +133,9 @@ func writeToDV(ctx context.Context, dataverseKey, persistentId string, jsonData 
 		return err
 	}
 	request.Header.Add("Content-Type", formDataContentType)
-	request.Header.Add("X-Dataverse-key", dataverseKey)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return err
@@ -146,7 +163,7 @@ func requestBody(data []byte) (io.Reader, string) {
 	return body, writer.FormDataContentType()
 }
 
-func CheckPermission(ctx context.Context, dataverseKey, persistentId string) error {
+func CheckPermission(ctx context.Context, token, user, persistentId string) error {
 	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
 	defer cancel()
 	if !checkPermissions {
@@ -155,16 +172,22 @@ func CheckPermission(ctx context.Context, dataverseKey, persistentId string) err
 	url := fmt.Sprintf("%s/api/admin/permissions/:persistentId?persistentId=%s&unblock-key=%s", config.DataverseServer, persistentId, unblockKey)
 	if slashInPermissions != "true" {
 		var err error
-		url, err = noSlashPermissionUrl(shortContext, persistentId, dataverseKey)
+		url, err = noSlashPermissionUrl(shortContext, persistentId, token, user)
 		if err != nil {
 			return err
 		}
+	}
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return err
 	}
 	request, err := http.NewRequestWithContext(shortContext, "GET", url, nil)
 	if err != nil {
 		return err
 	}
-	request.Header.Add("X-Dataverse-key", dataverseKey)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return err
@@ -194,13 +217,19 @@ func CheckPermission(ctx context.Context, dataverseKey, persistentId string) err
 	return fmt.Errorf("user %v has no permission to edit dataset %v", res.Data.User, persistentId)
 }
 
-func getUser(ctx context.Context, dataverseKey string) (dv.User, error) {
+func getUser(ctx context.Context, token, user string) (dv.User, error) {
 	url := fmt.Sprintf("%s/api/users/:me", config.DataverseServer)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return dv.User{}, err
+	}
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return dv.User{}, err
 	}
-	request.Header.Add("X-Dataverse-key", dataverseKey)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return dv.User{}, err
@@ -219,25 +248,31 @@ func getUser(ctx context.Context, dataverseKey string) (dv.User, error) {
 	return res, err
 }
 
-func CreateNewDataset(ctx context.Context, collection, dataverseKey string) (string, error) {
+func CreateNewDataset(ctx context.Context, collection, token, userName string) (string, error) {
 	if collection == "" {
 		collection = config.Options.RootDataverseId
 	}
 	if collection == "" {
 		return "", fmt.Errorf("dataverse collection was not specified: unable to create a new dataset")
 	}
-	user, err := getUser(ctx, dataverseKey)
+	user, err := getUser(ctx, token, userName)
 	if err != nil {
 		return "", err
 	}
 	body := dv.CreateDatasetRequestBody(user)
 	url := config.DataverseServer + "/api/dataverses/" + collection + "/datasets?doNotValidate=true"
+	url, addTokenToHeader, err := signUrl(ctx, url, token, userName)
+	if err != nil {
+		return "", err
+	}
 	request, err := http.NewRequestWithContext(ctx, "POST", url, body)
 	if err != nil {
 		return "", err
 	}
 	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("X-Dataverse-key", dataverseKey)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return "", err
@@ -256,7 +291,7 @@ func CreateNewDataset(ctx context.Context, collection, dataverseKey string) (str
 	return res.Data.PersistentId, err
 }
 
-func cleanup(ctx context.Context, token, persistentId string, writtenKeys []string) error {
+func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
 	go cleanRedis(writtenKeys)
 	if filesCleanup != "true" {
 		return nil
@@ -264,11 +299,17 @@ func cleanup(ctx context.Context, token, persistentId string, writtenKeys []stri
 	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
 	defer cancel()
 	url := config.DataverseServer + "/api/datasets/:persistentId/cleanStorage?persistentId=" + persistentId
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return err
+	}
 	request, err := http.NewRequestWithContext(shortContext, "GET", url, nil)
 	if err != nil {
 		return err
 	}
-	request.Header.Add("X-Dataverse-key", token)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return err
@@ -299,7 +340,7 @@ func cleanRedis(writtenKeys []string) {
 	}
 }
 
-func noSlashPermissionUrl(ctx context.Context, persistentId, dataverseKey string) (string, error) {
+func noSlashPermissionUrl(ctx context.Context, persistentId, token, user string) (string, error) {
 	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
 	defer cancel()
 	type Data struct {
@@ -308,9 +349,16 @@ func noSlashPermissionUrl(ctx context.Context, persistentId, dataverseKey string
 	type Res struct {
 		Data `json:"data"`
 	}
+	url := config.DataverseServer + fmt.Sprintf("/api/datasets/:persistentId?persistentId=%s", persistentId)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return "", err
+	}
 	res := Res{}
-	request, _ := http.NewRequestWithContext(shortContext, "GET", config.DataverseServer+fmt.Sprintf("/api/datasets/:persistentId?persistentId=%s", persistentId), nil)
-	request.Header.Add("X-Dataverse-key", dataverseKey)
+	request, _ := http.NewRequestWithContext(shortContext, "GET", url, nil)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return "", err
@@ -325,7 +373,7 @@ func noSlashPermissionUrl(ctx context.Context, persistentId, dataverseKey string
 	return fmt.Sprintf("%s/api/admin/permissions/%v?&unblock-key=%s", config.DataverseServer, id, unblockKey), nil
 }
 
-func ListDvObjects(ctx context.Context, objectType, collection, token string) ([]dv.Item, error) {
+func ListDvObjects(ctx context.Context, objectType, collection, token, user string) ([]dv.Item, error) {
 	searchTerm := ""
 	if collection != "" {
 		searchTerm = "identifierOfDataverse=" + collection
@@ -337,11 +385,18 @@ func ListDvObjects(ctx context.Context, objectType, collection, token string) ([
 		roleIds = fmt.Sprintf("%v%v%v", roleIds, "&role_ids=", v)
 	}
 	for page := 1; hasNextPage; page++ {
-		url := config.DataverseServer + "/api/v1/mydata/retrieve?key=" + token +
+		url := config.DataverseServer + "/api/v1/mydata/retrieve?" +
 			"&selected_page=" + fmt.Sprint(page) +
 			"&dvobject_types=" + objectType +
 			"&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review" +
 			roleIds + "&mydata_search_term=" + searchTerm
+		url, addTokenToUrl, err := signUrl(ctx, url, token, user)
+		if err != nil {
+			return nil, err
+		}
+		if addTokenToUrl {
+			url = url + "&key=" + token
+		}
 		request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return nil, err
@@ -385,12 +440,19 @@ func GetDatasetUrl(pid string, draft bool) string {
 	return fmt.Sprintf("%v/dataset.xhtml?%vpersistentId=%v", url, draftVersion, pid)
 }
 
-func downloadFile(ctx context.Context, dataverseKey string, id int) (io.ReadCloser, error) {
-	request, err := http.NewRequestWithContext(ctx, "GET", config.DataverseServer+fmt.Sprintf("/api/access/datafile/%v", id), nil)
+func downloadFile(ctx context.Context, token, user string, id int) (io.ReadCloser, error) {
+	url := config.DataverseServer + fmt.Sprintf("/api/access/datafile/%v", id)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Add("X-Dataverse-key", dataverseKey)
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, err
@@ -409,14 +471,23 @@ type ErrorHolder struct {
 	Err error
 }
 
-func swordAddFile(ctx context.Context, dataverseKey, persistentId string, pr io.Reader, wg *sync.WaitGroup, async_err *ErrorHolder) {
+func swordAddFile(ctx context.Context, token, user, persistentId string, pr io.Reader, wg *sync.WaitGroup, async_err *ErrorHolder) {
 	defer wg.Done()
 	url := config.DataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		if async_err != nil {
+			async_err.Err = err
+		}
+		return
+	}
 	request, _ := http.NewRequestWithContext(ctx, "POST", url, pr)
 	request.Header.Add("Content-Type", "application/zip")
 	request.Header.Add("Content-Disposition", "filename=example.zip")
 	request.Header.Add("Packaging", "http://purl.org/net/sword/package/SimpleZip")
-	request.SetBasicAuth(dataverseKey, "")
+	if addTokenToHeader {
+		request.SetBasicAuth(token, "")
+	}
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
 		if async_err != nil {
@@ -429,4 +500,41 @@ func swordAddFile(ctx context.Context, dataverseKey, persistentId string, pr io.
 		b, _ := io.ReadAll(resp.Body)
 		async_err.Err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, resp.StatusCode, string(b))
 	}
+}
+
+// does not work for:
+// - /api/v1/mydata/retrieve
+// - /api/datasets/:persistentId/versions/:latest/files
+// - /api/datasets/:persistentId
+// - /api/admin/permissions/:persistentId
+// works for:
+// - /api/access/datafile/xxx
+func signUrl(ctx context.Context, inUrl, token, user string) (string, bool, error) {
+	if token != "" || user == "" {
+		return inUrl, true, nil
+	}
+	jsonString := fmt.Sprintf(`{"url":"%v","timeOut":500,"user":"%v"}`, inUrl, user)
+	url := config.DataverseServer + "/api/admin/requestSignedUrl?unblock-key=" + unblockKey
+	request, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer([]byte(jsonString)))
+	request.Header.Add("X-Dataverse-key", apiKey)
+	request.Header.Add("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return "", false, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", false, err
+	}
+	res := dv.SignedUrlResponse{}
+	err = json.Unmarshal(b, &res)
+	if err != nil {
+		return "", false, err
+	}
+	if res.Status != "OK" {
+		return "", false, fmt.Errorf(res.Message)
+	}
+	logging.Logger.Println(inUrl, "->", res.Data.SignedUrl)
+	return res.Data.SignedUrl, false, nil
 }

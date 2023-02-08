@@ -35,7 +35,8 @@ func NewDataset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pid, err := utils.CreateNewDataset(r.Context(), req.Collection, req.DataverseKey)
+	user := utils.GetUserFromHeader(r.Header)
+	pid, err := utils.CreateNewDataset(r.Context(), req.Collection, req.DataverseKey, user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

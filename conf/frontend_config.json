@@ -5,6 +5,7 @@
     "datasetFieldEditable": false,
     "collectionFieldEditable": false,
     "showDvTokenGetter": true,
+    "showDvToken": true,
     "redirect_uri": "http://localhost:7788/connect",
     "storeDvToken": true,
     "plugins": [

@@ -18,6 +18,7 @@ type DvObjectsRequest struct {
 }
 
 func DvObjects(w http.ResponseWriter, r *http.Request) {
+	user := utils.GetUserFromHeader(r.Header)
 	//process request
 	b, err := io.ReadAll(r.Body)
 	r.Body.Close()
@@ -35,7 +36,7 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dvObjects, err := utils.ListDvObjects(r.Context(), req.ObjectType, req.Collection, req.Token)
+	dvObjects, err := utils.ListDvObjects(r.Context(), req.ObjectType, req.Collection, req.Token, user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

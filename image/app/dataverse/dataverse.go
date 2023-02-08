@@ -31,6 +31,15 @@ type DvResponse struct {
 	Message string `json:"message"`
 }
 
+type SignedUrlResponse struct {
+	DvResponse
+	Data SignedUrlData `json:"data"`
+}
+
+type SignedUrlData struct {
+	SignedUrl string `json:"signedUrl"`
+}
+
 type CleanupResponse struct {
 	Status string      `json:"status"`
 	Data   CleanupData `json:"data"`

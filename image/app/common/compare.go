@@ -114,7 +114,8 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//compare and write response
-	res := utils.Compare(r.Context(), nm, req.PersistentId, req.DataverseKey, false)
+	user := utils.GetUserFromHeader(r.Header)
+	res := utils.Compare(r.Context(), nm, req.PersistentId, req.DataverseKey, user, false)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

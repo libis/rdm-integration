@@ -29,6 +29,7 @@ type OptionalConfig struct {
 	RootDataverseId      string   `json:"rootDataverseId,omitempty"`      // root dataverse collection id, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
 	DefaultHash          string   `json:"defaultHash,omitempty"`          // default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
 	MyDataRoleIds        []int    `json:"myDataRoleIds"`
+	PathToApiKey         string   `json:"pathToApiKey,omitempty"`        // api (admin) API key is needed for URL signing. Configure the path to api key in this field to enable the URL signing.
 	PathToUnblockKey     string   `json:"pathToUnblockKey,omitempty"`    // configure to enable checking permissions before requesting jobs
 	PathToRedisPassword  string   `json:"pathToRedisPassword,omitempty"` // by default no password is set, if you need to authenticate, store here the path to the file containing the redis password
 	RedisDB              int      `json:"redisDB,omitempty"`             // by default DB 0 is used, if you need to use other DB, specify it here
@@ -37,6 +38,7 @@ type OptionalConfig struct {
 	S3Config             S3Config `json:"s3Config,omitempty"`            // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
 	PathToOauthSecrets   string   `json:"pathToOauthSecrets,omitempty"`
 	MaxFileSize          int64    `json:"maxFileSize,omitempty"`
+	UserHeaderName       string   `json:"UserHeaderName,omitempty"` // URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
 }
 
 // Environment variables used for credentials: set these variables when using "s3" driver on the system where this application is deployed
@@ -59,6 +61,7 @@ var oauthSecrets = map[string]OauthSecret{}
 
 // static vars
 var rdb RedisClient                                                    // redis client singleton
+var apiKey = ""                                                        // will be read from pathToApiKey
 var unblockKey = ""                                                    // will be read from pathToUnblockKey
 var redisPassword = ""                                                 // will be read from pathToRedisPassword
 var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"       // will be removed when pull request is merged
@@ -87,6 +90,11 @@ func init() {
 	if err == nil {
 		logging.Logger.Println("unblock key is read from file " + config.Options.PathToUnblockKey + ": permissions will be checked prior to requesting jobs")
 		unblockKey = strings.TrimSpace(string(b))
+	}
+	b, err = os.ReadFile(config.Options.PathToApiKey)
+	if err == nil {
+		logging.Logger.Println("API key is read from file " + config.Options.PathToApiKey)
+		apiKey = strings.TrimSpace(string(b))
 	}
 
 	b, err = os.ReadFile(config.Options.PathToRedisPassword)
@@ -170,4 +178,12 @@ func GetMaxFileSize() int64 {
 		return 2147483647
 	}
 	return res
+}
+
+func GetUserFromHeader(h http.Header) string {
+	hn := "Ajp_uid"
+	if config.Options.UserHeaderName != "" {
+		hn = config.Options.UserHeaderName
+	}
+	return h.Get(hn)
 }

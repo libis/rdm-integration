@@ -17,7 +17,7 @@ type calculatedHashes struct {
 	RemoteHashes   map[string]string
 }
 
-func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, persistentId string, nodes map[string]tree.Node, addJobs bool) (map[string]tree.Node, bool) {
+func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, persistentId string, nodes map[string]tree.Node, addJobs bool) (map[string]tree.Node, bool) {
 	knownHashes := getKnownHashes(ctx, persistentId)
 	jobNodes := map[string]tree.Node{}
 	res := map[string]tree.Node{}
@@ -47,6 +47,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, persist
 		AddJob(ctx,
 			Job{
 				DataverseKey:  dataverseKey,
+				User:          user,
 				PersistentId:  persistentId,
 				WritableNodes: jobNodes,
 				Plugin:        "hash-only",
@@ -56,8 +57,8 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, persist
 	return res, len(jobNodes) > 0
 }
 
-func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[string]tree.Node, in Job) (out Job, err error) {
-	err = CheckPermission(ctx, dataverseKey, persistentId)
+func doRehash(ctx context.Context, dataverseKey, user, persistentId string, nodes map[string]tree.Node, in Job) (out Job, err error) {
+	err = CheckPermission(ctx, dataverseKey, user, persistentId)
 	if err != nil {
 		return
 	}
@@ -69,7 +70,7 @@ func doRehash(ctx context.Context, dataverseKey, persistentId string, nodes map[
 	i := 0
 	total := len(nodes)
 	for k, node := range nodes {
-		err = calculateHash(ctx, dataverseKey, persistentId, node, knownHashes)
+		err = calculateHash(ctx, dataverseKey, user, persistentId, node, knownHashes)
 		if err != nil {
 			return
 		}
@@ -112,7 +113,7 @@ func invalidateKnownHashes(ctx context.Context, persistentId string) {
 	GetRedis().Del(shortContext, "hashes: "+persistentId)
 }
 
-func calculateHash(ctx context.Context, dataverseKey, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
+func calculateHash(ctx context.Context, dataverseKey, user, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
 	hashType := node.Attributes.RemoteHashType
 	known, ok := knownHashes[node.Id]
 	if ok && known.LocalHashType == node.Attributes.Metadata.DataFile.Checksum.Type && known.LocalHashValue == node.Attributes.Metadata.DataFile.Checksum.Value {
@@ -127,7 +128,7 @@ func calculateHash(ctx context.Context, dataverseKey, persistentId string, node 
 			RemoteHashes:   map[string]string{},
 		}
 	}
-	h, err := doHash(ctx, dataverseKey, persistentId, node)
+	h, err := doHash(ctx, dataverseKey, user, persistentId, node)
 	if err != nil {
 		return fmt.Errorf("failed to hash local file %v: %v", node.Attributes.Metadata.DataFile.StorageIdentifier, err)
 	}
