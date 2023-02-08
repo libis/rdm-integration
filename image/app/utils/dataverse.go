@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	dv "integration/app/dataverse"
-	"integration/app/logging"
 	"integration/app/tree"
 	"io"
 	"mime/multipart"
