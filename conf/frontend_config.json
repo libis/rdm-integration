@@ -68,7 +68,7 @@
             "optionFieldPlaceholder": "Select branch",
             "sourceUrlFieldValue": "https://gitlab.kuleuven.be",
             "repoNameFieldName": "Repository",
-            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldPlaceholder": "Select repository",
             "repoNameFieldHasSearch": true,
             "tokenGetter": {
                 "URL": "https://gitlab.kuleuven.be/oauth/authorize",
@@ -84,7 +84,7 @@
             "optionFieldPlaceholder": "Select branch",
             "sourceUrlFieldValue": "https://gitlab.com",
             "repoNameFieldName": "Repository",
-            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldPlaceholder": "Select repository",
             "repoNameFieldHasSearch": true,
             "tokenGetter": {
                 "URL": "https://gitlab.com/oauth/authorize",
@@ -113,7 +113,7 @@
             "optionFieldPlaceholder": "Select branch",
             "sourceUrlFieldValue": "https://github.com",
             "repoNameFieldName": "Repository",
-            "repoNameFieldPlaceholder": "<user>/<repo>",
+            "repoNameFieldPlaceholder": "Select repository",
             "repoNameFieldHasSearch": true,
             "tokenGetter": {
                 "URL": "https://github.com/login/oauth/authorize",

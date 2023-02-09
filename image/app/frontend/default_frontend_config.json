@@ -19,7 +19,7 @@
             "tokenFieldPlaceholder": "Repository API token",
             "sourceUrlFieldValue": "https://github.com",
             "repoNameFieldName": "Repository",
-            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldPlaceholder": "Select repository",
             "repoNameFieldHasSearch": true,
             "tokenName": "ghToken"
         },
@@ -35,7 +35,7 @@
             "sourceUrlFieldName": "Source URL",
             "sourceUrlFieldPlaceholder": "https://gitlab.com",
             "repoNameFieldName": "Repository",
-            "repoNameFieldPlaceholder": "<group>/<repo>",
+            "repoNameFieldPlaceholder": "Select repository",
             "repoNameFieldHasSearch": true,
             "tokenName": "glToken"
         },
