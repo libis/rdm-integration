@@ -48,7 +48,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(res) == 0 {
-		res = append(res, types.SelectItem{Label: "no resutls found for \"" + params.RepoName + "\"", Value: "empty"})
+		res = append(res, types.SelectItem{Label: "no results found for \"" + params.RepoName + "\"", Value: "empty"})
 	}
 	b, err = json.Marshal(res)
 	if err != nil {
