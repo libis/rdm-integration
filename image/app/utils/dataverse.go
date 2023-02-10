@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -87,70 +88,6 @@ func mapToNodes(data []tree.Metadata) map[string]tree.Node {
 		}
 	}
 	return res
-}
-
-func deleteFromDV(ctx context.Context, token, user string, id int) error {
-	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
-	defer cancel()
-	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.DataverseServer, id)
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
-	if err != nil {
-		return err
-	}
-	request, err := http.NewRequestWithContext(shortContext, "DELETE", url, nil)
-	if err != nil {
-		return err
-	}
-	if addTokenToHeader {
-		request.SetBasicAuth(token, "")
-	}
-	r, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-	if r.StatusCode != 200 && r.StatusCode != 202 && r.StatusCode != 204 {
-		b, _ := io.ReadAll(r.Body)
-		return fmt.Errorf("deleting file %d failed: %d - %s", id, r.StatusCode, string(b))
-	}
-	return nil
-}
-
-func writeToDV(ctx context.Context, token, user, persistentId string, jsonData dv.JsonData) error {
-	url := config.DataverseServer + "/api/v1/datasets/:persistentId/addFiles?persistentId=" + persistentId
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal([]dv.JsonData{jsonData})
-	if err != nil {
-		return err
-	}
-	body, formDataContentType := requestBody(data)
-	request, err := http.NewRequestWithContext(ctx, "POST", url, body)
-	if err != nil {
-		return err
-	}
-	request.Header.Add("Content-Type", formDataContentType)
-	if addTokenToHeader {
-		request.Header.Add("X-Dataverse-key", token)
-	}
-	r, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-	if r.StatusCode != 200 {
-		b, _ := io.ReadAll(r.Body)
-		return fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
-	}
-	b, _ := io.ReadAll(r.Body)
-	res := dv.AddFilesResponse{}
-	err = json.Unmarshal(b, &res)
-	if res.Data.Result.Added != 1 {
-		return fmt.Errorf("writting file failed: %+v", res)
-	}
-	return err
 }
 
 func requestBody(data []byte) (io.Reader, string) {
@@ -439,7 +376,7 @@ func GetDatasetUrl(pid string, draft bool) string {
 	return fmt.Sprintf("%v/dataset.xhtml?%vpersistentId=%v", url, draftVersion, pid)
 }
 
-func downloadFile(ctx context.Context, token, user string, id int) (io.ReadCloser, error) {
+func downloadFile(ctx context.Context, token, user string, id int64) (io.ReadCloser, error) {
 	url := config.DataverseServer + fmt.Sprintf("/api/v1/access/datafile/%v", id)
 	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
 	if err != nil {
@@ -466,43 +403,114 @@ func GetExternalDataverseURL() string {
 	return config.DataverseServer
 }
 
-type ErrorHolder struct {
-	Err error
-}
-
-func swordAddFile(ctx context.Context, token, user, persistentId string, pr io.Reader, wg *sync.WaitGroup, async_err *ErrorHolder) {
-	defer wg.Done()
-	url := config.DataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
+func directAddReplaceFile(ctx context.Context, token, user, persistentId string, jsonData dv.JsonData) error {
+	url := config.DataverseServer + "/api/v1/datasets/:persistentId/add?persistentId=" + persistentId
+	if jsonData.FileToReplaceId != 0 {
+		url = config.DataverseServer + "/api/v1/files/" + fmt.Sprint(jsonData.FileToReplaceId) + "/replace"
+	}
 	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
 	if err != nil {
-		if async_err != nil {
-			async_err.Err = err
-		}
-		return
+		return err
 	}
-	request, _ := http.NewRequestWithContext(ctx, "POST", url, pr)
-	request.Header.Add("Content-Type", "application/zip")
-	request.Header.Add("Content-Disposition", "filename=example.zip")
-	request.Header.Add("Packaging", "http://purl.org/net/sword/package/SimpleZip")
-	if addTokenToHeader {
-		request.SetBasicAuth(token, "")
-	}
-	resp, err := http.DefaultClient.Do(request)
+	data, err := json.Marshal(jsonData)
 	if err != nil {
-		if async_err != nil {
-			async_err.Err = err
-		}
-		return
+		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 201 && async_err != nil {
-		b, _ := io.ReadAll(resp.Body)
-		async_err.Err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, resp.StatusCode, string(b))
+	body, formDataContentType := requestBody(data)
+	request, err := http.NewRequestWithContext(ctx, "POST", url, body)
+	if err != nil {
+		return err
 	}
+	request.Header.Add("Content-Type", formDataContentType)
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+	if r.StatusCode != 200 {
+		b, _ := io.ReadAll(r.Body)
+		return fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
+	}
+	b, _ := io.ReadAll(r.Body)
+	res := dv.AddReplaceFileResponse{}
+	err = json.Unmarshal(b, &res)
+	if res.Status != "OK" {
+		return fmt.Errorf("writting file failed: %+v", res)
+	}
+	return err
 }
 
-// does not work for (works for all other api call, except for SWORD):
-// - /api/v1/mydata/retrieve
+func apiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persistentId string, wg *sync.WaitGroup, async_err *ErrorHolder) (io.WriteCloser, error) {
+	url := config.DataverseServer + "/api/v1/datasets/:persistentId/add?persistentId=" + persistentId
+	if dbId != 0 {
+		url = config.DataverseServer + "/api/v1/files/" + fmt.Sprint(dbId) + "/replace"
+	}
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return nil, err
+	}
+
+	filename, dir := splitId(id)
+	jsonData := dv.JsonData{
+		DirectoryLabel: dir,
+		ForceReplace:   dbId != 0,
+	}
+	jsonDataBytes, _ := json.Marshal(jsonData)
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+	fw := newFileWriter(filename, jsonDataBytes, writer)
+
+	request, _ := http.NewRequestWithContext(ctx, "POST", url, pr)
+	request.Header.Add("Content-Type", writer.FormDataContentType())
+	if addTokenToHeader {
+		request.Header.Add("X-Dataverse-key", token)
+	}
+
+	wg.Add(1)
+	go func(req *http.Request) {
+		defer wg.Done()
+		defer pr.Close()
+		r, err := http.DefaultClient.Do(req)
+		if err != nil {
+			if async_err != nil {
+				async_err.Err = fmt.Errorf("writing file in %s failed: %s", persistentId, err)
+			}
+			return
+		}
+		defer r.Body.Close()
+		if r.StatusCode != 200 {
+			b, _ := io.ReadAll(r.Body)
+			if async_err != nil {
+				async_err.Err = fmt.Errorf("writing file in %s failed: %d - %s", persistentId, r.StatusCode, string(b))
+			}
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		res := dv.AddReplaceFileResponse{}
+		json.Unmarshal(b, &res)
+		if res.Status != "OK" {
+			if async_err != nil {
+				async_err.Err = fmt.Errorf("adding file failed: %+v", res)
+			}
+		}
+	}(request)
+
+	return writerCloser{fw, fw, pw}, nil
+}
+
+func splitId(id string) (string, string) {
+	spl := strings.Split(id, "/")
+	filename := spl[len(spl)-1]
+	dir := ""
+	if len(spl) > 1 {
+		dir = strings.Join(spl[:len(spl)-1], "/")
+	}
+	return filename, dir
+}
+
 func signUrl(ctx context.Context, inUrl, token, user string) (string, bool, error) {
 	if user == "" {
 		return inUrl, true, nil

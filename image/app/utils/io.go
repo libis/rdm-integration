@@ -3,7 +3,6 @@
 package utils
 
 import (
-	"archive/zip"
 	"context"
 	"crypto/md5"
 	"crypto/sha1"
@@ -25,17 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/uuid"
 )
-
-type storage struct {
-	driver   string
-	bucket   string
-	filename string
-}
-
-type hashingReader struct {
-	reader io.Reader
-	hasher hash.Hash
-}
 
 func (r hashingReader) Read(buf []byte) (n int, err error) {
 	n, err = r.reader.Read(buf)
@@ -91,7 +79,7 @@ func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
 	return
 }
 
-func write(ctx context.Context, dataverseKey, user string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
+func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, nil, 0, err
@@ -118,7 +106,7 @@ func write(ctx context.Context, dataverseKey, user string, fileStream types.Stre
 	if s.driver == "file" || config.Options.DefaultDriver == "" || directUpload != "true" {
 		wg := &sync.WaitGroup{}
 		async_err := &ErrorHolder{}
-		f, err := getFile(ctx, wg, dataverseKey, user, persistentId, pid, s, id, async_err)
+		f, err := getFile(ctx, dbId, wg, dataverseKey, user, persistentId, pid, s, id, async_err)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -154,32 +142,9 @@ func write(ctx context.Context, dataverseKey, user string, fileStream types.Stre
 	return hasher.Sum(nil), remoteHasher.Sum(nil), sizeHasher.FileSize, nil
 }
 
-type zipWriterCloser struct {
-	writer    io.Writer
-	zipWriter *zip.Writer
-	pw        io.WriteCloser
-}
-
-func (z zipWriterCloser) Write(p []byte) (n int, err error) {
-	return z.writer.Write(p)
-}
-
-func (z zipWriterCloser) Close() error {
-	defer z.pw.Close()
-	return z.zipWriter.Close()
-}
-
-func getFile(ctx context.Context, wg *sync.WaitGroup, dataverseKey, user, persistentId, pid string, s storage, id string, async_err *ErrorHolder) (io.WriteCloser, error) {
+func getFile(ctx context.Context, dbId int64, wg *sync.WaitGroup, dataverseKey, user, persistentId, pid string, s storage, id string, async_err *ErrorHolder) (io.WriteCloser, error) {
 	if directUpload != "true" || config.Options.DefaultDriver == "" {
-		pr, pw := io.Pipe()
-		zipWriter := zip.NewWriter(pw)
-		writer, err := zipWriter.Create(id)
-		if err != nil {
-			return nil, err
-		}
-		wg.Add(1)
-		go swordAddFile(ctx, dataverseKey, user, persistentId, pr, wg, async_err)
-		return zipWriterCloser{writer, zipWriter, pw}, nil
+		return apiAddReplaceFile(ctx, dbId, id, dataverseKey, user, persistentId, wg, async_err)
 	}
 	path := config.Options.PathToFilesDir + pid + "/"
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {

@@ -11,24 +11,65 @@ import (
 )
 
 type JsonData struct {
-	Description       *string  `json:"description,omitempty"`
-	DirectoryLabel    *string  `json:"directoryLabel,omitempty"`
-	Categories        []string `json:"categories,omitempty"`
-	Restrict          *bool    `json:"restrict,omitempty"`
-	StorageIdentifier string   `json:"storageIdentifier"`
-	FileName          string   `json:"fileName"`
-	MimeType          string   `json:"mimeType"`
-	Checksum          Checksum `json:"checksum"`
+	FileToReplaceId   int64     `json:"fileToReplaceId,omitempty"`
+	ForceReplace      bool      `json:"forceReplace,omitempty"`
+	Description       string    `json:"description,omitempty"`
+	DirectoryLabel    string    `json:"directoryLabel,omitempty"`
+	Categories        []string  `json:"categories,omitempty"`
+	Restrict          bool      `json:"restrict,omitempty"`
+	StorageIdentifier string    `json:"storageIdentifier,omitempty"`
+	FileName          string    `json:"fileName,omitempty"`
+	MimeType          string    `json:"mimeType,omitempty"`
+	Checksum          *Checksum `json:"checksum,omitempty"`
 }
 
 type Checksum struct {
-	Type  string `json:"@type"`
-	Value string `json:"@value"`
+	Type  string `json:"@type,omitempty"`
+	Value string `json:"@value,omitempty"`
 }
 
 type DvResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
+}
+
+type AddReplaceFileResponse struct {
+	DvResponse
+	Data AddReplaceFileData `json:"data"`
+}
+
+type AddReplaceFileData struct {
+	Files []AddReplaceFileDataFile `json:"files"`
+}
+
+type AddReplaceFileDataFile struct {
+	Description      string      `json:"description"`
+	Label            string      `json:"label"`
+	Restricted       bool        `json:"restricted"`
+	DirectoryLabel   string      `json:"directoryLabel"`
+	Version          int64       `json:"version"`
+	DatasetVersionId int64       `json:"datasetVersionId"`
+	DataFile         ResJsonData `json:"dataFile"`
+}
+
+type ResJsonData struct {
+	Id                int64        `json:"id"`
+	PersistentId      int64        `json:"persistentId"`
+	PidURL            int64        `json:"pidURL"`
+	FileName          string       `json:"fileName"`
+	ContentType       string       `json:"contentType"`
+	FileSize          int64        `json:"filesize"`
+	Description       string       `json:"description"`
+	StorageIdentifier string       `json:"storageIdentifier"`
+	RootDataFileId    int64        `json:"rootDataFileId"`
+	Md5               string       `json:"md5"`
+	Checksum          *ResChecksum `json:"checksum"`
+	CreationDate      string       `json:"creationDate"`
+}
+
+type ResChecksum struct {
+	Type  string `json:"type,omitempty"`
+	Value string `json:"value,omitempty"`
 }
 
 type SignedUrlResponse struct {
@@ -95,26 +136,6 @@ type CreateNewDatasetResponse struct {
 type CreateNewDatasetResponseData struct {
 	Id           int    `json:"id"`
 	PersistentId string `json:"persistentId"`
-}
-
-type AddFilesResponse struct {
-	Status string               `json:"status"`
-	Data   AddFilesResponseData `json:"data"`
-}
-
-type AddFilesResponseData struct {
-	Files  []AddFilesFile
-	Result AddFilesResponseResult
-}
-
-type AddFilesFile struct {
-	ErrorMessage string   `json:"errorMessage"`
-	FileDetails  JsonData `json:"fileDetails"`
-}
-
-type AddFilesResponseResult struct {
-	Total int `json:"Total number of files"`
-	Added int `json:"Number of files successfully added"`
 }
 
 var createDatasetRequestFormat = `

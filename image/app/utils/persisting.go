@@ -111,13 +111,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			writtenKeys = append(writtenKeys, redisKey)
 			continue
 		}
-		// delete previous version before writting new version when replacing
-		if v.Attributes.Metadata.DataFile.Id != 0 {
-			err = deleteFromDV(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
-			if err != nil {
-				return
-			}
-		}
 
 		fileStream := streams[k]
 		fileName := generateFileName()
@@ -128,7 +121,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		var h []byte
 		var remoteH []byte
 		var size int64
-		h, remoteH, size, err = write(ctx, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
+		h, remoteH, size, err = write(ctx, v.Attributes.Metadata.DataFile.Id, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
 		if err != nil {
 			return
 		}
@@ -146,21 +139,20 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 
 		if directUpload == "true" && config.Options.DefaultDriver != "" {
-			directoryLabel := &(v.Attributes.Metadata.DirectoryLabel)
-			if *directoryLabel == "" {
-				directoryLabel = nil
-			}
-			data := dv.JsonData{
+			directoryLabel := v.Attributes.Metadata.DirectoryLabel
+			jsonData := dv.JsonData{
+				FileToReplaceId:   v.Attributes.Metadata.DataFile.Id,
+				ForceReplace:      v.Attributes.Metadata.DataFile.Id != 0,
 				StorageIdentifier: storageIdentifier,
 				FileName:          v.Attributes.Metadata.DataFile.Filename,
 				DirectoryLabel:    directoryLabel,
-				MimeType:          "application/octet-stream",
-				Checksum: dv.Checksum{
+				MimeType:          "application/octet-stream", // default that will be replaced by Dataverse while adding/replacing the file
+				Checksum: &dv.Checksum{
 					Type:  hashType,
 					Value: hashValue,
 				},
 			}
-			err = writeToDV(ctx, dataverseKey, user, persistentId, data)
+			err = directAddReplaceFile(ctx, dataverseKey, user, persistentId, jsonData)
 			if err != nil {
 				return
 			}

@@ -41,14 +41,14 @@ type Metadata struct {
 	Label            string   `json:"label"`
 	Restricted       bool     `json:"restricted"`
 	DirectoryLabel   string   `json:"directoryLabel"`
-	Version          int      `json:"version"`
-	DatasetVersionId int      `json:"datasetVersionId"`
+	Version          int64    `json:"version"`
+	DatasetVersionId int64    `json:"datasetVersionId"`
 	Categories       []string `json:"categories"`
 	DataFile         DataFile `json:"dataFile"`
 }
 
 type DataFile struct {
-	Id                int      `json:"id"`
+	Id                int64    `json:"id"`
 	PersistentId      string   `json:"persistentId"`
 	PidURL            string   `json:"pidURL"`
 	Filename          string   `json:"filename"`
@@ -56,7 +56,7 @@ type DataFile struct {
 	Filesize          int64    `json:"filesize"`
 	Description       string   `json:"description"`
 	StorageIdentifier string   `json:"storageIdentifier"`
-	RootDataFileId    int      `json:"rootDataFileId"`
+	RootDataFileId    int64    `json:"rootDataFileId"`
 	Md5               string   `json:"md5"`
 	Checksum          Checksum `json:"checksum"`
 	CreationDate      string   `json:"creationDate"`
