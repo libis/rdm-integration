@@ -514,7 +514,7 @@ func deleteFile(ctx context.Context, token, user string, id int64) error {
 		return err
 	}
 	if addTokenToHeader {
-		request.SetBasicAuth(token, "")
+		request.Header.Add("X-Dataverse-key", token)
 	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {

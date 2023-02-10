@@ -104,7 +104,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			if nativeApiDelete != "true" {
 				err = swordDelete(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
 			} else {
-				deleteFile(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
+				err = deleteFile(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
 			}
 			if err != nil {
 				return
