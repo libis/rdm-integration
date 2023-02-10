@@ -67,6 +67,7 @@ var redisPassword = ""                                                 // will b
 var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"       // will be removed when pull request is merged
 var directUpload = "https://github.com/IQSS/dataverse/pull/9003"       // will be removed when pull request is merged
 var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be removed when pull request is merged
+var nativeApiDelete = "https://github.com/IQSS/dataverse/pull/9383"    // will be removed when pull request is merged
 var checkPermissions = true
 var AllowQuit = false
 

@@ -101,7 +101,11 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
 		if v.Action == tree.Delete {
-			err = deleteFromDV(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
+			if nativeApiDelete != "true" {
+				err = swordDelete(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
+			} else {
+				deleteFile(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
+			}
 			if err != nil {
 				return
 			}

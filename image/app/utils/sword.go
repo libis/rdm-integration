@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-func deleteFromDV(ctx context.Context, token, user string, id int64) error {
+func swordDelete(ctx context.Context, token, user string, id int64) error {
 	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
 	defer cancel()
 	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.DataverseServer, id)

@@ -501,6 +501,35 @@ func apiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persist
 	return writerCloser{fw, fw, pw}, nil
 }
 
+func deleteFile(ctx context.Context, token, user string, id int64) error {
+	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
+	defer cancel()
+	url := fmt.Sprintf("%s/api/v1/files/%d", config.DataverseServer, id)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequestWithContext(shortContext, "DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	if addTokenToHeader {
+		request.SetBasicAuth(token, "")
+	}
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+	b, _ := io.ReadAll(r.Body)
+	res := dv.DvResponse{}
+	json.Unmarshal(b, &res)
+	if r.StatusCode != 200 || res.Status != "OK" {
+		return fmt.Errorf("deleting file %d failed: %d - %s", id, r.StatusCode, res.Message)
+	}
+	return nil
+}
+
 func splitId(id string) (string, string) {
 	spl := strings.Split(id, "/")
 	filename := spl[len(spl)-1]
