@@ -1,6 +1,7 @@
 {
     "dataverseServer": "https://demo.dataverse.org",
     "redisHost": "localhost:6379",
+    "maxFileSize": 21474836480,
     "options": {
         "rootDataverseId": "demo",
         "myDataRoleIds": [6,7]

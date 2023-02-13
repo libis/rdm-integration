@@ -27,14 +27,16 @@ var (
 	RootDataverseId     string
 	DefaultHash         string = "MD5"
 	MyDataRoleIds       string = "6,7"
+	MaxFileSize         string = "21474836480"
 )
 
 var (
-	serverUrl  = flag.String("server", DataverseServer, "URL to the Dataverse server")
-	serverName = flag.String("servername", DataverseServerName, "Dataverse server display name")
-	dvID       = flag.String("dvID", RootDataverseId, "Root Dataverse ID")
-	hashAlg    = flag.String("hash", DefaultHash, "Default hashing algorithm in Dataverse: MD5, SHA-1")
-	roleIDs    = flag.String("roleIDs", MyDataRoleIds, "My data query role IDs: comma separated ints")
+	serverUrl   = flag.String("server", DataverseServer, "URL to the Dataverse server")
+	serverName  = flag.String("servername", DataverseServerName, "Dataverse server display name")
+	dvID        = flag.String("dvID", RootDataverseId, "Root Dataverse ID")
+	hashAlg     = flag.String("hash", DefaultHash, "Default hashing algorithm in Dataverse: MD5, SHA-1")
+	roleIDs     = flag.String("roleIDs", MyDataRoleIds, "My data query role IDs: comma separated ints")
+	maxFileSize = flag.String("maxFileSize", MaxFileSize, "Maximum file size in bytes for upload.")
 )
 
 func main() {
@@ -54,7 +56,9 @@ func main() {
 		id, _ := strconv.Atoi(strings.TrimSpace(tmp[i]))
 		roles = append(roles, id)
 	}
-	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true)
+	MaxFileSize = *maxFileSize
+	mfs, _ := strconv.Atoi(MaxFileSize)
+	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true, int64(mfs))
 	frontend.Config.DataverseHeader = DataverseServerName
 	frontend.Config.Plugins = append([]utils.RepoPlugin{{
 		Id:                        "local",

@@ -145,7 +145,7 @@ func SetRedis(r RedisClient) {
 	rdb = r
 }
 
-func SetConfig(dataverseServer, rootDataverseId, defaultHash string, roleIDs []int, allowQuit bool) {
+func SetConfig(dataverseServer, rootDataverseId, defaultHash string, roleIDs []int, allowQuit bool, maxFileSize int64) {
 	config.DataverseServer = dataverseServer
 	config.Options.RootDataverseId = rootDataverseId
 	if defaultHash != "" {
@@ -153,6 +153,7 @@ func SetConfig(dataverseServer, rootDataverseId, defaultHash string, roleIDs []i
 	}
 	AllowQuit = allowQuit
 	config.Options.MyDataRoleIds = roleIDs
+	config.Options.MaxFileSize = maxFileSize
 }
 
 func RedisReady(ctx context.Context) bool {
