@@ -119,6 +119,17 @@
                 "URL": "https://github.com/login/oauth/authorize",
                 "oauth_client_id": "Iv1.5a149cba699ac08e"
             }
+        },
+        {
+            "id": "redcap",
+            "name": "GBIOMED Preview RedCap",
+            "plugin": "redcap",
+            "pluginName": "REDCap",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "tokenFieldName": "Project token",
+            "tokenFieldPlaceholder": "project token",
+            "sourceUrlFieldValue": "https://preview.redcap.gbiomed.kuleuven.be"
         }
     ]
 }

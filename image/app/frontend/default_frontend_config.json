@@ -54,6 +54,18 @@
             "usernameFieldPlaceholder": "username",
             "repoNameFieldName": "Zone",
             "repoNameFieldPlaceholder": "zone"
+        },
+        {
+            "id": "redcap",
+            "name": "REDCap",
+            "plugin": "redcap",
+            "pluginName": "REDCap",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "tokenFieldName": "Project token",
+            "tokenFieldPlaceholder": "project token",
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://your.redcap.server"
         }
     ]
 }
