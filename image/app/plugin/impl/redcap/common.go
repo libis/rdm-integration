@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -59,7 +60,7 @@ func listEntries(ctx context.Context, folderId, path, url, token string) ([]Entr
 	response := []RedCapResponseEntry{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(string(b))
 	}
 	res := []Entry{}
 	sep := "/"
