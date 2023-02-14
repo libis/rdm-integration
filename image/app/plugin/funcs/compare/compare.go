@@ -54,7 +54,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 }
 
 func doCompare(req types.CompareRequest, key, user string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 	defer cancel()
 	cachedRes := common.CachedResponse{
 		Key: key,
