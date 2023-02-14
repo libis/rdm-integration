@@ -121,7 +121,7 @@
             }
         },
         {
-            "id": "redcap",
+            "id": "GBIOMED_redcap_preview",
             "name": "GBIOMED Preview RedCap",
             "plugin": "redcap",
             "pluginName": "REDCap",
@@ -130,6 +130,18 @@
             "tokenFieldName": "Project token",
             "tokenFieldPlaceholder": "project token",
             "sourceUrlFieldValue": "https://preview.redcap.gbiomed.kuleuven.be"
+        },
+        {
+            "id": "redcap",
+            "name": "Other REDCap",
+            "plugin": "redcap",
+            "pluginName": "REDCap",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "tokenFieldName": "Project token",
+            "tokenFieldPlaceholder": "project token",
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://your.redcap.server"
         }
     ]
 }
