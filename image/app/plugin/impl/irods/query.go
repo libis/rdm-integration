@@ -4,16 +4,17 @@ package irods
 
 import (
 	"context"
-	"encoding/binary"
+	"crypto/md5"
 	"fmt"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"io"
 	"strings"
 
 	"github.com/cyverse/go-irodsclient/fs"
 )
 
-func Query(_ context.Context, req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
+func Query(_ context.Context, req types.CompareRequest, nm map[string]tree.Node) (map[string]tree.Node, error) {
 	cl, err := NewIrodsClient(req.Url, req.RepoName, req.User, req.Token)
 	if err != nil {
 		return nil, err
@@ -23,10 +24,10 @@ func Query(_ context.Context, req types.CompareRequest, _ map[string]tree.Node) 
 	if err != nil {
 		return nil, err
 	}
-	return toNodeMap(cl, req.Option, entries)
+	return toNodeMap(cl, req.Option, entries, nm)
 }
 
-func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]tree.Node, error) {
+func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry, nm map[string]tree.Node) (map[string]tree.Node, error) {
 	res := map[string]tree.Node{}
 	dirs := []string{}
 	for _, e := range entries {
@@ -46,13 +47,14 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 			parentId = strings.Join(ancestors[:len(ancestors)-1], "/")
 			fileName = ancestors[len(ancestors)-1]
 		}
-		hash := e.CheckSum
+		h := e.CheckSum
 		hashType := types.Md5
-		if hash == "" {
-			h := make([]byte, 8)
-			binary.LittleEndian.PutUint64(h, uint64(e.Size))
-			hash = fmt.Sprintf("%x", h)
-			hashType = types.FileSize
+		if h == "" {
+			var err error
+			h, err = hash(cl, folder, id, nm)
+			if err != nil {
+				return nil, err
+			}
 		}
 		node := tree.Node{
 			Id:   id,
@@ -61,7 +63,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 			Attributes: tree.Attributes{
 				ParentId:       parentId,
 				IsFile:         isFile,
-				RemoteHash:     hash,
+				RemoteHash:     h,
 				RemoteHashType: hashType,
 				Metadata: tree.Metadata{
 					Label:          fileName,
@@ -72,7 +74,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 						Filesize:    e.Size,
 						Checksum: tree.Checksum{
 							Type:  hashType,
-							Value: hash,
+							Value: h,
 						},
 					},
 				},
@@ -85,7 +87,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 		if err != nil {
 			return nil, err
 		}
-		irodsNm, err := toNodeMap(cl, folder, subEntries)
+		irodsNm, err := toNodeMap(cl, folder, subEntries, nm)
 		if err != nil {
 			return nil, err
 		}
@@ -94,4 +96,18 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry) (map[string]
 		}
 	}
 	return res, nil
+}
+
+func hash(cl *IrodsClient, folder, path string, nm map[string]tree.Node) (string, error) {
+	if _, ok := nm[path]; !ok {
+		return types.NotNeeded, nil
+	}
+	reader, err := cl.StreamFile(folder + "/" + path)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+	hasher := md5.New()
+	io.Copy(hasher, reader)
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
