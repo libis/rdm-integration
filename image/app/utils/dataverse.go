@@ -541,7 +541,7 @@ func splitId(id string) (string, string) {
 }
 
 func signUrl(ctx context.Context, inUrl, token, user string) (string, bool, error) {
-	if user == "" {
+	if token != "" {
 		return inUrl, true, nil
 	}
 	jsonString := fmt.Sprintf(`{"url":"%v","timeOut":500,"user":"%v"}`, inUrl, user)
