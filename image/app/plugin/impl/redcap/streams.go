@@ -19,24 +19,14 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	if token == "" || url == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %v", streamParams)
 	}
-	entries, err := listEntries(ctx, "", "", url, token)
-	if err != nil {
-		return nil, err
-	}
-	idToDocId := map[string]string{}
-	for _, e := range entries {
-		if !e.IsDir {
-			idToDocId[e.Id] = e.DocId
-		}
-	}
 	res := map[string]types.Stream{}
 
-	for k := range in {
+	for k, v := range in {
 		data, _ := json.Marshal(Request{
 			Token:        token,
 			Content:      "fileRepository",
 			Action:       "export",
-			DocId:        idToDocId[k],
+			DocId:        v.Attributes.URL,
 			ReturnFormat: "json",
 		})
 		request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(data))
