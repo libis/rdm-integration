@@ -9,6 +9,9 @@ import (
 )
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]string, error) {
+	if params.Url == "" || params.Token == "" {
+		return nil, fmt.Errorf("invalid arguments")
+	}
 	url := fmt.Sprintf("%s/api/", params.Url)
 	entries, err := listEntries(ctx, "", "", url, params.Token)
 	if err != nil {
@@ -17,7 +20,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]string, error)
 	res := []string{}
 	for _, e := range entries {
 		if e.IsDir {
-			res = append(res, "/" + e.Id)
+			res = append(res, "/"+e.Id)
 		}
 	}
 	return res, nil

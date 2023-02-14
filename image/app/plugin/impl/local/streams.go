@@ -13,7 +13,7 @@ import (
 )
 
 func Streams(_ context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
-	url :=  strings.TrimSuffix(streamParams.Url, string(os.PathSeparator))
+	url := strings.TrimSuffix(streamParams.Url, string(os.PathSeparator))
 	if url == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url, got: %v", streamParams)
 	}

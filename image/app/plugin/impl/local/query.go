@@ -24,7 +24,7 @@ type Entry struct {
 }
 
 func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error) {
-	path :=  strings.TrimSuffix(req.Url, string(os.PathSeparator))
+	path := strings.TrimSuffix(req.Url, string(os.PathSeparator))
 	entries, err := list(path, path, dvNodes)
 	if err != nil {
 		return nil, err
