@@ -1,9 +1,9 @@
 {
     "dataverseHeader": "KU Leuven RDR",
-    "collectionOptionsHidden": true,
-    "createNewDatasetEnabled": false,
-    "datasetFieldEditable": true,
-    "collectionFieldEditable": false,
+    "collectionOptionsHidden": false,
+    "createNewDatasetEnabled": true,
+    "datasetFieldEditable": false,
+    "collectionFieldEditable": true,
     "showDvTokenGetter": true,
     "showDvToken": true,
     "redirect_uri": "http://localhost:7788/connect",

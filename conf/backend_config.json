@@ -1,7 +1,6 @@
 {
     "dataverseServer": "https://localhost:7000",
     "redisHost": "localhost:6379",
-    "maxFileSize": 21474836480,
     "options": {
         "rootDataverseId": "rdr",
         "myDataRoleIds": [6],
@@ -10,6 +9,6 @@
         "pathToApiKey": "../../rdm-deployment/data/.secrets/api/adminkey",
         "pathToUnblockKey": "../../rdm-deployment/data/.secrets/api/key",
         "pathToOauthSecrets": "../../rdm-deployment/data/datasync/oauth/secrets.json",
-        "maxFileSize": 0
+        "maxFileSize": 21474836480
     }
 }
