@@ -10,7 +10,7 @@ import (
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]string, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("invalid arguments")
+		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %v", params)
 	}
 	url := fmt.Sprintf("%s/api/", params.Url)
 	entries, err := listEntries(ctx, "", "", url, params.Token)

@@ -15,10 +15,10 @@ import (
 
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
 	token := streamParams.Token
-	if token == "" {
+	url := fmt.Sprintf("%s/api/", streamParams.Url)
+	if token == "" || url == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %v", streamParams)
 	}
-	url := fmt.Sprintf("%s/api/", streamParams.Url)
 	entries, err := listEntries(ctx, "", "", url, token)
 	if err != nil {
 		return nil, err
