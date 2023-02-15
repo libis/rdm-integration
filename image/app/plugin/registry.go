@@ -8,6 +8,7 @@ import (
 	"integration/app/plugin/impl/gitlab"
 	"integration/app/plugin/impl/irods"
 	"integration/app/plugin/impl/local"
+	"integration/app/plugin/impl/osf"
 	"integration/app/plugin/impl/redcap"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -44,6 +45,12 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Options: redcap.Options,
 		Search:  nil,
 		Streams: redcap.Streams,
+	},
+	"osf": {
+		Query:   osf.Query,
+		Options: nil,
+		Search:  osf.Search,
+		Streams: osf.Streams,
 	},
 	"local": {
 		Query:   local.Query,
