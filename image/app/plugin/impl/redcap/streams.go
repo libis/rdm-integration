@@ -3,14 +3,13 @@
 package redcap
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
@@ -22,17 +21,20 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	res := map[string]types.Stream{}
 
 	for k, v := range in {
-		data, _ := json.Marshal(Request{
+		docId, _ := strconv.Atoi(v.Attributes.URL)
+		data := Request{
 			Token:        token,
 			Content:      "fileRepository",
 			Action:       "export",
-			DocId:        v.Attributes.URL,
+			DocId:        int64(docId),
 			ReturnFormat: "json",
-		})
-		request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(data))
+		}
+		request, err := http.NewRequestWithContext(ctx, "POST", url, encode(data))
 		if err != nil {
 			return nil, err
 		}
+		request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		request.Header.Add("Accept", "application/json")
 		var r *http.Response
 
 		res[k] = types.Stream{

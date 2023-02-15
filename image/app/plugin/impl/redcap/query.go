@@ -3,10 +3,8 @@
 package redcap
 
 import (
-	"bytes"
 	"context"
 	"crypto/md5"
-	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -17,7 +15,7 @@ import (
 
 func Query(ctx context.Context, req types.CompareRequest, nm map[string]tree.Node) (map[string]tree.Node, error) {
 	url := fmt.Sprintf("%s/api/", req.Url)
-	entries, err := listEntries(ctx, "", "", url, req.Token)
+	entries, err := listEntries(ctx, 0, "", url, req.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +46,7 @@ func toNodeMap(entries []Entry, nm map[string]tree.Node, url, token string) (map
 			Name: e.Name,
 			Path: e.Path,
 			Attributes: tree.Attributes{
-				URL:            e.DocId,
+				URL:            fmt.Sprint(e.DocId),
 				ParentId:       e.Path,
 				IsFile:         !e.IsDir,
 				RemoteHash:     checkSum,
@@ -77,14 +75,16 @@ func hash(entry Entry, nm map[string]tree.Node, url, token string) (string, int6
 	if _, ok := nm[entry.Id]; !ok {
 		return types.NotNeeded, 0, nil
 	}
-	data, _ := json.Marshal(Request{
+	data := Request{
 		Token:        token,
 		Content:      "fileRepository",
 		Action:       "export",
 		DocId:        entry.DocId,
 		ReturnFormat: "json",
-	})
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	}
+	req, _ := http.NewRequest("POST", url, encode(data))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Accept", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", 0, err
