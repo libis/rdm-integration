@@ -66,6 +66,19 @@
             "tokenFieldPlaceholder": "project token",
             "sourceUrlFieldName": "Source URL",
             "sourceUrlFieldPlaceholder": "https://your.redcap.server"
+        },
+        {
+            "id": "osf",
+            "name": "OSF",
+            "plugin": "osf",
+            "pluginName": "OSF",
+            "tokenFieldName": "Token",
+            "tokenFieldPlaceholder": "API token",
+            "sourceUrlFieldValue": "https://api.test.osf.io",
+            "repoNameFieldName": "Collection",
+            "repoNameFieldPlaceholder": "Select collection",
+            "repoNameFieldHasSearch": true,
+            "tokenName": "osfToken"
         }
     ]
 }

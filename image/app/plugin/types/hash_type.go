@@ -6,6 +6,7 @@ const (
 	SHA1      = "SHA-1"
 	GitHash   = "git-hash"
 	Md5       = "MD5"
+	SHA256    = "SHA256"
 	FileSize  = "FileSize"
 	NotNeeded = "not needed"
 	Written   = "written"
