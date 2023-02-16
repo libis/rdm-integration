@@ -89,7 +89,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	tooLarge := []string{}
 	maxFileSize := utils.GetMaxFileSize()
 	for k, v := range repoNm {
-		if maxFileSize > 0 && v.Attributes.Metadata.DataFile.Filesize > maxFileSize {
+		if maxFileSize > 0 && v.Attributes.RemoteFilesize > maxFileSize {
 			delete(repoNm, k)
 			tooLarge = append(tooLarge, v.Id)
 		}

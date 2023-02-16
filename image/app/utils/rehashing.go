@@ -24,8 +24,8 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 	for k, node := range nodes {
 		if node.Attributes.RemoteHashType != "" {
 			value, ok := knownHashes[node.Id].RemoteHashes[node.Attributes.RemoteHashType]
-			if node.Attributes.LocalHash != "" && node.Attributes.RemoteHashType == node.Attributes.Metadata.DataFile.Checksum.Type {
-				value, ok = node.Attributes.LocalHash, true
+			if node.Attributes.DestinationFile.Hash != "" && node.Attributes.RemoteHashType == node.Attributes.DestinationFile.HashType {
+				value, ok = node.Attributes.DestinationFile.Hash, true
 			}
 			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
 			redisValue := GetRedis().Get(ctx, redisKey).Val()
@@ -35,11 +35,12 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 			if redisValue == types.Deleted {
 				value, ok = "", true
 			}
-			if !ok && node.Attributes.LocalHash != "" {
+			if !ok && node.Attributes.DestinationFile.Hash != "" {
 				jobNodes[k] = node
 				value = "?"
 			}
-			node.Attributes.LocalHash = value
+			node.Attributes.DestinationFile.Hash = value
+			node.Attributes.DestinationFile.HashType = node.Attributes.RemoteHashType
 		}
 		res[k] = node
 	}
@@ -116,21 +117,21 @@ func invalidateKnownHashes(ctx context.Context, persistentId string) {
 func calculateHash(ctx context.Context, dataverseKey, user, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
 	hashType := node.Attributes.RemoteHashType
 	known, ok := knownHashes[node.Id]
-	if ok && known.LocalHashType == node.Attributes.Metadata.DataFile.Checksum.Type && known.LocalHashValue == node.Attributes.Metadata.DataFile.Checksum.Value {
+	if ok && known.LocalHashType == node.Attributes.DestinationFile.HashType && known.LocalHashValue == node.Attributes.DestinationFile.Hash {
 		_, ok2 := known.RemoteHashes[hashType]
 		if ok2 {
 			return nil
 		}
 	} else {
 		known = calculatedHashes{
-			LocalHashType:  node.Attributes.Metadata.DataFile.Checksum.Type,
-			LocalHashValue: node.Attributes.Metadata.DataFile.Checksum.Value,
+			LocalHashType:  node.Attributes.DestinationFile.HashType,
+			LocalHashValue: node.Attributes.DestinationFile.Hash,
 			RemoteHashes:   map[string]string{},
 		}
 	}
 	h, err := doHash(ctx, dataverseKey, user, persistentId, node)
 	if err != nil {
-		return fmt.Errorf("failed to hash local file %v: %v", node.Attributes.Metadata.DataFile.StorageIdentifier, err)
+		return fmt.Errorf("failed to hash local file %v: %v", node.Attributes.DestinationFile.StorageIdentifier, err)
 	}
 	known.RemoteHashes[hashType] = fmt.Sprintf("%x", h)
 	knownHashes[node.Id] = known

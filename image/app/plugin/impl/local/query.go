@@ -47,23 +47,10 @@ func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Nod
 			Name: e.FileName,
 			Path: e.ParentId,
 			Attributes: tree.Attributes{
-				ParentId:       e.ParentId,
 				IsFile:         isFile,
 				RemoteHash:     e.CheckSum,
 				RemoteHashType: types.Md5,
-				Metadata: tree.Metadata{
-					Label:          e.FileName,
-					DirectoryLabel: e.ParentId,
-					DataFile: tree.DataFile{
-						Filename:    e.FileName,
-						ContentType: "application/octet-stream",
-						Filesize:    e.Size,
-						Checksum: tree.Checksum{
-							Type:  types.Md5,
-							Value: e.CheckSum,
-						},
-					},
-				},
+				RemoteFilesize: e.Size,
 			},
 		}
 		res[e.Id] = node

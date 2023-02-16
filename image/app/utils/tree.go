@@ -54,20 +54,20 @@ func Compare(ctx context.Context, in map[string]tree.Node, pid, dataverseKey, us
 		}
 		if v.Attributes.RemoteHash != "" {
 			switch {
-			case v.Attributes.LocalHash == "":
+			case v.Attributes.DestinationFile.Hash == "":
 				v.Status = tree.New
-			case v.Attributes.LocalHash == "?":
+			case v.Attributes.DestinationFile.Hash == "?":
 				v.Status = tree.Unknown
-			case v.Attributes.LocalHash != v.Attributes.RemoteHash:
+			case v.Attributes.DestinationFile.Hash != v.Attributes.RemoteHash:
 				v.Status = tree.Updated
-			case v.Attributes.LocalHash == v.Attributes.RemoteHash:
+			case v.Attributes.DestinationFile.Hash == v.Attributes.RemoteHash:
 				v.Status = tree.Equal
 			}
 		} else {
 			v.Status = tree.Deleted
 		}
 		data = append(data, v)
-		empty = empty || v.Attributes.LocalHash != ""
+		empty = empty || v.Attributes.DestinationFile.Hash != ""
 	}
 	status := Finished
 	if jobNeeded || IsLocked(ctx, pid) {

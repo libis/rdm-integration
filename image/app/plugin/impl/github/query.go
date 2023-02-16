@@ -55,23 +55,10 @@ func toNodeMap(tr *github.Tree) map[string]tree.Node {
 			Path: parentId,
 			Attributes: tree.Attributes{
 				URL:            e.GetURL(),
-				ParentId:       parentId,
 				IsFile:         isFile,
 				RemoteHash:     e.GetSHA(),
 				RemoteHashType: types.GitHash,
-				Metadata: tree.Metadata{
-					Label:          fileName,
-					DirectoryLabel: parentId,
-					DataFile: tree.DataFile{
-						Filename:    fileName,
-						ContentType: "application/octet-stream",
-						Filesize:    int64(e.GetSize()),
-						Checksum: tree.Checksum{
-							Type:  types.GitHash,
-							Value: e.GetSHA(),
-						},
-					},
-				},
+				RemoteFilesize: int64(e.GetSize()),
 			},
 		}
 		res[id] = node

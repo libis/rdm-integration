@@ -5,7 +5,6 @@ package dv
 import (
 	"bytes"
 	"fmt"
-	"integration/app/tree"
 	"io"
 	"time"
 )
@@ -39,20 +38,20 @@ type AddReplaceFileResponse struct {
 }
 
 type AddReplaceFileData struct {
-	Files []AddReplaceFileDataFile `json:"files"`
+	Files []MetaData `json:"files"`
 }
 
-type AddReplaceFileDataFile struct {
-	Description      string      `json:"description"`
-	Label            string      `json:"label"`
-	Restricted       bool        `json:"restricted"`
-	DirectoryLabel   string      `json:"directoryLabel"`
-	Version          int64       `json:"version"`
-	DatasetVersionId int64       `json:"datasetVersionId"`
-	DataFile         ResJsonData `json:"dataFile"`
+type MetaData struct {
+	Description      string   `json:"description"`
+	Label            string   `json:"label"`
+	Restricted       bool     `json:"restricted"`
+	DirectoryLabel   string   `json:"directoryLabel"`
+	Version          int64    `json:"version"`
+	DatasetVersionId int64    `json:"datasetVersionId"`
+	DataFile         DataFile `json:"dataFile"`
 }
 
-type ResJsonData struct {
+type DataFile struct {
 	Id                int64        `json:"id"`
 	PersistentId      int64        `json:"persistentId"`
 	PidURL            int64        `json:"pidURL"`
@@ -92,7 +91,7 @@ type CleanupData struct {
 
 type ListResponse struct {
 	DvResponse
-	Data []tree.Metadata `json:"data"`
+	Data []MetaData `json:"data"`
 }
 
 type Permissions struct {

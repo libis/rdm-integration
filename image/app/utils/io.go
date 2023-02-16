@@ -169,16 +169,16 @@ func doHash(ctx context.Context, dataverseKey, user, persistentId string, node t
 	if err != nil {
 		return nil, err
 	}
-	storageIdentifier := node.Attributes.Metadata.DataFile.StorageIdentifier
+	storageIdentifier := node.Attributes.DestinationFile.StorageIdentifier
 	hashType := node.Attributes.RemoteHashType
-	hasher, err := getHash(hashType, node.Attributes.Metadata.DataFile.Filesize)
+	hasher, err := getHash(hashType, node.Attributes.DestinationFile.Filesize)
 	if err != nil {
 		return nil, err
 	}
 	s := getStorage(storageIdentifier)
 	var reader io.Reader
 	if config.Options.DefaultDriver == "" || directUpload != "true" {
-		readCloser, err := downloadFile(ctx, dataverseKey, user, node.Attributes.Metadata.DataFile.Id)
+		readCloser, err := downloadFile(ctx, dataverseKey, user, node.Attributes.DestinationFile.Id)
 		if err != nil {
 			return nil, err
 		}

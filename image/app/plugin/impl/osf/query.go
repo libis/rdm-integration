@@ -29,23 +29,10 @@ func toNodeMap(files []File, nm map[string]tree.Node, url, token string) (map[st
 			Path: file.Path,
 			Attributes: tree.Attributes{
 				URL:            file.URL,
-				ParentId:       file.Path,
 				IsFile:         !file.IsDir,
 				RemoteHash:     file.Hash,
 				RemoteHashType: file.HashType,
-				Metadata: tree.Metadata{
-					Label:          file.Name,
-					DirectoryLabel: file.Path,
-					DataFile: tree.DataFile{
-						Filename:    file.Name,
-						ContentType: "application/octet-stream",
-						Filesize:    file.Size,
-						Checksum: tree.Checksum{
-							Type:  file.HashType,
-							Value: file.Hash,
-						},
-					},
-				},
+				RemoteFilesize: file.Size,
 			},
 		}
 		res[node.Id] = node

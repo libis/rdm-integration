@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	dv "integration/app/dataverse"
+	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
 	"mime/multipart"
@@ -58,7 +59,7 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 		if knownHashes[k].LocalHashValue == "" {
 			continue
 		}
-		invalid := (knownHashes[k].LocalHashValue != v.Attributes.Metadata.DataFile.Checksum.Value)
+		invalid := knownHashes[k].LocalHashValue != v.Attributes.DestinationFile.Hash || knownHashes[k].LocalHashType != v.Attributes.DestinationFile.HashType
 		if invalid {
 			invalidateKnownHashes(ctx, persistentId)
 			break
@@ -67,23 +68,33 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 	return mapped, nil
 }
 
-func mapToNodes(data []tree.Metadata) map[string]tree.Node {
+func mapToNodes(data []dv.MetaData) map[string]tree.Node {
 	res := map[string]tree.Node{}
 	for _, d := range data {
 		dir := ""
 		if d.DirectoryLabel != "" {
 			dir = d.DirectoryLabel + "/"
 		}
-		id := dir + d.DataFile.Filename
+		id := dir + d.DataFile.FileName
+		hash := d.DataFile.Md5
+		hashType := types.Md5
+		if hash == "" {
+			hash = d.DataFile.Checksum.Value
+			hashType = d.DataFile.Checksum.Type
+		}
 		res[id] = tree.Node{
 			Id:   id,
-			Name: d.DataFile.Filename,
+			Name: d.DataFile.FileName,
 			Path: d.DirectoryLabel,
 			Attributes: tree.Attributes{
-				ParentId:  d.DirectoryLabel,
-				Metadata:  d,
-				IsFile:    true,
-				LocalHash: d.DataFile.Checksum.Value,
+				DestinationFile: tree.DestinationFile{
+					Id:                d.DataFile.Id,
+					Filesize:          d.DataFile.FileSize,
+					Hash:              hash,
+					HashType:          hashType,
+					StorageIdentifier: d.DataFile.StorageIdentifier,
+				},
+				IsFile: true,
 			},
 		}
 	}

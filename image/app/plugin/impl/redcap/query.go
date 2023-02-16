@@ -47,23 +47,10 @@ func toNodeMap(entries []Entry, nm map[string]tree.Node, url, token string) (map
 			Path: e.Path,
 			Attributes: tree.Attributes{
 				URL:            fmt.Sprint(e.DocId),
-				ParentId:       e.Path,
 				IsFile:         !e.IsDir,
 				RemoteHash:     checkSum,
 				RemoteHashType: types.Md5,
-				Metadata: tree.Metadata{
-					Label:          e.Name,
-					DirectoryLabel: e.Path,
-					DataFile: tree.DataFile{
-						Filename:    e.Name,
-						ContentType: "application/octet-stream",
-						Filesize:    size,
-						Checksum: tree.Checksum{
-							Type:  types.Md5,
-							Value: checkSum,
-						},
-					},
-				},
+				RemoteFilesize: size,
 			},
 		}
 		res[e.Id] = node

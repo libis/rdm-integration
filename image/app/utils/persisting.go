@@ -50,7 +50,7 @@ func filterRedundant(ctx context.Context, job Job, knownHashes map[string]calcul
 		h, ok := knownHashes[k].RemoteHashes[v.Attributes.RemoteHashType]
 		if v.Action == tree.Delete {
 			isDelete = true
-		} else if ok && h == v.Attributes.RemoteHash && localHash == v.Attributes.LocalHash {
+		} else if ok && h == v.Attributes.RemoteHash && localHash == v.Attributes.DestinationFile.Hash {
 			continue
 		}
 		filteredEqual[k] = v
@@ -102,9 +102,9 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
 		if v.Action == tree.Delete {
 			if nativeApiDelete != "true" {
-				err = swordDelete(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
+				err = swordDelete(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
 			} else {
-				err = deleteFile(ctx, dataverseKey, user, v.Attributes.Metadata.DataFile.Id)
+				err = deleteFile(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
 			}
 			if err != nil {
 				return
@@ -125,12 +125,12 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		var h []byte
 		var remoteH []byte
 		var size int64
-		h, remoteH, size, err = write(ctx, v.Attributes.Metadata.DataFile.Id, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.Metadata.DataFile.Filesize)
+		h, remoteH, size, err = write(ctx, v.Attributes.DestinationFile.Id, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.RemoteFilesize)
 		if err != nil {
 			return
 		}
 
-		v.Attributes.Metadata.DataFile.Filesize = size
+		v.Attributes.DestinationFile.Filesize = size
 		hashValue := fmt.Sprintf("%x", h)
 		//updated or new: always rehash
 		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
@@ -143,12 +143,12 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 
 		if directUpload == "true" && config.Options.DefaultDriver != "" {
-			directoryLabel := v.Attributes.Metadata.DirectoryLabel
+			directoryLabel := v.Path
 			jsonData := dv.JsonData{
-				FileToReplaceId:   v.Attributes.Metadata.DataFile.Id,
-				ForceReplace:      v.Attributes.Metadata.DataFile.Id != 0,
+				FileToReplaceId:   v.Attributes.DestinationFile.Id,
+				ForceReplace:      v.Attributes.DestinationFile.Id != 0,
 				StorageIdentifier: storageIdentifier,
-				FileName:          v.Attributes.Metadata.DataFile.Filename,
+				FileName:          v.Name,
 				DirectoryLabel:    directoryLabel,
 				MimeType:          "application/octet-stream", // default that will be replaced by Dataverse while adding/replacing the file
 				Checksum: &dv.Checksum{
@@ -178,7 +178,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				err = fmt.Errorf("file is written but not found back")
 				return
 			}
-			v.Attributes.Metadata.DataFile.Id = written.Attributes.Metadata.DataFile.Id
+			v.Attributes.DestinationFile.Id = written.Attributes.DestinationFile.Id
 		}
 
 		var newH []byte

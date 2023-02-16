@@ -61,23 +61,10 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry, nm map[strin
 			Name: fileName,
 			Path: parentId,
 			Attributes: tree.Attributes{
-				ParentId:       parentId,
 				IsFile:         isFile,
 				RemoteHash:     h,
 				RemoteHashType: hashType,
-				Metadata: tree.Metadata{
-					Label:          fileName,
-					DirectoryLabel: parentId,
-					DataFile: tree.DataFile{
-						Filename:    fileName,
-						ContentType: "application/octet-stream",
-						Filesize:    e.Size,
-						Checksum: tree.Checksum{
-							Type:  hashType,
-							Value: h,
-						},
-					},
-				},
+				RemoteFilesize: e.Size,
 			},
 		}
 		res[id] = node

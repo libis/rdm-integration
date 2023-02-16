@@ -87,23 +87,9 @@ func toNodeMap(tr GitlabTree) map[string]tree.Node {
 			Name: fileName,
 			Path: parentId,
 			Attributes: tree.Attributes{
-				ParentId:       parentId,
 				IsFile:         isFile,
 				RemoteHash:     e.Id,
 				RemoteHashType: types.GitHash,
-				Metadata: tree.Metadata{
-					Label:          fileName,
-					DirectoryLabel: parentId,
-					DataFile: tree.DataFile{
-						Filename:    fileName,
-						ContentType: "application/octet-stream",
-						Filesize:    0, // file size not known...
-						Checksum: tree.Checksum{
-							Type:  types.GitHash,
-							Value: e.Id,
-						},
-					},
-				},
 			},
 		}
 		res[id] = node
