@@ -12,15 +12,17 @@ import (
 	"strings"
 )
 
-type OSFResponseEntry struct {
+type PageResponse struct {
 	Data  []Data `json:"data"`
 	Links Links  `json:"links"`
-	Meta  Meta   `json:"meta"`
+}
+
+type DataResponse struct {
+	Data Data `json:"data"`
 }
 
 type Data struct {
 	Id            string        `json:"id"`
-	Type          string        `json:"type"`
 	Attributes    Attributes    `json:"attributes"`
 	Relationships Relationships `json:"relationships"`
 	Links         Links         `json:"links"`
@@ -51,36 +53,23 @@ type Relationships struct {
 }
 
 type Linked struct {
-	LinksWithMeta LinksWithMeta `json:"links"`
+	LinksWithHref LinksWithHref `json:"links"`
 }
 
-type LinksWithMeta struct {
-	Self    LinkWithMeta `json:"self"`
-	Related LinkWithMeta `json:"related"`
+type LinksWithHref struct {
+	Related LinkHref `json:"related"`
 }
 
-type LinkWithMeta struct {
+type LinkHref struct {
 	Href string `json:"href"`
-	Meta Meta   `json:"meta"`
 }
 
 type Links struct {
-	Html     string `json:"html"`
-	Self     string `json:"self"`
-	First    string `json:"first"`
-	Last     string `json:"last"`
 	Next     string `json:"next"`
-	Prev     string `json:"prev"`
 	Download string `json:"download"`
 }
 
-type Meta struct {
-	Total   int64   `json:"total"`
-	PerPage int64   `json:"per_page"`
-	Version float64 `json:"version"`
-}
-
-type Node struct {
+type File struct {
 	Id       string
 	Name     string
 	Path     string
@@ -91,61 +80,12 @@ type Node struct {
 	Size     int64
 }
 
-func search(ctx context.Context, server, repoName, token string) ([]Data, error) {
-	if server == "" || token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected url and token")
-	}
-	url := fmt.Sprintf("%s/v2/collections/?filter[title][icontains]=%s", server, repoName)
-	if repoName == "" {
-		url = fmt.Sprintf("%s/v2/collections/", repoName)
-	}
-	collections, err := getData(ctx, url, repoName)
-	if err != nil {
-		return nil, err
-	}
-	res := collections
-	if repoName != "" {
-		collections, err := getData(ctx, url, "")
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, collections...)
-	}
-	return res, nil
-}
-
-func getData(ctx context.Context, url, token string) ([]Data, error) {
-	res, next, err := getPage(ctx, url, token)
-	if err != nil {
-		return nil, err
-	}
-	for next != "" {
-		res, next, err = getPage(ctx, url, token)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
 func getPage(ctx context.Context, url, token string) ([]Data, string, error) {
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	b, err := query(ctx, url, token)
 	if err != nil {
 		return nil, "", err
 	}
-	if token != "" {
-		request.Header.Add("Authorization", "Bearer "+token)
-	}
-	r, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return nil, "", err
-	}
-	defer r.Body.Close()
-	b, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, "", err
-	}
-	res := OSFResponseEntry{}
+	res := PageResponse{}
 	err = json.Unmarshal(b, &res)
 	if err != nil {
 		return nil, "", fmt.Errorf(string(b))
@@ -153,111 +93,95 @@ func getPage(ctx context.Context, url, token string) ([]Data, string, error) {
 	return res.Data, res.Links.Next, nil
 }
 
-func getNodes(ctx context.Context, url, repoName, token string) ([]Node, error) {
-	collections, err := search(ctx, url, repoName, token)
+func getData(ctx context.Context, url, token string) (Data, error) {
+	b, err := query(ctx, url, token)
 	if err != nil {
-		return nil, err
+		return Data{}, err
 	}
-	if len(collections) < 1 {
-		return nil, fmt.Errorf("collection \"%v\" not found", repoName)
+	res := DataResponse{}
+	err = json.Unmarshal(b, &res)
+	if err != nil {
+		return Data{}, fmt.Errorf(string(b))
 	}
+	return res.Data, nil
+}
 
-	res, next, err := getPage(ctx, collections[0].Relationships.Files.LinksWithMeta.Related.Href, token)
+func query(ctx context.Context, url, token string) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
+	if token != "" {
+		request.Header.Add("Authorization", "Bearer "+token)
+	}
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
+	return io.ReadAll(r.Body)
+}
+
+func getFiles(ctx context.Context, server, repoName, token string) ([]File, error) {
+	split := strings.Split(repoName, "(")
+	id := strings.TrimSuffix(split[len(split)-1], ")")
+	url := fmt.Sprintf("%s/v2/nodes/%s/", server, id)
+	data, err := getData(ctx, url, token)
+	if err != nil {
+		return nil, err
+	}
+	return getFilesFrom(ctx, data.Relationships.Files.LinksWithHref.Related.Href, token)
+}
+
+func getFilesFrom(ctx context.Context, url, token string) ([]File, error) {
+	filesPage, next, err := getPage(ctx, url, token)
+	if err != nil {
+		return nil, err
+	}
+	res := append([]Data{}, filesPage...)
 	for next != "" {
-		res, next, err = getPage(ctx, url, token)
+		filesPage, next, err = getPage(ctx, next, token)
 		if err != nil {
 			return nil, err
 		}
+		res = append(res, filesPage...)
 	}
-	nodes := []Node{}
-	for _, n := range res {
-		id := strings.TrimPrefix(n.Attributes.Materialized_path, "/")
-		path := strings.TrimSuffix(id, n.Attributes.Name)
+	files := []File{}
+	urls := []string{}
+	for _, v := range res {
+		id := strings.TrimPrefix(v.Attributes.Materialized_path, "/")
+		path := strings.TrimSuffix(id, v.Attributes.Name)
 		path = strings.TrimSuffix(path, "/")
 		hashType := ""
 		hash := ""
-		if n.Attributes.Extra.Hashes.Md5 != "" {
+		if v.Attributes.Extra.Hashes.Md5 != "" {
 			hashType = types.Md5
-			hash = n.Attributes.Extra.Hashes.Md5
-		} else if n.Attributes.Extra.Hashes.Sha256 != "" {
+			hash = v.Attributes.Extra.Hashes.Md5
+		} else if v.Attributes.Extra.Hashes.Sha256 != "" {
 			hashType = types.SHA256
-			hash = n.Attributes.Extra.Hashes.Sha256
+			hash = v.Attributes.Extra.Hashes.Sha256
 		}
-		nodes = append(nodes, Node{
+		files = append(files, File{
 			Id:       id,
-			Name:     n.Attributes.Name,
+			Name:     v.Attributes.Name,
 			Path:     path,
-			URL:      n.Links.Download,
-			IsDir:    n.Attributes.Kind != "file",
+			URL:      v.Links.Download,
+			IsDir:    v.Attributes.Kind != "file",
 			Hash:     hash,
 			HashType: hashType,
-			Size:     n.Attributes.Size,
+			Size:     v.Attributes.Size,
 		})
+		href := v.Relationships.Files.LinksWithHref.Related.Href
+		if href != "" {
+			urls = append(urls, href)
+		}
 	}
-	return nodes, nil
+	for _, v := range urls {
+		moreFiles, err := getFilesFrom(ctx, v, token)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, moreFiles...)
+	}
+	return files, nil
 }
-
-/*
-
-"children":
-"data":
-
-[
-
-{
-
-    "id": "2vewn",
-    "type": "nodes",
-    "attributes":
-
-{
-
-    "title": "A Good Node Title",
-{
-
-    "links":
-
-{
-
-    "related":
-
-        {
-            "href": "https://api.osf.io/v2/nodes/2vewn/children/",
-            "meta": { }
-        }
-    }
-
-},
-"comments":
-
-{},
-"contributors":
-
-{},
-"bibliographic_contributors":
-
-{},
-"implicit_contributors":
-
-{},
-"files":
-
-{
-
-    "links":
-
-{
-
-    "related":
-
-        {
-            "href": "https://api.osf.io/v2/nodes/2vewn/files/",
-            "meta": { }
-        }
-    }
-
-},
-*/

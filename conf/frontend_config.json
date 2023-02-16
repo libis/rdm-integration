@@ -148,14 +148,13 @@
             "name": "OSF",
             "plugin": "osf",
             "pluginName": "OSF",
-            "sourceUrlFieldValue": "https://api.test.osf.io",
-            "repoNameFieldName": "Collection",
-            "repoNameFieldPlaceholder": "Select collection",
+            "tokenFieldName": "Token",
+            "tokenFieldPlaceholder": "API token",
+            "sourceUrlFieldValue": "https://api.osf.io",
+            "repoNameFieldName": "Node",
+            "repoNameFieldPlaceholder": "Select node",
             "repoNameFieldHasSearch": true,
-            "tokenGetter": {
-                "URL": "https://github.com/login/oauth/authorize",
-                "oauth_client_id": "Iv1.5a149cba699ac08e"
-            }
+            "tokenName": "osfToken"
         }
     ]
 }

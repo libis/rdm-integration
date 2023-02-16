@@ -74,9 +74,9 @@
             "pluginName": "OSF",
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "API token",
-            "sourceUrlFieldValue": "https://api.test.osf.io",
-            "repoNameFieldName": "Collection",
-            "repoNameFieldPlaceholder": "Select collection",
+            "sourceUrlFieldValue": "https://api.osf.io",
+            "repoNameFieldName": "Node",
+            "repoNameFieldPlaceholder": "Select node",
             "repoNameFieldHasSearch": true,
             "tokenName": "osfToken"
         }
