@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"integration/app/core"
 	"integration/app/tree"
 	"io"
@@ -36,12 +37,12 @@ func CacheResponse(res CachedResponse) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	b, _ := json.Marshal(res)
-	core.GetRedis().Set(ctx, res.Key, string(b), cacheMaxDuration)
+	config.GetRedis().Set(ctx, res.Key, string(b), cacheMaxDuration)
 }
 
 // this is called after specific compare request (e.g. github compare)
 func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
-	if !core.RedisReady(r.Context()) {
+	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return
@@ -64,10 +65,10 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := CachedResponse{Key: key.Key}
-	cached := core.GetRedis().Get(r.Context(), res.Key)
+	cached := config.GetRedis().Get(r.Context(), res.Key)
 	if cached.Val() != "" {
 		json.Unmarshal([]byte(cached.Val()), &res)
-		core.GetRedis().Del(r.Context(), res.Key)
+		config.GetRedis().Del(r.Context(), res.Key)
 		res.Ready = true
 	}
 	if res.ErrorMessage != "" {
@@ -86,7 +87,7 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 
 // this is called when polling for status changes, after specific compare is finished or store is calleed
 func Compare(w http.ResponseWriter, r *http.Request) {
-	if !core.RedisReady(r.Context()) {
+	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return

@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"integration/app/destination"
 	"integration/app/logging"
 	"integration/app/server"
 	"integration/app/workers/spinner"
@@ -22,6 +23,7 @@ func main() {
 		}
 	}
 	if numberWorkers > 0 {
+		destination.SetDataverseAsDestination()
 		logging.Logger.Println("nuber workers:", numberWorkers)
 		go server.Start()
 		spinner.SpinWorkers(numberWorkers)

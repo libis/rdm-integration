@@ -23,22 +23,26 @@ type ErrorHolder struct {
 	Err error
 }
 
-type writerCloser struct {
+type WriterCloser struct {
 	writer io.Writer
 	closer io.Closer
 	pw     io.WriteCloser
 }
 
-func (z writerCloser) Write(p []byte) (n int, err error) {
+func NewWritterCloser(writer io.Writer, closer io.Closer, pipeWriter io.WriteCloser) WriterCloser {
+	return WriterCloser{writer, closer, pipeWriter}
+}
+
+func (z WriterCloser) Write(p []byte) (n int, err error) {
 	return z.writer.Write(p)
 }
 
-func (z writerCloser) Close() error {
+func (z WriterCloser) Close() error {
 	defer z.pw.Close()
 	return z.closer.Close()
 }
 
-type fileWriter struct {
+type FileWriter struct {
 	part1writtern bool
 	part1bytes    []byte
 	part2         io.Writer
@@ -46,11 +50,11 @@ type fileWriter struct {
 	filename      string
 }
 
-func newFileWriter(filename string, part1bytes []byte, writer *multipart.Writer) *fileWriter {
-	return &fileWriter{false, part1bytes, nil, writer, filename}
+func NewFileWriter(filename string, part1bytes []byte, writer *multipart.Writer) *FileWriter {
+	return &FileWriter{false, part1bytes, nil, writer, filename}
 }
 
-func (f *fileWriter) Write(p []byte) (int, error) {
+func (f *FileWriter) Write(p []byte) (int, error) {
 	if !f.part1writtern {
 		part1, _ := f.writer.CreateFormField("jsonData")
 		part1.Write(f.part1bytes)
@@ -61,7 +65,7 @@ func (f *fileWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (f *fileWriter) Close() error {
+func (f *FileWriter) Close() error {
 	if !f.part1writtern {
 		f.Write([]byte{})
 	}

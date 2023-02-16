@@ -1,6 +1,6 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package core
+package config
 
 import (
 	"context"
@@ -60,16 +60,12 @@ var config Config
 var oauthSecrets = map[string]OauthSecret{}
 
 // static vars
-var rdb RedisClient                                                    // redis client singleton
-var apiKey = ""                                                        // will be read from pathToApiKey
-var unblockKey = ""                                                    // will be read from pathToUnblockKey
-var redisPassword = ""                                                 // will be read from pathToRedisPassword
-var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"       // will be removed when pull request is merged
-var directUpload = "https://github.com/IQSS/dataverse/pull/9003"       // will be removed when pull request is merged
-var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be removed when pull request is merged
-var nativeApiDelete = "https://github.com/IQSS/dataverse/pull/9383"    // will be removed when pull request is merged
-var checkPermissions = true
+var rdb RedisClient    // redis client singleton
+var ApiKey = ""        // will be read from pathToApiKey
+var UnblockKey = ""    // will be read from pathToUnblockKey
+var redisPassword = "" // will be read from pathToRedisPassword
 var AllowQuit = false
+var LockMaxDuration = 24 * time.Hour
 
 func init() {
 	// read configuration
@@ -90,12 +86,12 @@ func init() {
 	b, err = os.ReadFile(config.Options.PathToUnblockKey)
 	if err == nil {
 		logging.Logger.Println("unblock key is read from file " + config.Options.PathToUnblockKey + ": permissions will be checked prior to requesting jobs")
-		unblockKey = strings.TrimSpace(string(b))
+		UnblockKey = strings.TrimSpace(string(b))
 	}
 	b, err = os.ReadFile(config.Options.PathToApiKey)
 	if err == nil {
 		logging.Logger.Println("API key is read from file " + config.Options.PathToApiKey)
-		apiKey = strings.TrimSpace(string(b))
+		ApiKey = strings.TrimSpace(string(b))
 	}
 
 	b, err = os.ReadFile(config.Options.PathToRedisPassword)
@@ -117,12 +113,11 @@ func init() {
 		Password: redisPassword,
 		DB:       config.Options.RedisDB,
 	})
-	checkPermissions = unblockKey != ""
 	if len(config.Options.MyDataRoleIds) == 0 {
 		config.Options.MyDataRoleIds = []int{6, 7}
 	}
 
-	http.DefaultClient.Timeout = lockMaxDuration
+	http.DefaultClient.Timeout = LockMaxDuration
 	// allow bad certificates
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 }
@@ -177,10 +172,13 @@ func GetMaxFileSize() int64 {
 	return config.Options.MaxFileSize
 }
 
-func GetUserFromHeader(h http.Header) string {
-	hn := "Ajp_uid"
-	if config.Options.UserHeaderName != "" {
-		hn = config.Options.UserHeaderName
+func GetConfig() Config {
+	return config
+}
+
+func GetExternalDestinationURL() string {
+	if config.Options.DataverseExternalUrl != "" {
+		return config.Options.DataverseExternalUrl
 	}
-	return h.Get(hn)
+	return config.DataverseServer
 }

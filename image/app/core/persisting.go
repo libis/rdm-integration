@@ -5,7 +5,7 @@ package core
 import (
 	"context"
 	"fmt"
-	dv "integration/app/dataverse"
+	"integration/app/config"
 	"integration/app/logging"
 	"integration/app/plugin/funcs/stream"
 	"integration/app/plugin/types"
@@ -13,7 +13,8 @@ import (
 	"time"
 )
 
-var fileNamesInCacheDuration = 1 * time.Minute
+var FileNamesInCacheDuration = 1 * time.Minute
+var deleteAndCleanupCtxDuration = 2 * time.Minute
 
 func doWork(job Job) (Job, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), job.Deadline)
@@ -59,7 +60,7 @@ func filterRedundant(ctx context.Context, job Job, knownHashes map[string]calcul
 		return filteredEqual, nil
 	}
 	res := map[string]tree.Node{}
-	nm, err := GetNodeMap(ctx, job.PersistentId, job.DataverseKey, job.User)
+	nm, err := Destination.Query(ctx, job.PersistentId, job.DataverseKey, job.User)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,7 @@ func filterRedundant(ctx context.Context, job Job, knownHashes map[string]calcul
 
 func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in Job, knownHashes map[string]calculatedHashes) (out Job, err error) {
 	dataverseKey, user, persistentId, writableNodes := in.DataverseKey, in.User, in.PersistentId, in.WritableNodes
-	err = CheckPermission(ctx, dataverseKey, user, persistentId)
+	err = Destination.CheckPermission(ctx, dataverseKey, user, persistentId)
 	if err != nil {
 		return
 	}
@@ -101,17 +102,10 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
 		if v.Action == tree.Delete {
-			if nativeApiDelete != "true" {
-				err = swordDelete(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
-			} else {
-				err = deleteFile(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
-			}
-			if err != nil {
-				return
-			}
+			deleteFile(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
 			delete(knownHashes, v.Id)
 			delete(out.WritableNodes, k)
-			GetRedis().Set(ctx, redisKey, types.Deleted, fileNamesInCacheDuration)
+			config.GetRedis().Set(ctx, redisKey, types.Deleted, FileNamesInCacheDuration)
 			writtenKeys = append(writtenKeys, redisKey)
 			continue
 		}
@@ -119,7 +113,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		fileStream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
-		hashType := config.Options.DefaultHash
+		hashType := config.GetConfig().Options.DefaultHash
 		remoteHashType := v.Attributes.RemoteHashType
 
 		var h []byte
@@ -130,8 +124,11 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			return
 		}
 
-		v.Attributes.DestinationFile.Filesize = size
 		hashValue := fmt.Sprintf("%x", h)
+		v.Attributes.DestinationFile.Hash = hashValue
+		v.Attributes.DestinationFile.HashType = hashType
+		v.Attributes.DestinationFile.Filesize = size
+
 		//updated or new: always rehash
 		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
 		if remoteHashType == types.GitHash {
@@ -142,21 +139,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			return
 		}
 
-		if directUpload == "true" && config.Options.DefaultDriver != "" {
-			directoryLabel := v.Path
-			jsonData := dv.JsonData{
-				FileToReplaceId:   v.Attributes.DestinationFile.Id,
-				ForceReplace:      v.Attributes.DestinationFile.Id != 0,
-				StorageIdentifier: storageIdentifier,
-				FileName:          v.Name,
-				DirectoryLabel:    directoryLabel,
-				MimeType:          "application/octet-stream", // default that will be replaced by Dataverse while adding/replacing the file
-				Checksum: &dv.Checksum{
-					Type:  hashType,
-					Value: hashValue,
-				},
-			}
-			err = directAddReplaceFile(ctx, dataverseKey, user, persistentId, jsonData)
+		if Destination.IsDirectUpload() {
+			err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, storageIdentifier, v)
 			if err != nil {
 				return
 			}
@@ -165,7 +149,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			fileFound := false
 			written := tree.Node{}
 			for i := 0; !fileFound && i < 5; i++ {
-				nm, err = GetNodeMap(ctx, persistentId, dataverseKey, user)
+				nm, err = Destination.Query(ctx, persistentId, dataverseKey, user)
 				if err != nil {
 					return
 				}
@@ -197,7 +181,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
 			}
 		}
-		GetRedis().Set(ctx, redisKey, types.Written, fileNamesInCacheDuration)
+		config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
 		writtenKeys = append(writtenKeys, redisKey)
 
 		delete(out.WritableNodes, k)
@@ -210,4 +194,24 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
 	}
 	return
+}
+
+func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
+	time.Sleep(FileNamesInCacheDuration)
+	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
+	defer cancel()
+	go cleanRedis(shortContext, writtenKeys)
+	return Destination.CleanupLeftOverFiles(ctx, persistentId, token, user)
+}
+
+func cleanRedis(ctx context.Context, writtenKeys []string) {
+	for _, k := range writtenKeys {
+		config.GetRedis().Del(ctx, k)
+	}
+}
+
+func deleteFile(ctx context.Context, token, user string, id int64) error {
+	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
+	defer cancel()
+	return Destination.DeleteFile(shortContext, token, user, id)
 }

@@ -4,6 +4,7 @@ package main
 
 import (
 	"crypto/tls"
+	"integration/app/destination"
 	"integration/app/logging"
 	"integration/app/workers/spinner"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 )
 
 func main() {
+	destination.SetDataverseAsDestination()
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	numberWorkers := 0
 	var err error

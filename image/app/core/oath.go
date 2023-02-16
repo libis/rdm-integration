@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"io"
 	"net/http"
 	"net/url"
@@ -34,14 +35,14 @@ type OauthTokenResponse struct {
 	Error_uri             string `json:"error_uri"`
 }
 
-var PluginConfig = map[string]RepoPlugin{}
+var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
 func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResponse, error) {
 	res := OauthTokenResponse{AccessToken: code}
 	clientId := PluginConfig[id].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
-	clientSecret, postUrl, err := ClientSecret(clientId)
+	clientSecret, postUrl, err := config.ClientSecret(clientId)
 	if err != nil {
 		return res, err
 	}

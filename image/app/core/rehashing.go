@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -28,7 +29,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 				value, ok = node.Attributes.DestinationFile.Hash, true
 			}
 			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
-			redisValue := GetRedis().Get(ctx, redisKey).Val()
+			redisValue := config.GetRedis().Get(ctx, redisKey).Val()
 			if redisValue == types.Written {
 				value, ok = node.Attributes.RemoteHash, true
 			}
@@ -59,7 +60,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 }
 
 func doRehash(ctx context.Context, dataverseKey, user, persistentId string, nodes map[string]tree.Node, in Job) (out Job, err error) {
-	err = CheckPermission(ctx, dataverseKey, user, persistentId)
+	err = Destination.CheckPermission(ctx, dataverseKey, user, persistentId)
 	if err != nil {
 		return
 	}
@@ -89,7 +90,7 @@ func getKnownHashes(ctx context.Context, persistentId string) map[string]calcula
 	shortContext, cancel := context.WithTimeout(ctx, redisCtxDuration)
 	defer cancel()
 	res := map[string]calculatedHashes{}
-	cache := GetRedis().Get(shortContext, "hashes: "+persistentId)
+	cache := config.GetRedis().Get(shortContext, "hashes: "+persistentId)
 	err := json.Unmarshal([]byte(cache.Val()), &res)
 	if err != nil {
 		return map[string]calculatedHashes{}
@@ -105,13 +106,13 @@ func storeKnownHashes(ctx context.Context, persistentId string, knownHashes map[
 		logging.Logger.Println("marshalling hashes failed")
 		return
 	}
-	GetRedis().Set(shortContext, "hashes: "+persistentId, string(knownHashesJson), 0)
+	config.GetRedis().Set(shortContext, "hashes: "+persistentId, string(knownHashesJson), 0)
 }
 
 func invalidateKnownHashes(ctx context.Context, persistentId string) {
 	shortContext, cancel := context.WithTimeout(ctx, redisCtxDuration)
 	defer cancel()
-	GetRedis().Del(shortContext, "hashes: "+persistentId)
+	config.GetRedis().Del(shortContext, "hashes: "+persistentId)
 }
 
 func calculateHash(ctx context.Context, dataverseKey, user, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
@@ -136,4 +137,18 @@ func calculateHash(ctx context.Context, dataverseKey, user, persistentId string,
 	known.RemoteHashes[hashType] = fmt.Sprintf("%x", h)
 	knownHashes[node.Id] = known
 	return nil
+}
+
+func CheckKnownHashes(ctx context.Context, persistentId string, mapped map[string]tree.Node) {
+	knownHashes := getKnownHashes(ctx, persistentId)
+	for k, v := range mapped {
+		if knownHashes[k].LocalHashValue == "" {
+			continue
+		}
+		invalid := knownHashes[k].LocalHashValue != v.Attributes.DestinationFile.Hash || knownHashes[k].LocalHashType != v.Attributes.DestinationFile.HashType
+		if invalid {
+			invalidateKnownHashes(ctx, persistentId)
+			break
+		}
+	}
 }

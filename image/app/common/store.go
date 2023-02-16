@@ -5,6 +5,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"integration/app/core"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -26,7 +27,7 @@ type StoreRequest struct {
 }
 
 func Store(w http.ResponseWriter, r *http.Request) {
-	if !core.RedisReady(r.Context()) {
+	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return
@@ -67,7 +68,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	}
 	res := StoreResult{
 		Status:    "OK",
-		DatsetUrl: core.GetDatasetUrl(req.PersistentId, true),
+		DatsetUrl: core.Destination.GetRepoUrl(req.PersistentId, true),
 	}
 	b, err = json.Marshal(res)
 	if err != nil {

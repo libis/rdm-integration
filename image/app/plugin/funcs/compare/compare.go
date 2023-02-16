@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/common"
+	"integration/app/config"
 	"integration/app/core"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
@@ -20,7 +21,7 @@ import (
 )
 
 func Compare(w http.ResponseWriter, r *http.Request) {
-	if !core.RedisReady(r.Context()) {
+	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return
@@ -60,7 +61,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 		Key: key,
 	}
 	//check permission
-	err := core.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
+	err := core.Destination.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -68,7 +69,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	}
 
 	//query dataverse
-	nm, err := core.GetNodeMap(ctx, req.PersistentId, req.DataverseKey, user)
+	nm, err := core.Destination.Query(ctx, req.PersistentId, req.DataverseKey, user)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -87,7 +88,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 		return
 	}
 	tooLarge := []string{}
-	maxFileSize := core.GetMaxFileSize()
+	maxFileSize := config.GetMaxFileSize()
 	for k, v := range repoNm {
 		if maxFileSize > 0 && v.Attributes.RemoteFilesize > maxFileSize {
 			delete(repoNm, k)

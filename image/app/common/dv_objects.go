@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/core"
-	"integration/app/plugin/types"
 	"io"
 	"net/http"
 )
@@ -36,27 +35,11 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dvObjects, err := core.ListDvObjects(r.Context(), req.ObjectType, req.Collection, req.Token, user)
+	res, err := core.Destination.Options(r.Context(), req.ObjectType, req.Collection, req.Token, user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
-	}
-	res := []types.SelectItem{}
-	added := map[string]bool{}
-	for _, v := range dvObjects {
-		id := v.GlobalId
-		if id == "" {
-			id = v.Identifier
-		}
-		label := v.Name + " (" + id + ")"
-		if !added[label] {
-			added[label] = true
-			res = append(res, types.SelectItem{
-				Label: label,
-				Value: id,
-			})
-		}
 	}
 
 	if err != nil {

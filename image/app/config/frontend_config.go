@@ -1,6 +1,6 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package core
+package config
 
 type RepoPlugin struct {
 	Id                        string            `json:"id"`

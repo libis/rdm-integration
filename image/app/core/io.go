@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"integration/app/config"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
@@ -58,10 +59,10 @@ func generateFileName() string {
 
 func generateStorageIdentifier(fileName string) string {
 	b := ""
-	if config.Options.DefaultDriver == "s3" {
-		b = config.Options.S3Config.AWSBucket + ":"
+	if config.GetConfig().Options.DefaultDriver == "s3" {
+		b = config.GetConfig().Options.S3Config.AWSBucket + ":"
 	}
-	return fmt.Sprintf("%s://%s%s", config.Options.DefaultDriver, b, fileName)
+	return fmt.Sprintf("%s://%s%s", config.GetConfig().Options.DefaultDriver, b, fileName)
 }
 
 func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
@@ -106,7 +107,7 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 	reader = hashingReader{reader, sizeHasher}
 	reader = hashingReader{reader, remoteHasher}
 
-	if s.driver == "file" || config.Options.DefaultDriver == "" || directUpload != "true" {
+	if s.driver == "file" || Destination.IsDirectUpload() {
 		wg := &sync.WaitGroup{}
 		async_err := &ErrorHolder{}
 		f, err := getFile(ctx, dbId, wg, dataverseKey, user, persistentId, pid, s, id, async_err)
@@ -121,10 +122,10 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 		}
 	} else if s.driver == "s3" {
 		sess, err := session.NewSession(&aws.Config{
-			Region:           aws.String(config.Options.S3Config.AWSRegion),
-			Endpoint:         aws.String(config.Options.S3Config.AWSEndpoint),
+			Region:           aws.String(config.GetConfig().Options.S3Config.AWSRegion),
+			Endpoint:         aws.String(config.GetConfig().Options.S3Config.AWSEndpoint),
 			Credentials:      credentials.NewEnvCredentials(),
-			S3ForcePathStyle: aws.Bool(config.Options.S3Config.AWSPathstyle),
+			S3ForcePathStyle: aws.Bool(config.GetConfig().Options.S3Config.AWSPathstyle),
 		})
 		if err != nil {
 			return nil, nil, 0, err
@@ -146,10 +147,10 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 }
 
 func getFile(ctx context.Context, dbId int64, wg *sync.WaitGroup, dataverseKey, user, persistentId, pid string, s storage, id string, async_err *ErrorHolder) (io.WriteCloser, error) {
-	if directUpload != "true" || config.Options.DefaultDriver == "" {
-		return apiAddReplaceFile(ctx, dbId, id, dataverseKey, user, persistentId, wg, async_err)
+	if !Destination.IsDirectUpload() {
+		return Destination.WriteOverWire(ctx, dbId, id, dataverseKey, user, persistentId, wg, async_err)
 	}
-	path := config.Options.PathToFilesDir + pid + "/"
+	path := config.GetConfig().Options.PathToFilesDir + pid + "/"
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
@@ -177,15 +178,15 @@ func doHash(ctx context.Context, dataverseKey, user, persistentId string, node t
 	}
 	s := getStorage(storageIdentifier)
 	var reader io.Reader
-	if config.Options.DefaultDriver == "" || directUpload != "true" {
-		readCloser, err := downloadFile(ctx, dataverseKey, user, node.Attributes.DestinationFile.Id)
+	if !Destination.IsDirectUpload() {
+		readCloser, err := Destination.GetStream(ctx, dataverseKey, user, node.Attributes.DestinationFile.Id)
 		if err != nil {
 			return nil, err
 		}
 		defer readCloser.Close()
 		reader = readCloser
 	} else if s.driver == "file" {
-		file := config.Options.PathToFilesDir + pid + "/" + s.filename
+		file := config.GetConfig().Options.PathToFilesDir + pid + "/" + s.filename
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, err
@@ -194,10 +195,10 @@ func doHash(ctx context.Context, dataverseKey, user, persistentId string, node t
 		reader = f
 	} else if s.driver == "s3" {
 		sess, _ := session.NewSession(&aws.Config{
-			Region:           aws.String(config.Options.S3Config.AWSRegion),
-			Endpoint:         aws.String(config.Options.S3Config.AWSEndpoint),
+			Region:           aws.String(config.GetConfig().Options.S3Config.AWSRegion),
+			Endpoint:         aws.String(config.GetConfig().Options.S3Config.AWSEndpoint),
 			Credentials:      credentials.NewEnvCredentials(),
-			S3ForcePathStyle: aws.Bool(config.Options.S3Config.AWSPathstyle),
+			S3ForcePathStyle: aws.Bool(config.GetConfig().Options.S3Config.AWSPathstyle),
 		})
 		svc := s3.New(sess)
 		rawObject, err := svc.GetObject(

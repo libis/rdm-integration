@@ -1,6 +1,6 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package dv
+package dataverse
 
 import (
 	"bytes"
@@ -53,8 +53,8 @@ type MetaData struct {
 
 type DataFile struct {
 	Id                int64        `json:"id"`
-	PersistentId      int64        `json:"persistentId"`
-	PidURL            int64        `json:"pidURL"`
+	PersistentId      string       `json:"persistentId"`
+	PidURL            string       `json:"pidURL"`
 	FileName          string       `json:"fileName"`
 	ContentType       string       `json:"contentType"`
 	FileSize          int64        `json:"filesize"`
@@ -264,4 +264,10 @@ type Item struct {
 type Contact struct {
 	Name        string `json:"name"`
 	Affiliation string `json:"affiliation"`
+}
+
+type DvObjectsRequest struct {
+	Token      string `json:"token"`
+	Collection string `json:"collectionId"`
+	ObjectType string `json:"objectType"`
 }

@@ -1,23 +1,22 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package core
+package dataverse
 
 import (
 	"context"
 	"fmt"
+	"integration/app/config"
 	"io"
 	"net/http"
 )
 
 func swordDelete(ctx context.Context, token, user string, id int64) error {
-	shortContext, cancel := context.WithTimeout(ctx, deleteAndCleanupCtxDuration)
-	defer cancel()
-	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.DataverseServer, id)
+	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.GetConfig().DataverseServer, id)
 	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
 	if err != nil {
 		return err
 	}
-	request, err := http.NewRequestWithContext(shortContext, "DELETE", url, nil)
+	request, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
 		return err
 	}

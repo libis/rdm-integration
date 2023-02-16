@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"integration/app/core"
 	"integration/app/logging"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 //go:embed default_frontend_config.json
 var configBytes []byte
 
-var Config core.Configuration
+var Config config.Configuration
 
 func init() {
 	// read configuration
@@ -37,7 +38,7 @@ func init() {
 
 func GetConfig(w http.ResponseWriter, r *http.Request) {
 	if Config.ExternalURL == "" {
-		Config.ExternalURL = core.GetExternalDataverseURL()
+		Config.ExternalURL = config.GetExternalDestinationURL()
 		logging.Logger.Println(Config.ExternalURL)
 	}
 	b, err := json.Marshal(Config)

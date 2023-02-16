@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -28,25 +29,24 @@ type Job struct {
 var Stop = make(chan struct{})
 var Wait = sync.WaitGroup{}
 
-var lockMaxDuration = 24 * time.Hour
 var redisCtxDuration = 5 * time.Second
 
 func IsLocked(ctx context.Context, persistentId string) bool {
-	l := GetRedis().Get(ctx, "lock: "+persistentId)
+	l := config.GetRedis().Get(ctx, "lock: "+persistentId)
 	return l.Val() != ""
 }
 
 func lock(persistentId string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
 	defer cancel()
-	ok := GetRedis().SetNX(ctx, "lock: "+persistentId, true, lockMaxDuration)
+	ok := config.GetRedis().SetNX(ctx, "lock: "+persistentId, true, config.LockMaxDuration)
 	return ok.Val()
 }
 
 func unlock(persistentId string) {
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
 	defer cancel()
-	GetRedis().Del(ctx, "lock: "+persistentId)
+	config.GetRedis().Del(ctx, "lock: "+persistentId)
 }
 
 func AddJob(ctx context.Context, job Job) error {
@@ -68,20 +68,20 @@ func addJob(ctx context.Context, job Job, requireLock bool) error {
 		return fmt.Errorf("Job for this dataverse is already in progress")
 	}
 	if requireLock {
-		job.Deadline = time.Now().Add(lockMaxDuration)
+		job.Deadline = time.Now().Add(config.LockMaxDuration)
 	}
 	b, err := json.Marshal(job)
 	if err != nil {
 		return err
 	}
-	cmd := GetRedis().LPush(ctx, "jobs", string(b))
+	cmd := config.GetRedis().LPush(ctx, "jobs", string(b))
 	return cmd.Err()
 }
 
 func popJob() (Job, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
 	defer cancel()
-	cmd := GetRedis().RPop(ctx, "jobs")
+	cmd := config.GetRedis().RPop(ctx, "jobs")
 	err := cmd.Err()
 	if err != nil {
 		return Job{}, false
