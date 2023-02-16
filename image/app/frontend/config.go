@@ -6,8 +6,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"integration/app/core"
 	"integration/app/logging"
-	"integration/app/utils"
 	"net/http"
 	"os"
 )
@@ -15,7 +15,7 @@ import (
 //go:embed default_frontend_config.json
 var configBytes []byte
 
-var Config utils.Configuration
+var Config core.Configuration
 
 func init() {
 	// read configuration
@@ -30,14 +30,14 @@ func init() {
 		panic(fmt.Errorf("could not unmarshal config: %v", err))
 	}
 	for _, v := range Config.Plugins {
-		utils.PluginConfig[v.Id] = v
+		core.PluginConfig[v.Id] = v
 	}
-	utils.RedirectUri = Config.RedirectUri
+	core.RedirectUri = Config.RedirectUri
 }
 
 func GetConfig(w http.ResponseWriter, r *http.Request) {
 	if Config.ExternalURL == "" {
-		Config.ExternalURL = utils.GetExternalDataverseURL()
+		Config.ExternalURL = core.GetExternalDataverseURL()
 		logging.Logger.Println(Config.ExternalURL)
 	}
 	b, err := json.Marshal(Config)

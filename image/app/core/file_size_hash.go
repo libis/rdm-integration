@@ -1,6 +1,6 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package utils
+package core
 
 import "encoding/binary"
 

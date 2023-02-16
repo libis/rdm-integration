@@ -6,10 +6,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"integration/app/core"
 	"integration/app/frontend"
 	"integration/app/logging"
 	"integration/app/server"
-	"integration/app/utils"
 	"integration/app/workers/spinner"
 	"os/exec"
 	"runtime"
@@ -58,9 +58,9 @@ func main() {
 	}
 	MaxFileSize = *maxFileSize
 	mfs, _ := strconv.Atoi(MaxFileSize)
-	utils.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true, int64(mfs))
+	core.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true, int64(mfs))
 	frontend.Config.DataverseHeader = DataverseServerName
-	frontend.Config.Plugins = append([]utils.RepoPlugin{{
+	frontend.Config.Plugins = append([]core.RepoPlugin{{
 		Id:                        "local",
 		Name:                      "Local filesystem",
 		Plugin:                    "local",
@@ -70,7 +70,7 @@ func main() {
 	}}, frontend.Config.Plugins...)
 	go server.Start()
 	fr := newFakeRedis()
-	utils.SetRedis(fr)
+	core.SetRedis(fr)
 	openbrowser("http://localhost:7788/")
 
 	ticker := time.NewTicker(5 * time.Second)

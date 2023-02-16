@@ -5,7 +5,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"integration/app/utils"
+	"integration/app/core"
 	"io"
 	"net/http"
 )
@@ -35,8 +35,8 @@ func NewDataset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := utils.GetUserFromHeader(r.Header)
-	pid, err := utils.CreateNewDataset(r.Context(), req.Collection, req.DataverseKey, user)
+	user := core.GetUserFromHeader(r.Header)
+	pid, err := core.CreateNewDataset(r.Context(), req.Collection, req.DataverseKey, user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

@@ -5,7 +5,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"integration/app/utils"
+	"integration/app/core"
 	"io"
 	"net/http"
 )
@@ -32,7 +32,7 @@ func GetOauthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := utils.GetOauthToken(r.Context(), req.PluginId, req.Code, req.Nounce)
+	res, err := core.GetOauthToken(r.Context(), req.PluginId, req.Code, req.Nounce)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

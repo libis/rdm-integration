@@ -5,12 +5,12 @@ package server
 import (
 	"crypto/tls"
 	"integration/app/common"
+	"integration/app/core"
 	"integration/app/frontend"
 	"integration/app/logging"
 	"integration/app/plugin/funcs/compare"
 	"integration/app/plugin/funcs/options"
 	"integration/app/plugin/funcs/search"
-	"integration/app/utils"
 	"net/http"
 	"time"
 )
@@ -35,12 +35,12 @@ func Start() {
 	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)
 
 	// quit
-	if utils.AllowQuit {
+	if core.AllowQuit {
 		srvMux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Server shut down and all jobs are cancelled. You can close the browser window now."))
 			defer func() {
 				logging.Logger.Println("quiting...")
-				close(utils.Stop)
+				close(core.Stop)
 			}()
 		})
 	}

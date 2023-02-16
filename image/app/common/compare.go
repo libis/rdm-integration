@@ -6,8 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/core"
 	"integration/app/tree"
-	"integration/app/utils"
 	"io"
 	"net/http"
 	"time"
@@ -24,10 +24,10 @@ type Key struct {
 }
 
 type CachedResponse struct {
-	Key          string                `json:"key"`
-	Ready        bool                  `json:"ready"`
-	Response     utils.CompareResponse `json:"res"`
-	ErrorMessage string                `json:"err"`
+	Key          string               `json:"key"`
+	Ready        bool                 `json:"ready"`
+	Response     core.CompareResponse `json:"res"`
+	ErrorMessage string               `json:"err"`
 }
 
 var cacheMaxDuration = time.Minute
@@ -36,12 +36,12 @@ func CacheResponse(res CachedResponse) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	b, _ := json.Marshal(res)
-	utils.GetRedis().Set(ctx, res.Key, string(b), cacheMaxDuration)
+	core.GetRedis().Set(ctx, res.Key, string(b), cacheMaxDuration)
 }
 
 // this is called after specific compare request (e.g. github compare)
 func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
-	if !utils.RedisReady(r.Context()) {
+	if !core.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return
@@ -64,10 +64,10 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := CachedResponse{Key: key.Key}
-	cached := utils.GetRedis().Get(r.Context(), res.Key)
+	cached := core.GetRedis().Get(r.Context(), res.Key)
 	if cached.Val() != "" {
 		json.Unmarshal([]byte(cached.Val()), &res)
-		utils.GetRedis().Del(r.Context(), res.Key)
+		core.GetRedis().Del(r.Context(), res.Key)
 		res.Ready = true
 	}
 	if res.ErrorMessage != "" {
@@ -86,7 +86,7 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 
 // this is called when polling for status changes, after specific compare is finished or store is calleed
 func Compare(w http.ResponseWriter, r *http.Request) {
-	if !utils.RedisReady(r.Context()) {
+	if !core.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return
@@ -114,8 +114,8 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//compare and write response
-	user := utils.GetUserFromHeader(r.Header)
-	res := utils.Compare(r.Context(), nm, req.PersistentId, req.DataverseKey, user, false)
+	user := core.GetUserFromHeader(r.Header)
+	res := core.Compare(r.Context(), nm, req.PersistentId, req.DataverseKey, user, false)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

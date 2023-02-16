@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/common"
+	"integration/app/core"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
 	"integration/app/tree"
-	"integration/app/utils"
 	"io"
 	"net/http"
 	"strings"
@@ -20,12 +20,12 @@ import (
 )
 
 func Compare(w http.ResponseWriter, r *http.Request) {
-	if !utils.RedisReady(r.Context()) {
+	if !core.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))
 		return
 	}
-	user := utils.GetUserFromHeader(r.Header)
+	user := core.GetUserFromHeader(r.Header)
 	//process request
 	req := types.CompareRequest{}
 	b, err := io.ReadAll(r.Body)
@@ -60,7 +60,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 		Key: key,
 	}
 	//check permission
-	err := utils.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
+	err := core.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -68,7 +68,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	}
 
 	//query dataverse
-	nm, err := utils.GetNodeMap(ctx, req.PersistentId, req.DataverseKey, user)
+	nm, err := core.GetNodeMap(ctx, req.PersistentId, req.DataverseKey, user)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
@@ -87,7 +87,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 		return
 	}
 	tooLarge := []string{}
-	maxFileSize := utils.GetMaxFileSize()
+	maxFileSize := core.GetMaxFileSize()
 	for k, v := range repoNm {
 		if maxFileSize > 0 && v.Attributes.RemoteFilesize > maxFileSize {
 			delete(repoNm, k)
@@ -98,10 +98,10 @@ func doCompare(req types.CompareRequest, key, user string) {
 			delete(repoNm, k)
 		}
 	}
-	nm = utils.MergeNodeMaps(nm, repoNm)
+	nm = core.MergeNodeMaps(nm, repoNm)
 
 	//compare and write response
-	res := utils.Compare(ctx, nm, req.PersistentId, req.DataverseKey, user, true)
+	res := core.Compare(ctx, nm, req.PersistentId, req.DataverseKey, user, true)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)

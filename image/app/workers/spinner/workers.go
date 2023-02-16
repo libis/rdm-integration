@@ -3,8 +3,8 @@
 package spinner
 
 import (
+	"integration/app/core"
 	"integration/app/logging"
-	"integration/app/utils"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -18,8 +18,8 @@ func SpinWorkers(numberWorkers int) {
 		if numberWorkers > 1 {
 			time.Sleep(time.Duration(rand.Intn(10000/numberWorkers)) * time.Millisecond)
 		}
-		utils.Wait.Add(1)
-		go utils.ProcessJobs()
+		core.Wait.Add(1)
+		go core.ProcessJobs()
 	}
 
 	// wait for termination
@@ -30,11 +30,11 @@ func SpinWorkers(numberWorkers int) {
 		switch sig {
 		case os.Interrupt, syscall.SIGTERM:
 			logging.Logger.Println("quiting...")
-			close(utils.Stop)
+			close(core.Stop)
 		}
 	}()
 	logging.Logger.Println("workers ready")
 
-	utils.Wait.Wait()
+	core.Wait.Wait()
 	logging.Logger.Println("exit")
 }
