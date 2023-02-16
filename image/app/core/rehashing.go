@@ -31,6 +31,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
 			redisValue := config.GetRedis().Get(ctx, redisKey).Val()
 			if redisValue == types.Written {
+				node.Attributes.DestinationFile.HashType = node.Attributes.RemoteHashType
 				value, ok = node.Attributes.RemoteHash, true
 			}
 			if redisValue == types.Deleted {
@@ -41,7 +42,6 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 				value = "?"
 			}
 			node.Attributes.DestinationFile.Hash = value
-			node.Attributes.DestinationFile.HashType = node.Attributes.RemoteHashType
 		}
 		res[k] = node
 	}
