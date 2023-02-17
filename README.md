@@ -100,8 +100,8 @@ Additionally, the configuration can contain the following fields in the optional
 - s3Config: configuration when using the "s3" driver, similar to the settings for the s3 driver in your Dataverse installation. Only needed when using S3 file system that is not mounted as a volume. See also the next section.
 - pathToOauthSecrets: path to the file containing the OATH client secrets and POST URLs for the plugins configured to use OAuth for authentication. An example of a secrets file can be found in [example_oath_secrets.json](conf/example_oath_secrets.json). As shown in that example, each OAuth client has its own entry, identified by the application ID. Each entry contains two fields: clientSecret containing the client secret, and postURL containing the URL where the post request for acquiring tokens should be sent to. See the frontend configuration section for information on configuration of OAuth authorization for the plugins.
 - maxFileSize: maximum size of a file that can be uploaded to the Dataverse installation. When not set, or set to 0 (or value less than 0), there is no limit on file size that can be uploaded. The files that cannot be uploaded due to the file size limit are filtered out by the frontend and the user is notified with a warning.
-- UserHeaderName: URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
-- configure this when you wish to send notification emails to the users: on job error and on job completion. For example, the configuration could look like this:
+- smtpConfig: userHeaderName: URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
+- pathToSmtpPassword: configure this when you wish to send notification emails to the users: on job error and on job completion. For example, the configuration could look like this:
 ```
 "smtpConfig": {
   "host": "smtp.gmail.com",
