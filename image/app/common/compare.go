@@ -113,7 +113,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("Job failed: %v", errMessage)))
 		return
-	} 
+	}
 
 	//map nodes
 	nm := map[string]tree.Node{}
