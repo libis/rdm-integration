@@ -91,6 +91,14 @@ func getUser(ctx context.Context, token, user string) (User, error) {
 	return res, err
 }
 
+func GetUserEmail(ctx context.Context, token, user string) (string, error) {
+	u, err := getUser(ctx, token, user)
+	if err != nil {
+		return "", err
+	}
+	return u.Data.Email, nil
+}
+
 func SaveAfterDirectUpload(ctx context.Context, token, user, persistentId, storageIdentifier string, v tree.Node) error {
 	jsonData := JsonData{
 		FileToReplaceId:   v.Attributes.DestinationFile.Id,

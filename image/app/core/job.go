@@ -15,15 +15,16 @@ import (
 )
 
 type Job struct {
-	DataverseKey  string
-	User          string
-	PersistentId  string
-	WritableNodes map[string]tree.Node
-	Plugin        string
-	Streams       map[string]map[string]interface{}
-	StreamParams  types.StreamParams
-	ErrCnt        int
-	Deadline      time.Time
+	DataverseKey      string
+	User              string
+	PersistentId      string
+	WritableNodes     map[string]tree.Node
+	Plugin            string
+	Streams           map[string]map[string]interface{}
+	StreamParams      types.StreamParams
+	ErrCnt            int
+	Deadline          time.Time
+	SendEmailOnSucces bool
 }
 
 var Stop = make(chan struct{})

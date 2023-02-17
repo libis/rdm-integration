@@ -24,4 +24,5 @@ type DestinationPlugin struct {
 	Options               func(ctx context.Context, objectType, collection, token, user string) ([]types.SelectItem, error)
 	GetStream             func(ctx context.Context, token, user string, id int64) (io.ReadCloser, error)
 	Query                 func(ctx context.Context, persistentId, token, user string) (map[string]tree.Node, error)
+	GetUserEmail          func(ctx context.Context, token, user string) (string, error)
 }

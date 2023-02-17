@@ -19,11 +19,12 @@ type StoreResult struct {
 }
 
 type StoreRequest struct {
-	Plugin        string             `json:"plugin"`
-	StreamParams  types.StreamParams `json:"streamParams"`
-	PersistentId  string             `json:"persistentId"`
-	DataverseKey  string             `json:"dataverseKey"`
-	SelectedNodes []tree.Node        `json:"selectedNodes"`
+	Plugin            string             `json:"plugin"`
+	StreamParams      types.StreamParams `json:"streamParams"`
+	PersistentId      string             `json:"persistentId"`
+	DataverseKey      string             `json:"dataverseKey"`
+	SelectedNodes     []tree.Node        `json:"selectedNodes"`
+	SendEmailOnSucces bool               `json:"sendEmailOnSucces"`
 }
 
 func Store(w http.ResponseWriter, r *http.Request) {
@@ -54,12 +55,13 @@ func Store(w http.ResponseWriter, r *http.Request) {
 
 	user := core.GetUserFromHeader(r.Header)
 	err = core.AddJob(r.Context(), core.Job{
-		DataverseKey:  req.DataverseKey,
-		User:          user,
-		PersistentId:  req.PersistentId,
-		WritableNodes: selected,
-		Plugin:        req.Plugin,
-		StreamParams:  req.StreamParams,
+		DataverseKey:      req.DataverseKey,
+		User:              user,
+		PersistentId:      req.PersistentId,
+		WritableNodes:     selected,
+		Plugin:            req.Plugin,
+		StreamParams:      req.StreamParams,
+		SendEmailOnSucces: req.SendEmailOnSucces,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

@@ -20,5 +20,6 @@ func SetDataverseAsDestination() {
 		Options:               dataverse.DvObjects,
 		GetStream:             dataverse.DownloadFile,
 		Query:                 dataverse.GetNodeMap,
+		GetUserEmail:          dataverse.GetUserEmail,
 	}
 }
