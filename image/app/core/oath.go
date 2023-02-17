@@ -20,7 +20,6 @@ type OauthTokenRequest struct {
 	Code         string `json:"code"`
 	RedirectUri  string `json:"redirect_uri"`
 	GrantType    string `json:"grant_type"`
-	CodeVerifier string `json:"code_verifier"`
 }
 
 type OauthTokenResponse struct {
@@ -46,13 +45,12 @@ func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResp
 	if err != nil {
 		return res, err
 	}
-	//hvalue := sha256.Sum256([]byte(nounce))
-	//verifier := base64.URLEncoding.EncodeToString(hvalue[:])
-	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri, "authorization_code", ""}
-	data, _ := json.Marshal(req)
-	body := bytes.NewBuffer(data)
-	request, _ := http.NewRequestWithContext(ctx, "POST", postUrl, body)
-	request.Header.Add("Content-Type", "application/json")
+	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri, "authorization_code"}
+	//data, _ := json.Marshal(req)
+	//body := bytes.NewBuffer(data)
+	request, _ := http.NewRequestWithContext(ctx, "POST", postUrl, encode(req))
+	//request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Add("Accept", "application/json")
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
@@ -86,4 +84,15 @@ func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResp
 		}
 	}
 	return res, nil
+}
+
+func encode(req OauthTokenRequest) *bytes.Buffer {
+	return bytes.NewBuffer([]byte(
+		fmt.Sprintf("code=%s&client_id=%s&client_secret=%s&redirect_uri=%s&grant_type=%s",
+			url.QueryEscape(req.Code),
+			url.QueryEscape(req.ClientId),
+			url.QueryEscape(req.ClientSecret),
+			url.QueryEscape(req.RedirectUri),
+			url.QueryEscape(req.GrantType),
+		)))
 }
