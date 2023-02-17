@@ -27,18 +27,26 @@ type Config struct {
 type OptionalConfig struct {
 	DataverseExternalUrl string   `json:"dataverseExternalUrl,omitempty"` // set this if different from dataverseServer -> this is used to generate a link to the dataset based
 	RootDataverseId      string   `json:"rootDataverseId,omitempty"`      // root dataverse collection id, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
-	DefaultHash          string   `json:"defaultHash,omitempty"`          // default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
-	MyDataRoleIds        []int    `json:"myDataRoleIds"`
-	PathToApiKey         string   `json:"pathToApiKey,omitempty"`        // api (admin) API key is needed for URL signing. Configure the path to api key in this field to enable the URL signing.
-	PathToUnblockKey     string   `json:"pathToUnblockKey,omitempty"`    // configure to enable checking permissions before requesting jobs
-	PathToRedisPassword  string   `json:"pathToRedisPassword,omitempty"` // by default no password is set, if you need to authenticate, store here the path to the file containing the redis password
-	RedisDB              int      `json:"redisDB,omitempty"`             // by default DB 0 is used, if you need to use other DB, specify it here
-	DefaultDriver        string   `json:"defaultDriver,omitempty"`       // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
-	PathToFilesDir       string   `json:"pathToFilesDir,omitempty"`      // path to the folder where dataverse files are stored (only needed when using "file" driver)
-	S3Config             S3Config `json:"s3Config,omitempty"`            // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
-	PathToOauthSecrets   string   `json:"pathToOauthSecrets,omitempty"`
-	MaxFileSize          int64    `json:"maxFileSize,omitempty"`
-	UserHeaderName       string   `json:"UserHeaderName,omitempty"` // URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
+	DefaultHash          string   `json:"defaultHash,omitempty"`          // preset to md5, the default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
+	MyDataRoleIds        []int    `json:"myDataRoleIds"`                  // role ids that are sent with the "retrieve" my data api call
+	PathToApiKey         string   `json:"pathToApiKey,omitempty"`         // api (admin) API key is needed for URL signing. Configure the path to api key in this field to enable the URL signing.
+	PathToUnblockKey     string   `json:"pathToUnblockKey,omitempty"`     // configure to enable checking permissions before requesting jobs
+	PathToRedisPassword  string   `json:"pathToRedisPassword,omitempty"`  // by default no password for Redis is set, if you need to authenticate, store here the path to the file containing the redis password
+	RedisDB              int      `json:"redisDB,omitempty"`              // by default DB 0 is used, if you need to use other DB, specify it here
+	DefaultDriver        string   `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
+	PathToFilesDir       string   `json:"pathToFilesDir,omitempty"`       // path to the folder where dataverse files are stored (only needed when using "file" driver)
+	S3Config             S3Config `json:"s3Config,omitempty"`             // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
+	PathToOauthSecrets   string   `json:"pathToOauthSecrets,omitempty"`   // path to file containing the oath client ids and secrets
+	MaxFileSize          int64    `json:"maxFileSize,omitempty"`          // if not set, the upload file size is unlimited
+	UserHeaderName       string   `json:"userHeaderName,omitempty"`       // URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
+	SmtpConfig           Smtp     `json:"smtpConfig,omitempty"`           // configure this when you wish to send notification emails to the users: on job error and on job completion
+	PathToSmtpPassword   string   `json:"pathToSmtpPassword,omitempty"`   // path to the file containing the password needed to authenticate with the SMTP server
+}
+
+type Smtp struct {
+	Host string `json:"host,omitempty"`
+	Port string `json:"port,omitempty"`
+	From string `json:"from,omitempty"`
 }
 
 // Environment variables used for credentials: set these variables when using "s3" driver on the system where this application is deployed
@@ -64,6 +72,7 @@ var rdb RedisClient    // redis client singleton
 var ApiKey = ""        // will be read from pathToApiKey
 var UnblockKey = ""    // will be read from pathToUnblockKey
 var redisPassword = "" // will be read from pathToRedisPassword
+var SmtpPassword = ""  // will be read from pathToSmtpPassword
 var AllowQuit = false
 var LockMaxDuration = 24 * time.Hour
 
@@ -85,9 +94,10 @@ func init() {
 	// initialize variables
 	b, err = os.ReadFile(config.Options.PathToUnblockKey)
 	if err == nil {
-		logging.Logger.Println("unblock key is read from file " + config.Options.PathToUnblockKey + ": permissions will be checked prior to requesting jobs")
+		logging.Logger.Println("unblock key is read from file " + config.Options.PathToUnblockKey)
 		UnblockKey = strings.TrimSpace(string(b))
 	}
+
 	b, err = os.ReadFile(config.Options.PathToApiKey)
 	if err == nil {
 		logging.Logger.Println("API key is read from file " + config.Options.PathToApiKey)
@@ -106,6 +116,12 @@ func init() {
 		if err == nil {
 			logging.Logger.Println("OAUTH secrets read from file " + config.Options.PathToOauthSecrets)
 		}
+	}
+
+	b, err = os.ReadFile(config.Options.PathToSmtpPassword)
+	if err == nil {
+		logging.Logger.Println("SMTP password is read from file " + config.Options.PathToSmtpPassword)
+		SmtpPassword = strings.TrimSpace(string(b))
 	}
 
 	rdb = redis.NewClient(&redis.Options{
