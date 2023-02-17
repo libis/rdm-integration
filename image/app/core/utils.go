@@ -32,20 +32,20 @@ func SendMail(msg string, to []string) error {
 }
 
 func getSubjectOnSucces(job Job) string {
-	return fmt.Sprintf("[rdm-integration] Done uploading files to dataset %v", job.PersistentId)
+	return fmt.Sprintf("[rdm-integration] Done updating files in dataset %v", job.PersistentId)
 }
 
 func getContentOnSucces(job Job) string {
-	return fmt.Sprintf("All files uploaded sucessfuly. You can review the content and/or edit metadata on "+
+	return fmt.Sprintf("All files are updated sucessfuly. You can review the content and edit the metadata in the dataset: "+
 		"<a href=\"%v\">%v</a>.", Destination.GetRepoUrl(job.PersistentId, true), job.PersistentId)
 }
 
 func getSubjectOnError(_ error, job Job) string {
-	return fmt.Sprintf("[rdm-integration] Failed uploading files to dataset %v", job.PersistentId)
+	return fmt.Sprintf("[rdm-integration] Failed updating files in dataset %v", job.PersistentId)
 }
 
 func getContentOnError(errIn error, job Job) string {
-	return fmt.Sprintf("Uploading files to dataset <a href=\"%v\">%v</a> has failed with the following error: "+
+	return fmt.Sprintf("Updating files in dataset <a href=\"%v\">%v</a> has failed with the following error: "+
 		"%v<br><br>Please try again later. If the error persists, contact the helpdesk.",
 		Destination.GetRepoUrl(job.PersistentId, true), job.PersistentId, errIn)
 }
