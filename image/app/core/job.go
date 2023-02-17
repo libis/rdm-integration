@@ -115,6 +115,7 @@ func ProcessJobs() {
 				job.ErrCnt = job.ErrCnt + 1
 				if job.ErrCnt == 3 {
 					logging.Logger.Println("job failed and will not be retried:", persistentId, err)
+					sendJobFailedMail(err, job)
 				} else {
 					logging.Logger.Println("job failed, but will retry:", persistentId, err)
 				}

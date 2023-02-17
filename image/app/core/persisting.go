@@ -31,25 +31,26 @@ func doWork(job Job) (Job, error) {
 	}
 	streams, err := stream.Streams(ctx, job.WritableNodes, job.Plugin, job.StreamParams)
 	if err != nil {
-		return job, sendJobFailedMail(ctx, err, job)
+		return job, err
 	}
 	knownHashes := getKnownHashes(ctx, job.PersistentId)
 	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
 	writableNodes, err := filterRedundant(ctx, job, knownHashes)
 	if err != nil {
-		return job, sendJobFailedMail(ctx, err, job)
+		return job, err
 	}
 	job.WritableNodes = writableNodes
 	j, err := doPersistNodeMap(ctx, streams, job, knownHashes)
 	if err != nil {
-		return j, sendJobFailedMail(ctx, err, job)
+		return j, err
 	}
-	return j, sendJobSuccesMail(ctx, j)
+	return j, sendJobSuccesMail(j)
 }
 
-func sendJobFailedMail(ctx context.Context, errIn error, job Job) error {
-	shortContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+func sendJobFailedMail(errIn error, job Job) error {
+	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	config.GetRedis().Set(shortContext, fmt.Sprintf("error %v", job.PersistentId), errIn.Error(), FileNamesInCacheDuration)
 	to, err := Destination.GetUserEmail(shortContext, job.DataverseKey, job.User)
 	if err != nil {
 		return fmt.Errorf("error when sending email on error (%v): %v", errIn, err)
@@ -57,18 +58,17 @@ func sendJobFailedMail(ctx context.Context, errIn error, job Job) error {
 	msg := fmt.Sprintf("To: %v\r\nMIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\nSubject: %v"+
 		"\r\n\r\n<html><body>%v</body></html>\r\n", to, getSubjectOnError(errIn, job), getContentOnError(errIn, job))
 	err = SendMail(msg, []string{to})
-	config.GetRedis().Set(ctx, fmt.Sprintf("error %v", job.PersistentId), err.Error(), FileNamesInCacheDuration)
 	if err != nil {
 		return fmt.Errorf("error when sending email on error (%v): %v", errIn, err)
 	}
 	return errIn
 }
 
-func sendJobSuccesMail(ctx context.Context, job Job) error {
+func sendJobSuccesMail(job Job) error {
 	if !job.SendEmailOnSucces {
 		return nil
 	}
-	shortContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	to, err := Destination.GetUserEmail(shortContext, job.DataverseKey, job.User)
 	if err != nil {
