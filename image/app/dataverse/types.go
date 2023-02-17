@@ -32,6 +32,16 @@ type DvResponse struct {
 	Message string `json:"message"`
 }
 
+type VersionResponse struct {
+	DvResponse
+	Data VersionData `json:"data"`
+}
+
+type VersionData struct {
+	Version string `json:"version"`
+	Build   string `json:"build"`
+}
+
 type AddReplaceFileResponse struct {
 	DvResponse
 	Data AddReplaceFileData `json:"data"`

@@ -18,11 +18,6 @@ import (
 
 var dvContextDuration = 5 * time.Second
 
-var filesCleanup = "https://github.com/IQSS/dataverse/pull/9132"       // will be removed when pull request is merged
-var directUpload = "https://github.com/IQSS/dataverse/pull/9003"       // will be removed when pull request is merged
-var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be removed when pull request is merged
-var nativeApiDelete = "https://github.com/IQSS/dataverse/pull/9383"    // will be removed when pull request is merged
-
 func IsDirectUpload() bool {
 	return directUpload == "true" && config.GetConfig().Options.DefaultDriver != ""
 }
@@ -327,7 +322,7 @@ func listDvObjects(ctx context.Context, objectType, collection, token, user stri
 }
 
 func signUrl(ctx context.Context, inUrl, token, user string) (string, bool, error) {
-	if token != "" {
+	if urlSigning != "true" || user == "" {
 		return inUrl, true, nil
 	}
 	jsonString := fmt.Sprintf(`{"url":"%v","timeOut":500,"user":"%v"}`, inUrl, user)
