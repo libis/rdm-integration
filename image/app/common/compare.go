@@ -108,6 +108,13 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	errMessage := config.GetRedis().Get(r.Context(), fmt.Sprintf("error %v", req.PersistentId))
+	if errMessage != nil && errMessage.Val() != "" {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("Job failed: %v", errMessage)))
+		return
+	} 
+
 	//map nodes
 	nm := map[string]tree.Node{}
 	for _, v := range req.Data {

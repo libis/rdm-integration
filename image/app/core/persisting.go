@@ -57,6 +57,7 @@ func sendJobFailedMail(ctx context.Context, errIn error, job Job) error {
 	msg := fmt.Sprintf("To: %v\r\nMIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\nSubject: %v"+
 		"\r\n\r\n<html><body>%v</body></html>\r\n", to, getSubjectOnError(errIn, job), getContentOnError(errIn, job))
 	err = SendMail(msg, []string{to})
+	config.GetRedis().Set(ctx, fmt.Sprintf("error %v", job.PersistentId), err.Error(), FileNamesInCacheDuration)
 	if err != nil {
 		return fmt.Errorf("error when sending email on error (%v): %v", errIn, err)
 	}
@@ -230,6 +231,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = ctx.Err()
 		return
 	default:
+		writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
 		err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
 	}
 	return
