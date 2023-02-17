@@ -236,7 +236,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 }
 
 func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
-	time.Sleep(FileNamesInCacheDuration)
 	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
 	defer cancel()
 	go cleanRedis(shortContext, writtenKeys)
@@ -244,6 +243,7 @@ func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys 
 }
 
 func cleanRedis(ctx context.Context, writtenKeys []string) {
+	time.Sleep(FileNamesInCacheDuration)
 	for _, k := range writtenKeys {
 		config.GetRedis().Del(ctx, k)
 	}
