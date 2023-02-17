@@ -107,7 +107,7 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 	reader = hashingReader{reader, sizeHasher}
 	reader = hashingReader{reader, remoteHasher}
 
-	if s.driver == "file" || Destination.IsDirectUpload() {
+	if s.driver == "file" || !Destination.IsDirectUpload() {
 		wg := &sync.WaitGroup{}
 		async_err := &ErrorHolder{}
 		f, err := getFile(ctx, dbId, wg, dataverseKey, user, persistentId, pid, s, id, async_err)
