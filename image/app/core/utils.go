@@ -24,7 +24,10 @@ func SendMail(msg string, to []string) error {
 		return nil
 	}
 	conf := config.GetConfig().Options.SmtpConfig
-	auth := smtp.PlainAuth("", conf.From, config.SmtpPassword, conf.Host)
+	var auth smtp.Auth
+	if config.SmtpPassword != "" {
+		auth = smtp.PlainAuth("", conf.From, config.SmtpPassword, conf.Host)
+	}
 	return smtp.SendMail(conf.Host+":"+conf.Port, auth, conf.From, to, []byte(msg))
 }
 
