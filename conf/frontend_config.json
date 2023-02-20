@@ -40,7 +40,7 @@
                 "set"
             ],
             "tokenGetter": {
-                "URL": "https://ghum.irods.icts.kuleuven.be/#/"
+                "URL": "https://mango.kuleuven.be/data-platform/connection-info"
             }
         },
         {
