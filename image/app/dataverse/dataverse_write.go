@@ -161,6 +161,17 @@ func requestBody(data []byte) (io.Reader, string) {
 }
 
 func ApiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persistentId string, wg *sync.WaitGroup, async_err *core.ErrorHolder) (io.WriteCloser, error) {
+	if strings.HasSuffix(id, ".zip") {
+		// workaround: upload via SWORD api
+		if dbId != 0 {
+			err := DeleteFile(ctx, token, user, dbId)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return uploadViaSword(ctx, dbId, id, token, user, persistentId, wg, async_err)
+	}
+
 	url := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/add?persistentId=" + persistentId
 	if dbId != 0 {
 		url = config.GetConfig().DataverseServer + "/api/v1/files/" + fmt.Sprint(dbId) + "/replace"

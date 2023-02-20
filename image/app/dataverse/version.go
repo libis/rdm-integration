@@ -19,7 +19,7 @@ type dvVersion string
 var version = getVersion()
 
 var filesCleanup = "5.13"
-var urlSigning = "https://github.com/IQSS/dataverse/pull/9383"         // will be replaced with verion when pull request is merged (needs delete via native api to work)
+var urlSigning = "https://github.com/IQSS/dataverse/pull/9383"         // needs delete via native api and upload zip via native api to work
 var directUpload = "https://github.com/IQSS/dataverse/pull/9003"       // will be replaced with verion when pull request is merged
 var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be replaced with verion when pull request is merged
 var nativeApiDelete = "https://github.com/IQSS/dataverse/pull/9383"    // will be replaced with verion when pull request is merged
