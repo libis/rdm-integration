@@ -123,9 +123,7 @@ func query(ctx context.Context, url, token string) ([]byte, error) {
 }
 
 func getFiles(ctx context.Context, server, repoName, token string) ([]File, error) {
-	split := strings.Split(repoName, "(")
-	id := strings.TrimSuffix(split[len(split)-1], ")")
-	url := fmt.Sprintf("%s/v2/nodes/%s/", server, id)
+	url := fmt.Sprintf("%s/v2/nodes/%s/", server, repoName)
 	data, err := getData(ctx, url, token)
 	if err != nil {
 		return nil, err

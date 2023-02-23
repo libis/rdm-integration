@@ -19,7 +19,7 @@ type Item struct {
 	FullName string `json:"full_name"`
 }
 
-func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) {
+func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	token := params.Token
 	if token == "" {
 		return nil, fmt.Errorf("not authorized")
@@ -42,9 +42,9 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) 
 	results := SearchResults{}
 	err = json.Unmarshal(b, &results)
 
-	res := []string{}
+	res := []types.SelectItem{}
 	for _, v := range results.Items {
-		res = append(res, v.FullName)
+		res = append(res, types.SelectItem{Label: v.FullName, Value: v.FullName})
 	}
 	return res, err
 }

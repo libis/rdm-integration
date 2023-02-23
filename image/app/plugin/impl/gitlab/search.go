@@ -15,7 +15,7 @@ type Item struct {
 	PathWithBamespace string `json:"path_with_namespace"`
 }
 
-func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) {
+func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	token := params.Token
 	if token == "" {
 		return nil, fmt.Errorf("not authorized")
@@ -36,9 +36,9 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) 
 	results := []Item{}
 	json.Unmarshal(b, &results)
 
-	res := []string{}
+	res := []types.SelectItem{}
 	for _, v := range results {
-		res = append(res, v.PathWithBamespace)
+		res = append(res, types.SelectItem{Label: v.PathWithBamespace, Value: v.PathWithBamespace})
 	}
 	return res, err
 }

@@ -8,7 +8,7 @@ import (
 	"integration/app/plugin/types"
 )
 
-func Options(ctx context.Context, params types.OptionsRequest) ([]string, error) {
+func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %v", params)
 	}
@@ -17,10 +17,10 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]string, error)
 	if err != nil {
 		return nil, err
 	}
-	res := []string{"/"}
+	res := []types.SelectItem{{Label: "/", Value: "/"}}
 	for _, e := range entries {
 		if e.IsDir {
-			res = append(res, e.Id)
+			res = append(res, types.SelectItem{Label: e.Id, Value: e.Id})
 		}
 	}
 	return res, nil

@@ -28,18 +28,12 @@ func Options(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	options, err := plugin.GetPlugin(params.Plugin).Options(r.Context(), params)
+
+	res, err := plugin.GetPlugin(params.Plugin).Options(r.Context(), params)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
-	}
-	res := []types.SelectItem{}
-	for _, v := range options {
-		res = append(res, types.SelectItem{
-			Label: v,
-			Value: v,
-		})
 	}
 
 	if err != nil {

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) {
+func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url and token, got %+v", params)
 	}
@@ -22,9 +22,10 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
-	res := []string{}
+	res := []types.SelectItem{}
 	for _, c := range nodes {
-		res = append(res, fmt.Sprintf("%s (%s)", c.Attributes.Title, c.Id))
+		label := fmt.Sprintf("%s (%s)", c.Attributes.Title, c.Id)
+		res = append(res, types.SelectItem{Label: label, Value: c.Id})
 	}
 	return res, nil
 }

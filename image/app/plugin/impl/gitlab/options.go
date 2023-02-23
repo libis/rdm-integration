@@ -13,7 +13,7 @@ import (
 	"sort"
 )
 
-func Options(ctx context.Context, params types.OptionsRequest) ([]string, error) {
+func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	base := params.Url
 	project := params.RepoName
 	token := params.Token
@@ -57,9 +57,9 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]string, error)
 	if err != nil {
 		return nil, err
 	}
-	res := []string{}
+	res := []types.SelectItem{}
 	for _, v := range branches {
-		res = append(res, v.Name)
+		res = append(res, types.SelectItem{Label: v.Name, Value: v.Name})
 	}
 	return res, nil
 }

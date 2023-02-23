@@ -13,7 +13,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func Options(ctx context.Context, params types.OptionsRequest) ([]string, error) {
+func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	user := ""
 	repo := ""
 	splitted := strings.Split(params.RepoName, "/")
@@ -65,9 +65,9 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]string, error)
 		return false
 	})
 
-	res := []string{}
+	res := []types.SelectItem{}
 	for _, v := range branches {
-		res = append(res, v.GetName())
+		res = append(res, types.SelectItem{Label: v.GetName(), Value: v.GetName()})
 	}
 	return res, nil
 }

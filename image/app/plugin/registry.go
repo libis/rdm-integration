@@ -8,6 +8,7 @@ import (
 	"integration/app/plugin/impl/gitlab"
 	"integration/app/plugin/impl/irods"
 	"integration/app/plugin/impl/local"
+	"integration/app/plugin/impl/onedrive"
 	"integration/app/plugin/impl/osf"
 	"integration/app/plugin/impl/redcap"
 	"integration/app/plugin/types"
@@ -16,8 +17,8 @@ import (
 
 type Plugin struct {
 	Query   func(ctx context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error)
-	Options func(ctx context.Context, params types.OptionsRequest) ([]string, error)
-	Search  func(ctx context.Context, params types.OptionsRequest) ([]string, error)
+	Options func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
+	Search  func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
 	Streams func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error)
 }
 
@@ -51,6 +52,12 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Options: nil,
 		Search:  osf.Search,
 		Streams: osf.Streams,
+	},
+	"onedrive": {
+		Query:   onedrive.Query,
+		Options: onedrive.Options,
+		Search:  nil,
+		Streams: onedrive.Streams,
 	},
 	"local": {
 		Query:   local.Query,

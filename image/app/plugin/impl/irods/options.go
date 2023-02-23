@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-func Options(_ context.Context, params types.OptionsRequest) ([]string, error) {
+func Options(_ context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	user := params.User
 	password := params.Token
 	server := params.Url
@@ -29,7 +29,11 @@ func Options(_ context.Context, params types.OptionsRequest) ([]string, error) {
 	}
 
 	sort.Strings(res)
-	return res, nil
+	sItems := []types.SelectItem{}
+	for _, v := range res {
+		sItems = append(sItems, types.SelectItem{Label: v, Value: v})
+	}
+	return sItems, nil
 }
 
 func getDirs(cl *IrodsClient, dir string) ([]string, error) {

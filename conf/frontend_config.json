@@ -156,6 +156,19 @@
             "repoNameFieldPlaceholder": "Select node",
             "repoNameFieldHasSearch": true,
             "tokenName": "osfToken"
+        },
+        {
+            "id": "onedrive",
+            "name": "OneDrive and SharePoint online",
+            "plugin": "onedrive",
+            "pluginName": "OneDrive and SharePoint online",
+            "sourceUrlFieldValue": "https://graph.microsoft.com/v1.0",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "tokenGetter": {
+                "URL": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=onedrive.read.all",
+                "oauth_client_id": "Iv1.5a149cba699ac08e"
+            }
         }
     ]
 }
