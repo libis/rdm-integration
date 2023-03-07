@@ -188,6 +188,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			var nm map[string]tree.Node
 			fileFound := false
 			written := tree.Node{}
+			sleep := 2
 			for i := 0; !fileFound && i < 5; i++ {
 				nm, err = Destination.Query(ctx, persistentId, dataverseKey, user)
 				if err != nil {
@@ -195,7 +196,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				}
 				written, fileFound = nm[k]
 				if !fileFound {
-					time.Sleep(time.Second)
+					time.Sleep(time.Duration(sleep * int(time.Second)))
+					sleep = sleep * 2
 				}
 			}
 			if !fileFound {
