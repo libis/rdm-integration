@@ -45,7 +45,7 @@ func uploadViaSword(ctx context.Context, dbId int64, id, token, user, persistent
 	writer, _ := zipWriter.Create(id)
 	request, _ := http.NewRequestWithContext(ctx, "POST", url, pr)
 	request.Header.Add("Content-Type", "application/zip")
-	request.Header.Add("Content-Disposition", "filename=example.zip")
+	request.Header.Add("Content-Disposition", "attachment;filename=example.zip")
 	request.Header.Add("Packaging", "http://purl.org/net/sword/package/SimpleZip")
 	request.SetBasicAuth(token, "")
 
