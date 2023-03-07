@@ -16,7 +16,7 @@ import (
 
 type dvVersion string
 
-var version = getVersion()
+var version dvVersion
 
 var filesCleanup = "5.13"
 var urlSigning = "https://github.com/IQSS/dataverse/pull/9383"         // needs delete via native api and upload zip via native api to work
@@ -25,6 +25,13 @@ var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will b
 var nativeApiDelete = "https://github.com/IQSS/dataverse/pull/9383"    // will be replaced with verion when pull request is merged
 
 func init() {
+	if config.GetConfig().DataverseServer != "" {
+		Init()
+	}
+}
+
+func Init() {
+	version = getVersion()
 	if version.GreaterOrEqual(filesCleanup) {
 		logging.Logger.Printf("version %v >= %v: files cleanup feature is on", version, filesCleanup)
 		filesCleanup = "true"
@@ -64,7 +71,7 @@ func getVersion() dvVersion {
 	defer r.Body.Close()
 	b, _ := io.ReadAll(r.Body)
 	res := VersionResponse{}
-	if r.StatusCode != 200 || res.Status != "OK" {
+	if r.StatusCode != 200 {
 		logging.Logger.Println("error when getting version:", res.Message)
 	}
 	json.Unmarshal(b, &res)

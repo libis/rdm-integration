@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"integration/app/config"
+	"integration/app/dataverse"
 	"integration/app/destination"
 	"integration/app/frontend"
 	"integration/app/logging"
@@ -61,6 +62,7 @@ func main() {
 	MaxFileSize = *maxFileSize
 	mfs, _ := strconv.Atoi(MaxFileSize)
 	config.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true, int64(mfs))
+	dataverse.Init()
 	frontend.Config.DataverseHeader = DataverseServerName
 	frontend.Config.Plugins = append([]config.RepoPlugin{{
 		Id:                        "local",
