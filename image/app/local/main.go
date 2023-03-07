@@ -27,7 +27,7 @@ var (
 	DataverseServerName string
 	RootDataverseId     string
 	DefaultHash         string = "MD5"
-	MyDataRoleIds       string = "6,7"
+	MyDataRoleIds       string = "1,6,7"
 	MaxFileSize         string = "21474836480"
 )
 

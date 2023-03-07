@@ -269,7 +269,7 @@ func DvObjects(ctx context.Context, objectType, collection, token, user string) 
 func listDvObjects(ctx context.Context, objectType, collection, token, user string) ([]Item, error) {
 	searchTerm := ""
 	if collection != "" {
-		searchTerm = "identifierOfDataverse=" + collection
+		searchTerm = "identifierOfDataverse:" + collection
 	}
 	res := []Item{}
 	hasNextPage := true
@@ -279,7 +279,7 @@ func listDvObjects(ctx context.Context, objectType, collection, token, user stri
 	}
 	for page := 1; hasNextPage; page++ {
 		url := config.GetConfig().DataverseServer + "/api/v1/mydata/retrieve?" +
-			"&selected_page=" + fmt.Sprint(page) +
+			"selected_page=" + fmt.Sprint(page) +
 			"&dvobject_types=" + objectType +
 			"&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review" +
 			roleIds + "&mydata_search_term=" + searchTerm
