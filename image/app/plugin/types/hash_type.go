@@ -3,12 +3,13 @@
 package types
 
 const (
-	SHA1      = "SHA-1"
-	GitHash   = "git-hash"
-	Md5       = "MD5"
-	SHA256    = "SHA256"
-	FileSize  = "FileSize"
-	NotNeeded = "not needed"
-	Written   = "written"
-	Deleted   = "deleted"
+	SHA1         = "SHA-1"
+	GitHash      = "git-hash"
+	Md5          = "MD5"
+	SHA256       = "SHA256"
+	QuickXorHash = "quickXorHash"
+	FileSize     = "FileSize"
+	NotNeeded    = "not needed"
+	Written      = "written"
+	Deleted      = "deleted"
 )

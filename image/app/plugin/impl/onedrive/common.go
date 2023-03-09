@@ -4,6 +4,7 @@ package onedrive
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
@@ -22,7 +23,7 @@ type GraphItem struct {
 	Folder Folder `json:"folder"`
 	File   File   `json:"file"`
 	Size   int64  `json:"size"`
-	Url    string `json:"@content.downloadUrl"`
+	Url    string `json:"@microsoft.graph.downloadUrl"`
 }
 
 type Folder struct {
@@ -30,12 +31,14 @@ type Folder struct {
 }
 
 type File struct {
-	Hashes Hashes `json:"hashes"`
+	MimeType string `json:"mimeType"`
+	Hashes   Hashes `json:"hashes"`
 }
 
 type Hashes struct {
-	Sha1Hash   string `json:"sha1Hash"`
-	Sha256Hash string `json:"sha256Hash"`
+	Sha1Hash     string `json:"sha1Hash"`
+	Sha256Hash   string `json:"sha256Hash"`
+	QuickXorHash string `json:"quickXorHash"`
 }
 
 type Entry struct {
@@ -49,8 +52,12 @@ type Entry struct {
 	Size     int64
 }
 
-func listGraphItems(ctx context.Context, folder string, path, url, token string) ([]Entry, error) {
-	response, err := getResponse(ctx, url+folder+":/children", token)
+func listGraphItems(ctx context.Context, path, url, token string) ([]Entry, error) {
+	folder := path
+	if path != "" {
+		folder = ":/" + path + ":"
+	}
+	response, err := getResponse(ctx, url+folder+"/children", token)
 	if err != nil {
 		return nil, err
 	}
@@ -60,10 +67,10 @@ func listGraphItems(ctx context.Context, folder string, path, url, token string)
 		sep = ""
 	}
 	for _, v := range response {
-		isDir := v.Folder.ChildCount > 0
+		isDir := v.File.MimeType == ""
 		id := path + sep + v.Name
-		if isDir {
-			folderEntries, err := listGraphItems(ctx, folder+"/"+v.Name, id, url, token)
+		if isDir && v.Folder.ChildCount > 0 {
+			folderEntries, err := listGraphItems(ctx, id, url, token)
 			if err != nil {
 				return nil, err
 			}
@@ -77,6 +84,10 @@ func listGraphItems(ctx context.Context, folder string, path, url, token string)
 		} else if v.File.Hashes.Sha1Hash != "" {
 			hashType = types.SHA1
 			hash = v.File.Hashes.Sha1Hash
+		} else if v.File.Hashes.QuickXorHash != "" {
+			hashType = types.QuickXorHash
+			hashBytes, _ := base64.StdEncoding.DecodeString(v.File.Hashes.QuickXorHash)
+			hash = fmt.Sprintf("%x", hashBytes)
 		}
 		res = append(res, Entry{
 			Path:     path,

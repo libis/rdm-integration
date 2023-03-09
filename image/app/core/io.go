@@ -75,8 +75,10 @@ func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
 	} else if hashType == types.GitHash {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
+	} else if hashType == types.QuickXorHash {
+		hasher = &QuickXorHash{}
 	} else if hashType == types.FileSize {
-		hasher = &FileSizeHash{FileSize: 0}
+		hasher = &FileSizeHash{}
 	} else {
 		err = fmt.Errorf("unsupported hash type: %v", hashType)
 	}
@@ -93,7 +95,7 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	sizeHasher := &FileSizeHash{FileSize: 0}
+	sizeHasher := &FileSizeHash{}
 	remoteHasher, err := getHash(remoteHashType, fileSize)
 	if err != nil {
 		return nil, nil, 0, err

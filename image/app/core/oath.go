@@ -20,6 +20,7 @@ type OauthTokenRequest struct {
 	Code         string `json:"code"`
 	RedirectUri  string `json:"redirect_uri"`
 	GrantType    string `json:"grant_type"`
+	Resource     string `json:"resource,omitempty"`
 }
 
 type OauthTokenResponse struct {
@@ -34,18 +35,34 @@ type OauthTokenResponse struct {
 	Error_uri             string `json:"error_uri"`
 }
 
+type OauthTokenResponseStrings struct {
+	AccessToken           string `json:"access_token"`
+	ExpiresIn             string `json:"expires_in"`
+	RefreshToken          string `json:"refresh_token"`
+	RefreshTokenExpiresIn string `json:"refresh_token_expires_in"`
+	Scope                 string `json:"scope"`
+	TokenType             string `json:"token_type"`
+	Error                 string `json:"error"`
+	Error_description     string `json:"error_description"`
+	Error_uri             string `json:"error_uri"`
+}
+
+type TokenResponse struct {
+	SessionId string `json:"session_id"`
+}
+
 var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
-func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResponse, error) {
-	res := OauthTokenResponse{AccessToken: code}
+func GetOauthToken(ctx context.Context, id, code, nounce string) (TokenResponse, error) {
+	res := TokenResponse{fmt.Sprintf("%v-%v-%v", id, code, nounce)}
 	clientId := PluginConfig[id].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
-	clientSecret, postUrl, err := config.ClientSecret(clientId)
+	clientSecret, resource, postUrl, err := config.ClientSecret(clientId)
 	if err != nil {
 		return res, err
 	}
-	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri, "authorization_code"}
+	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri, "authorization_code", resource}
 	//data, _ := json.Marshal(req)
 	//body := bytes.NewBuffer(data)
 	request, _ := http.NewRequestWithContext(ctx, "POST", postUrl, encode(req))
@@ -61,8 +78,26 @@ func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResp
 		b, _ := io.ReadAll(r.Body)
 		return res, fmt.Errorf("getting API token failed: %d - %s", r.StatusCode, string(b))
 	}
-	b, _ := io.ReadAll(r.Body)
-	err = json.Unmarshal(b, &res)
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return res, fmt.Errorf("getting token response failed: %v", err)
+	}
+	result := OauthTokenResponse{}
+	err = json.Unmarshal(b, &result)
+	if err != nil {
+		resultStrings := OauthTokenResponseStrings{}
+		err = json.Unmarshal(b, &resultStrings)
+		exp, _ := strconv.Atoi(resultStrings.ExpiresIn)
+		exp2, _ := strconv.Atoi(resultStrings.RefreshTokenExpiresIn)
+		result = OauthTokenResponse{
+			AccessToken:           resultStrings.AccessToken,
+			ExpiresIn:             exp,
+			RefreshToken:          resultStrings.RefreshToken,
+			RefreshTokenExpiresIn: exp2,
+			Scope:                 resultStrings.Scope,
+			TokenType:             resultStrings.TokenType,
+		}
+	}
 	if err != nil {
 		str := string(b)
 		if str == "" {
@@ -74,7 +109,7 @@ func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResp
 		}
 		exp, _ := strconv.Atoi(params.Get("expires_in"))
 		exp2, _ := strconv.Atoi(params.Get("refresh_token_expires_in"))
-		res = OauthTokenResponse{
+		result = OauthTokenResponse{
 			AccessToken:           params.Get("access_token"),
 			ExpiresIn:             exp,
 			RefreshToken:          params.Get("refresh_token"),
@@ -83,16 +118,21 @@ func GetOauthToken(ctx context.Context, id, code, nounce string) (OauthTokenResp
 			TokenType:             params.Get("token_type"),
 		}
 	}
-	return res, nil
+	//TODO: store in cache, return key, don't use directly: retrieve from cache
+	//return res, nil
+	return TokenResponse{result.AccessToken}, nil
 }
 
 func encode(req OauthTokenRequest) *bytes.Buffer {
-	return bytes.NewBuffer([]byte(
-		fmt.Sprintf("code=%s&client_id=%s&client_secret=%s&redirect_uri=%s&grant_type=%s",
-			url.QueryEscape(req.Code),
-			url.QueryEscape(req.ClientId),
-			url.QueryEscape(req.ClientSecret),
-			url.QueryEscape(req.RedirectUri),
-			url.QueryEscape(req.GrantType),
-		)))
+	s := fmt.Sprintf("code=%s&client_id=%s&client_secret=%s&redirect_uri=%s&grant_type=%s",
+		url.QueryEscape(req.Code),
+		url.QueryEscape(req.ClientId),
+		url.QueryEscape(req.ClientSecret),
+		url.QueryEscape(req.RedirectUri),
+		url.QueryEscape(req.GrantType),
+	)
+	if req.Resource != "" {
+		s = s + "&resource=" + url.QueryEscape(req.Resource)
+	}
+	return bytes.NewBuffer([]byte(s))
 }

@@ -38,6 +38,7 @@ func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {
 		if node.Attributes.IsFile {
 			node.Attributes.RemoteHash = v.Attributes.RemoteHash
 			node.Attributes.RemoteHashType = v.Attributes.RemoteHashType
+			node.Attributes.URL = v.Attributes.URL
 		}
 		res[k] = node
 	}
