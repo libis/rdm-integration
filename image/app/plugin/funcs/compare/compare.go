@@ -81,7 +81,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	for k, v := range nm {
 		nmCopy[k] = v
 	}
-	req.Token, _ = core.GetTokenFromCache(ctx, req.Token, user, req.Plugin)
+	req.Token, _ = core.GetTokenFromCache(ctx, req.Token, user, req.PluginId)
 	repoNm, err := plugin.GetPlugin(req.Plugin).Query(ctx, req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()

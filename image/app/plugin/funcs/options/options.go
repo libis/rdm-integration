@@ -30,7 +30,7 @@ func Options(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params.Token, _ = core.GetTokenFromCache(r.Context(), params.Token, core.GetUserFromHeader(r.Header), params.Plugin)
+	params.Token, _ = core.GetTokenFromCache(r.Context(), params.Token, core.GetUserFromHeader(r.Header), params.PluginId)
 	res, err := plugin.GetPlugin(params.Plugin).Options(r.Context(), params)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
