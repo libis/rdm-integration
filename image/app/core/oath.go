@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type OauthTokenRequest struct {
@@ -54,9 +55,9 @@ type TokenResponse struct {
 var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
-func GetOauthToken(ctx context.Context, id, code, nounce string) (TokenResponse, error) {
-	res := TokenResponse{fmt.Sprintf("%v-%v-%v", id, code, nounce)}
-	clientId := PluginConfig[id].TokenGetter.OauthClientId
+func GetOauthToken(ctx context.Context, pluginId, code, nounce, user string) (TokenResponse, error) {
+	res := TokenResponse{fmt.Sprintf("%v-%v-%v-%v", user, pluginId, code, nounce)}
+	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
 	clientSecret, resource, postUrl, err := config.ClientSecret(clientId)
 	if err != nil {
@@ -118,9 +119,30 @@ func GetOauthToken(ctx context.Context, id, code, nounce string) (TokenResponse,
 			TokenType:             params.Get("token_type"),
 		}
 	}
-	//TODO: store in cache, return key, don't use directly: retrieve from cache
-	//return res, nil
-	return TokenResponse{result.AccessToken}, nil
+	tokenBytes, err := json.Marshal(result)
+	if err != nil {
+		return res, err
+	}
+	config.GetRedis().Set(ctx, res.SessionId, string(tokenBytes), config.LockMaxDuration)
+	return res, nil
+}
+
+func GetTokenFromCache(ctx context.Context, sessionId, user, pluginId string) (string, bool) {
+	if !strings.HasPrefix(sessionId, fmt.Sprintf("%v-%v", user, pluginId)) {
+		return sessionId, false
+	}
+	cached := config.GetRedis().Get(ctx, sessionId)
+	jsonString := cached.Val()
+	if jsonString == "" {
+		return sessionId, false
+	}
+	res := OauthTokenResponse{}
+	json.Unmarshal([]byte(jsonString), &res)
+	token := res.AccessToken
+	if token == "" {
+		return sessionId, false
+	}
+	return token, true
 }
 
 func encode(req OauthTokenRequest) *bytes.Buffer {

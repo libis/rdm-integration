@@ -29,6 +29,8 @@ func doWork(job Job) (Job, error) {
 	if job.Plugin == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.User, job.PersistentId, job.WritableNodes, job)
 	}
+
+	job.StreamParams.Token, _ = GetTokenFromCache(ctx, job.StreamParams.Token, job.User, job.Plugin)
 	streams, err := stream.Streams(ctx, job.WritableNodes, job.Plugin, job.StreamParams)
 	if err != nil {
 		return job, err
