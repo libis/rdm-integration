@@ -7,6 +7,7 @@ const (
 	GitHash      = "git-hash"
 	Md5          = "MD5"
 	SHA256       = "SHA256"
+	SHA512       = "SHA512"
 	QuickXorHash = "quickXorHash"
 	FileSize     = "FileSize"
 	NotNeeded    = "not needed"

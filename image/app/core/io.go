@@ -7,6 +7,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"errors"
 	"fmt"
 	"hash"
@@ -72,6 +73,8 @@ func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
 		hasher = sha1.New()
 	} else if hashType == types.SHA256 {
 		hasher = sha256.New()
+	} else if hashType == types.SHA512 {
+		hasher = sha512.New()
 	} else if hashType == types.GitHash {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
