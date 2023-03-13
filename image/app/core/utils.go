@@ -11,7 +11,14 @@ import (
 )
 
 func GetUserFromHeader(h http.Header) string {
-	hn := "Ajp_uid"
+	return getValueFromHeader(h, "Ajp_uid")
+}
+
+func GetShibSessionFromHeader(h http.Header) string {
+	return getValueFromHeader(h, "Ajp_shib-Session-Id")
+}
+
+func getValueFromHeader(h http.Header, hn string) string {
 	if config.GetConfig().Options.UserHeaderName != "" {
 		hn = config.GetConfig().Options.UserHeaderName
 	}

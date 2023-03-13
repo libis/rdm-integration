@@ -30,7 +30,8 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params.Token, _ = core.GetTokenFromCache(r.Context(), params.Token, core.GetUserFromHeader(r.Header), params.PluginId)
+	sessionId := core.GetShibSessionFromHeader(r.Header)
+	params.Token, _ = core.GetTokenFromCache(r.Context(), params.Token, sessionId)
 	res, err := plugin.GetPlugin(params.Plugin).Search(r.Context(), params)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

@@ -12,7 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
+
+	"github.com/google/uuid"
 )
 
 type OauthTokenRequest struct {
@@ -55,8 +56,8 @@ type TokenResponse struct {
 var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
-func GetOauthToken(ctx context.Context, pluginId, code, nounce, user string) (TokenResponse, error) {
-	res := TokenResponse{fmt.Sprintf("%v-%v-%v-%v", user, pluginId, code, nounce)}
+func GetOauthToken(ctx context.Context, pluginId, code, nounce, sessionId string) (TokenResponse, error) {
+	res := TokenResponse{uuid.NewString()}
 	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
 	clientSecret, resource, postUrl, err := config.ClientSecret(clientId)
@@ -123,26 +124,19 @@ func GetOauthToken(ctx context.Context, pluginId, code, nounce, user string) (To
 	if err != nil {
 		return res, err
 	}
-	config.GetRedis().Set(ctx, res.SessionId, string(tokenBytes), config.LockMaxDuration)
+	config.GetRedis().Set(ctx, fmt.Sprintf("%v-%v", res.SessionId, sessionId), string(tokenBytes), config.LockMaxDuration)
 	return res, nil
 }
 
-func GetTokenFromCache(ctx context.Context, sessionId, user, pluginId string) (string, bool) {
-	if !strings.HasPrefix(sessionId, fmt.Sprintf("%v-%v", user, pluginId)) {
-		return sessionId, false
-	}
-	cached := config.GetRedis().Get(ctx, sessionId)
+func GetTokenFromCache(ctx context.Context, token, sessionId string) (string, bool) {
+	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", token, sessionId))
 	jsonString := cached.Val()
 	if jsonString == "" {
-		return sessionId, false
+		return token, false
 	}
 	res := OauthTokenResponse{}
 	json.Unmarshal([]byte(jsonString), &res)
-	token := res.AccessToken
-	if token == "" {
-		return sessionId, false
-	}
-	return token, true
+	return res.AccessToken, true
 }
 
 func encode(req OauthTokenRequest) *bytes.Buffer {

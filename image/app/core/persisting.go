@@ -30,7 +30,7 @@ func doWork(job Job) (Job, error) {
 		return doRehash(ctx, job.DataverseKey, job.User, job.PersistentId, job.WritableNodes, job)
 	}
 
-	job.StreamParams.Token, _ = GetTokenFromCache(ctx, job.StreamParams.Token, job.User, job.StreamParams.PluginId)
+	job.StreamParams.Token, _ = GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId)
 	streams, err := stream.Streams(ctx, job.WritableNodes, job.Plugin, job.StreamParams)
 	if err != nil {
 		return job, err

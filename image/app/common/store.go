@@ -54,9 +54,11 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := core.GetUserFromHeader(r.Header)
+	sessionId := core.GetShibSessionFromHeader(r.Header)
 	err = core.AddJob(r.Context(), core.Job{
 		DataverseKey:      req.DataverseKey,
 		User:              user,
+		SessionId:         sessionId,
 		PersistentId:      req.PersistentId,
 		WritableNodes:     selected,
 		Plugin:            req.Plugin,

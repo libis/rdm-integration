@@ -43,7 +43,8 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := uuid.New().String()
-	go doCompare(req, key, user)
+	sessionId := core.GetShibSessionFromHeader(r.Header)
+	go doCompare(req, key, user, sessionId)
 	res := common.Key{Key: key}
 	b, err = json.Marshal(res)
 	if err != nil {
@@ -54,7 +55,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func doCompare(req types.CompareRequest, key, user string) {
+func doCompare(req types.CompareRequest, key, user, sessionId string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 	defer cancel()
 	cachedRes := common.CachedResponse{
@@ -81,7 +82,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	for k, v := range nm {
 		nmCopy[k] = v
 	}
-	req.Token, _ = core.GetTokenFromCache(ctx, req.Token, user, req.PluginId)
+	req.Token, _ = core.GetTokenFromCache(ctx, req.Token, sessionId)
 	repoNm, err := plugin.GetPlugin(req.Plugin).Query(ctx, req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
