@@ -14,7 +14,7 @@ SHELL = /bin/bash
 USER_ID ?= $(shell id -u)
 GROUP_ID ?= $(shell id -g)
 
-build: fmt ## Build Docker image
+build: ## Build Docker image
 	echo "Building frontend ..."
 	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production" --base-href $(BASE_HREF)
 	echo "Building Docker image ..."
