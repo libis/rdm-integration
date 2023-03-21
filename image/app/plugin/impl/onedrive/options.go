@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"integration/app/plugin/types"
+	"strings"
 )
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
@@ -17,8 +18,11 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 		return nil, err
 	}
 	res := []types.SelectItem{}
+	if params.Option != "" {
+		return listFolderGrapthItems(ctx, params, drives)
+	}
 	for _, d := range drives {
-		items, err := listGraphItems(ctx, "", params.Url+"/drives/"+d.Id+"/root", params.Token)
+		items, err := listGraphItems(ctx, "", params.Url+"/drives/"+d.Id+"/root", params.Token, false)
 		if err != nil {
 			return nil, err
 		}
@@ -27,6 +31,34 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 			if e.IsDir {
 				res = append(res, types.SelectItem{Label: d.Name + "/" + e.Id, Value: d.Id + "/" + e.Id})
 			}
+		}
+	}
+	return res, nil
+}
+
+func listFolderGrapthItems(ctx context.Context, params types.OptionsRequest, drives []GraphItem) (res []types.SelectItem, err error) {
+	s := strings.Split(params.Option, "/")
+	folder := ""
+	if len(s) > 1 {
+		folder = strings.Join(s[1:], "/")
+	}
+	if folder == "/" {
+		folder = ""
+	}
+	d := GraphItem{}
+	for _, gi := range drives {
+		if gi.Id == s[0] {
+			d = gi
+			break
+		}
+	}
+	items, err := listGraphItems(ctx, folder, params.Url+"/drives/"+d.Id+"/root", params.Token, false)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range items {
+		if e.IsDir {
+			res = append(res, types.SelectItem{Label: d.Name + "/" + e.Id, Value: d.Id + "/" + e.Id})
 		}
 	}
 	return res, nil

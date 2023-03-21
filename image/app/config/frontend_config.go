@@ -9,6 +9,7 @@ type RepoPlugin struct {
 	PluginName                string            `json:"pluginName"`
 	OptionFieldName           string            `json:"optionFieldName,omitempty"`
 	OptionPlaceholder         string            `json:"optionFieldPlaceholder,omitempty"`
+	OptionFieldInteractive    bool              `json:"optionFieldInteractive,omitempty"`
 	TokenFieldName            string            `json:"tokenFieldName,omitempty"`
 	TokenFieldPlaceholder     string            `json:"tokenFieldPlaceholder,omitempty"`
 	SourceUrlFieldName        string            `json:"sourceUrlFieldName,omitempty"`

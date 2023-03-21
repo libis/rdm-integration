@@ -22,7 +22,7 @@ func Query(ctx context.Context, req types.CompareRequest, nm map[string]tree.Nod
 	if folder == "/" {
 		folder = ""
 	}
-	entries, err := listGraphItems(ctx, folder, req.Url+"/drives/"+s[0]+"/root", req.Token)
+	entries, err := listGraphItems(ctx, folder, req.Url+"/drives/"+s[0]+"/root", req.Token, true)
 	if err != nil {
 		return nil, err
 	}

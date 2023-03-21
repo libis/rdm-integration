@@ -52,7 +52,7 @@ type Entry struct {
 	Size     int64
 }
 
-func listGraphItems(ctx context.Context, path, url, token string) ([]Entry, error) {
+func listGraphItems(ctx context.Context, path, url, token string, recursive bool) ([]Entry, error) {
 	folder := path
 	if path != "" {
 		folder = ":/" + path + ":"
@@ -69,8 +69,8 @@ func listGraphItems(ctx context.Context, path, url, token string) ([]Entry, erro
 	for _, v := range response {
 		isDir := v.File.MimeType == ""
 		id := path + sep + v.Name
-		if isDir && v.Folder.ChildCount > 0 {
-			folderEntries, err := listGraphItems(ctx, id, url, token)
+		if recursive && isDir && v.Folder.ChildCount > 0 {
+			folderEntries, err := listGraphItems(ctx, id, url, token, true)
 			if err != nil {
 				return nil, err
 			}
