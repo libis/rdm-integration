@@ -31,7 +31,7 @@ type Job struct {
 var Stop = make(chan struct{})
 var Wait = sync.WaitGroup{}
 
-var redisCtxDuration = 5 * time.Second
+var redisCtxDuration = 5 * time.Minute
 
 func IsLocked(ctx context.Context, persistentId string) bool {
 	l := config.GetRedis().Get(ctx, "lock: "+persistentId)

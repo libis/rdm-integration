@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-var dvContextDuration = 5 * time.Second
+var dvContextDuration = 5 * time.Minute
 
 func IsDirectUpload() bool {
 	return directUpload == "true" && config.GetConfig().Options.DefaultDriver != ""

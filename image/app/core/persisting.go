@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-var FileNamesInCacheDuration = 1 * time.Minute
-var deleteAndCleanupCtxDuration = 2 * time.Minute
+var FileNamesInCacheDuration = 5 * time.Minute
+var deleteAndCleanupCtxDuration = 5 * time.Minute
 
 func doWork(job Job) (Job, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), job.Deadline)
@@ -50,7 +50,7 @@ func doWork(job Job) (Job, error) {
 }
 
 func sendJobFailedMail(errIn error, job Job) error {
-	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	config.GetRedis().Set(shortContext, fmt.Sprintf("error %v", job.PersistentId), errIn.Error(), FileNamesInCacheDuration)
 	to, err := Destination.GetUserEmail(shortContext, job.DataverseKey, job.User)
@@ -70,7 +70,7 @@ func sendJobSuccesMail(job Job) error {
 	if !job.SendEmailOnSucces {
 		return nil
 	}
-	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	to, err := Destination.GetUserEmail(shortContext, job.DataverseKey, job.User)
 	if err != nil {

@@ -31,10 +31,10 @@ type CachedResponse struct {
 	ErrorMessage string               `json:"err"`
 }
 
-var cacheMaxDuration = time.Minute
+var cacheMaxDuration = 5 * time.Minute
 
 func CacheResponse(res CachedResponse) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	b, _ := json.Marshal(res)
 	config.GetRedis().Set(ctx, res.Key, string(b), cacheMaxDuration)

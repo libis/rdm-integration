@@ -4,6 +4,7 @@ package server
 
 import (
 	"crypto/tls"
+	"fmt"
 	"integration/app/common"
 	"integration/app/config"
 	"integration/app/core"
@@ -15,6 +16,8 @@ import (
 	"net/http"
 	"time"
 )
+
+const timeout = 5 * time.Minute
 
 func Start() {
 	srvMux := http.NewServeMux()
@@ -54,12 +57,12 @@ func Start() {
 
 	srv := &http.Server{
 		Addr:              ":7788",
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       30 * time.Second,
-		ReadHeaderTimeout: 20 * time.Second,
+		ReadTimeout:       timeout,
+		WriteTimeout:      timeout,
+		IdleTimeout:       timeout,
+		ReadHeaderTimeout: timeout,
 		TLSConfig:         tlsConfig,
-		Handler:           http.TimeoutHandler(srvMux, 50*time.Second, "processing the request took longer than 50 seconds: cancelled"),
+		Handler:           http.TimeoutHandler(srvMux, timeout, fmt.Sprintf("processing the request took longer than %v: cancelled", timeout)),
 	}
 	srv.ListenAndServe()
 }
