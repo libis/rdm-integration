@@ -316,7 +316,7 @@ func listDvObjects(ctx context.Context, objectType, collection, token, user stri
 			return nil, fmt.Errorf("listing %v objects was not successful: %v", objectType, retrieveResponse.ErrorMessage)
 		}
 		res = append(res, retrieveResponse.Data.Items...)
-		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber && page < 3 //max. 3 pages
+		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber && page < config.GetMaxDvObjectPages()
 	}
 	return res, nil
 }

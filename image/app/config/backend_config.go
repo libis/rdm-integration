@@ -41,6 +41,7 @@ type OptionalConfig struct {
 	UserHeaderName       string   `json:"userHeaderName,omitempty"`       // URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
 	SmtpConfig           Smtp     `json:"smtpConfig,omitempty"`           // configure this when you wish to send notification emails to the users: on job error and on job completion
 	PathToSmtpPassword   string   `json:"pathToSmtpPassword,omitempty"`   // path to the file containing the password needed to authenticate with the SMTP server
+	MaxDvObjectPages     int      `json:"maxDvObjectPages"`
 }
 
 type Smtp struct {
@@ -187,6 +188,10 @@ func ClientSecret(clientId string) (clientSecret, resource, url string, err erro
 
 func GetMaxFileSize() int64 {
 	return config.Options.MaxFileSize
+}
+
+func GetMaxDvObjectPages() int {
+	return config.Options.MaxDvObjectPages
 }
 
 func GetConfig() Config {
