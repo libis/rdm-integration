@@ -32,6 +32,9 @@ func Options(w http.ResponseWriter, r *http.Request) {
 
 	sessionId := core.GetShibSessionFromHeader(r.Header)
 	params.Token, _ = core.GetTokenFromCache(r.Context(), params.Token, sessionId)
+	if params.User == "" {
+		params.User = core.GetUserFromHeader(r.Header)
+	}
 	res, err := plugin.GetPlugin(params.Plugin).Options(r.Context(), params)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

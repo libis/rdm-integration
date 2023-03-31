@@ -36,7 +36,7 @@ type Entry struct {
 	DocId int64
 }
 
-func listEntries(ctx context.Context, folderId int64, path, url, token string) ([]Entry, error) {
+func listEntries(ctx context.Context, folderId int64, path, url, token string, recursive bool) ([]Entry, error) {
 	data := Request{
 		Token:        token,
 		Content:      "fileRepository",
@@ -73,8 +73,8 @@ func listEntries(ctx context.Context, folderId int64, path, url, token string) (
 	for _, v := range response {
 		isDir := v.FolderId != 0
 		id := path + sep + v.Name
-		if isDir {
-			folderEntries, err := listEntries(ctx, v.FolderId, id, url, token)
+		if isDir && recursive {
+			folderEntries, err := listEntries(ctx, v.FolderId, id, url, token, true)
 			if err != nil {
 				return nil, err
 			}

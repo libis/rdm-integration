@@ -23,7 +23,11 @@ func Options(_ context.Context, params types.OptionsRequest) ([]types.SelectItem
 	}
 	defer cl.Close()
 
-	res, err := getDirs(cl, "/"+zone+"/")
+	path := params.Option
+	if path == "" {
+		path = "/" + zone + "/" + path
+	}
+	res, err := getDirs(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +49,6 @@ func getDirs(cl *IrodsClient, dir string) ([]string, error) {
 	for _, v := range entries {
 		if v.Type == "directory" {
 			res = append(res, v.Path)
-			subdirs, err := getDirs(cl, v.Path)
-			if err != nil {
-				return nil, err
-			}
-			res = append(res, subdirs...)
 		}
 	}
 	return res, nil

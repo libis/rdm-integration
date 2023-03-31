@@ -17,6 +17,7 @@
             "pluginName": "IRODS",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
+            "optionFieldInteractive": true,
             "tokenFieldName": "Token (IRODS password)",
             "tokenFieldPlaceholder": "password",
             "sourceUrlFieldValue": "PAM://ghum.irods.icts.kuleuven.be:1247",
@@ -128,6 +129,7 @@
             "pluginName": "REDCap",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
+            "optionFieldInteractive": true,
             "tokenFieldName": "Project token",
             "tokenFieldPlaceholder": "project token",
             "sourceUrlFieldValue": "https://preview.redcap.gbiomed.kuleuven.be"
@@ -139,6 +141,7 @@
             "pluginName": "REDCap",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
+            "optionFieldInteractive": true,
             "tokenFieldName": "Project token",
             "tokenFieldPlaceholder": "project token",
             "sourceUrlFieldName": "Source URL",

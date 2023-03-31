@@ -10,24 +10,20 @@ import (
 	"integration/app/tree"
 	"io"
 	"net/http"
-	"strings"
+	"strconv"
 )
 
 func Query(ctx context.Context, req types.CompareRequest, nm map[string]tree.Node) (map[string]tree.Node, error) {
 	url := fmt.Sprintf("%s/api/", req.Url)
-	entries, err := listEntries(ctx, 0, "", url, req.Token)
+	folderId, err := strconv.Atoi(req.Option)
 	if err != nil {
 		return nil, err
 	}
-	folder := strings.TrimPrefix(req.Option, "/")
-	folder = strings.TrimSuffix(folder, "/")
-	filtered := []Entry{}
-	for _, e := range entries {
-		if folder == "" || strings.HasPrefix(e.Id, folder) {
-			filtered = append(filtered, e)
-		}
+	entries, err := listEntries(ctx, int64(folderId), "", url, req.Token, true)
+	if err != nil {
+		return nil, err
 	}
-	return toNodeMap(filtered, nm, url, req.Token)
+	return toNodeMap(entries, nm, url, req.Token)
 }
 
 func toNodeMap(entries []Entry, nm map[string]tree.Node, url, token string) (map[string]tree.Node, error) {
