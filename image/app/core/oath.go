@@ -53,6 +53,18 @@ type TokenResponse struct {
 	SessionId string `json:"session_id"`
 }
 
+type ExchangeRequest struct {
+	DropPermissions bool   `json:"drop_permissions"`
+	IdToken         string `json:"id_token"`
+}
+
+type ExchangeResponse struct {
+	Message     string   `json:"message"`
+	Expiration  string   `json:"expiration"`
+	Permissions []string `json:"permissions"`
+	Token       string   `json:"token"`
+}
+
 var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
@@ -60,7 +72,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, nounce, sessionId string
 	res := TokenResponse{uuid.NewString()}
 	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
-	clientSecret, resource, postUrl, err := config.ClientSecret(clientId)
+	clientSecret, resource, postUrl, exchange, err := config.ClientSecret(clientId)
 	if err != nil {
 		return res, err
 	}
@@ -120,6 +132,12 @@ func GetOauthToken(ctx context.Context, pluginId, code, nounce, sessionId string
 			TokenType:             params.Get("token_type"),
 		}
 	}
+	if exchange != "" {
+		result, err = doExchange(ctx, result, exchange)
+		if err != nil {
+			return res, err
+		}
+	}
 	tokenBytes, err := json.Marshal(result)
 	if err != nil {
 		return res, err
@@ -151,4 +169,34 @@ func encode(req OauthTokenRequest) *bytes.Buffer {
 		s = s + "&resource=" + url.QueryEscape(req.Resource)
 	}
 	return bytes.NewBuffer([]byte(s))
+}
+
+func doExchange(ctx context.Context, in OauthTokenResponse, url string) (OauthTokenResponse, error) {
+	res := in
+	req := ExchangeRequest{false, in.AccessToken}
+	data, _ := json.Marshal(req)
+	body := bytes.NewBuffer(data)
+	request, _ := http.NewRequestWithContext(ctx, "POST", url, body)
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Accept", "application/json")
+	r, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return res, fmt.Errorf("exchanging API token failed: %v", err)
+	}
+	defer r.Body.Close()
+	if r.StatusCode != 200 {
+		b, _ := io.ReadAll(r.Body)
+		return res, fmt.Errorf("exchanging API token failed: %d - %s", r.StatusCode, string(b))
+	}
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return res, fmt.Errorf("exchanging token response failed: %v", err)
+	}
+	result := ExchangeResponse{}
+	err = json.Unmarshal(b, &result)
+	res.AccessToken = result.Token
+	if result.Message != "" {
+		return res, fmt.Errorf("exchanging token failed with message: %v", result.Message)
+	}
+	return res, err
 }
