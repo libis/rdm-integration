@@ -26,10 +26,10 @@ func Query(ctx context.Context, req types.CompareRequest, nm map[string]tree.Nod
 	if err != nil {
 		return nil, err
 	}
-	return toNodeMap(entries, nm, req.Url, req.Token)
+	return toNodeMap(folder, entries, nm, req.Url, req.Token)
 }
 
-func toNodeMap(entries []Entry, nm map[string]tree.Node, url, token string) (map[string]tree.Node, error) {
+func toNodeMap(folder string, entries []Entry, nm map[string]tree.Node, url, token string) (map[string]tree.Node, error) {
 	res := map[string]tree.Node{}
 	for _, e := range entries {
 		if e.IsDir {
@@ -40,10 +40,12 @@ func toNodeMap(entries []Entry, nm map[string]tree.Node, url, token string) (map
 			return nil, err
 		}
 
+		id := strings.TrimPrefix(strings.TrimPrefix(e.Id, folder), "/")
+		path := strings.TrimPrefix(strings.TrimPrefix(e.Path, folder), "/")
 		node := tree.Node{
-			Id:   e.Id,
+			Id:   id,
 			Name: e.Name,
-			Path: e.Path,
+			Path: path,
 			Attributes: tree.Attributes{
 				URL:            e.URL,
 				IsFile:         !e.IsDir,
@@ -52,7 +54,7 @@ func toNodeMap(entries []Entry, nm map[string]tree.Node, url, token string) (map
 				RemoteFilesize: e.Size,
 			},
 		}
-		res[e.Id] = node
+		res[id] = node
 	}
 	return res, nil
 }

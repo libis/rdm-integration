@@ -22,16 +22,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 		return listFolderGrapthItems(ctx, params, drives)
 	}
 	for _, d := range drives {
-		items, err := listGraphItems(ctx, "", params.Url+"/drives/"+d.Id+"/root", params.Token, false)
-		if err != nil {
-			return nil, err
-		}
 		res = append(res, types.SelectItem{Label: d.Name + "/", Value: d.Id})
-		for _, e := range items {
-			if e.IsDir {
-				res = append(res, types.SelectItem{Label: d.Name + "/" + e.Id, Value: d.Id + "/" + e.Id})
-			}
-		}
 	}
 	return res, nil
 }
