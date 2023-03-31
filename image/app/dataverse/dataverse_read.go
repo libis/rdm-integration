@@ -13,6 +13,7 @@ import (
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -242,8 +243,8 @@ func DeleteFile(ctx context.Context, token, user string, id int64) error {
 	return nil
 }
 
-func DvObjects(ctx context.Context, objectType, collection, token, user string) ([]types.SelectItem, error) {
-	dvObjects, err := listDvObjects(ctx, objectType, collection, token, user)
+func DvObjects(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error) {
+	dvObjects, err := listDvObjects(ctx, objectType, collection, searchTerm, token, user)
 	if err != nil {
 		return nil, err
 	}
@@ -266,11 +267,17 @@ func DvObjects(ctx context.Context, objectType, collection, token, user string) 
 	return res, nil
 }
 
-func listDvObjects(ctx context.Context, objectType, collection, token, user string) ([]Item, error) {
+func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstPart, token, user string) ([]Item, error) {
 	searchTerm := ""
-	if collection != "" {
+	if searchTermFirstPart != "" {
+		searchTerm = "text:" + searchTermFirstPart
+		if collection != "" {
+			searchTerm = " identifierOfDataverse:" + collection
+		}
+	} else if collection != "" {
 		searchTerm = "identifierOfDataverse:" + collection
 	}
+	searchTerm = url.QueryEscape(searchTerm)
 	res := []Item{}
 	hasNextPage := true
 	roleIds := ""

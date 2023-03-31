@@ -14,6 +14,7 @@ type DvObjectsRequest struct {
 	Token      string `json:"token"`
 	Collection string `json:"collectionId"`
 	ObjectType string `json:"objectType"`
+	SearchTerm string `json:"searchTerm"`
 }
 
 func DvObjects(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +36,7 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := core.Destination.Options(r.Context(), req.ObjectType, req.Collection, req.Token, user)
+	res, err := core.Destination.Options(r.Context(), req.ObjectType, req.Collection, req.SearchTerm, req.Token, user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
