@@ -11,6 +11,7 @@ import (
 	"integration/app/logging"
 	"net/http"
 	"os"
+	"strings"
 )
 
 //go:embed default_frontend_config.json
@@ -40,6 +41,9 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 	if Config.ExternalURL == "" {
 		Config.ExternalURL = config.GetExternalDestinationURL()
 		logging.Logger.Println(Config.ExternalURL)
+		if strings.Contains(Config.ExternalURL, "kuleuven") {
+			Config.CollectionOptionsHidden = true
+		}
 	}
 	b, err := json.Marshal(Config)
 	if err != nil {
