@@ -173,7 +173,7 @@ func encode(req OauthTokenRequest) *bytes.Buffer {
 
 func doExchange(ctx context.Context, in OauthTokenResponse, url string) (OauthTokenResponse, error) {
 	res := in
-	req := ExchangeRequest{false, in.AccessToken}
+	req := ExchangeRequest{true, in.AccessToken}
 	data, _ := json.Marshal(req)
 	body := bytes.NewBuffer(data)
 	request, _ := http.NewRequestWithContext(ctx, "POST", url, body)
