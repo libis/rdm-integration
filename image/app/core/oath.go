@@ -27,6 +27,7 @@ type OauthTokenRequest struct {
 
 type OauthTokenResponse struct {
 	AccessToken           string `json:"access_token"`
+	JwtToken              string `json:"id_token"`
 	ExpiresIn             int    `json:"expires_in"`
 	RefreshToken          string `json:"refresh_token"`
 	RefreshTokenExpiresIn int    `json:"refresh_token_expires_in"`
@@ -39,6 +40,7 @@ type OauthTokenResponse struct {
 
 type OauthTokenResponseStrings struct {
 	AccessToken           string `json:"access_token"`
+	JwtToken              string `json:"id_token"`
 	ExpiresIn             string `json:"expires_in"`
 	RefreshToken          string `json:"refresh_token"`
 	RefreshTokenExpiresIn string `json:"refresh_token_expires_in"`
@@ -173,7 +175,7 @@ func encode(req OauthTokenRequest) *bytes.Buffer {
 
 func doExchange(ctx context.Context, in OauthTokenResponse, url string) (OauthTokenResponse, error) {
 	res := in
-	req := ExchangeRequest{false, in.AccessToken}
+	req := ExchangeRequest{true, in.JwtToken}
 	data, _ := json.Marshal(req)
 	body := bytes.NewBuffer(data)
 	request, _ := http.NewRequestWithContext(ctx, "POST", url, body)
