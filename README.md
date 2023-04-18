@@ -182,7 +182,6 @@ Having multiple instances for plugin types is useful when certain features, e.g.
 - sourceUrlFieldName: when configured, the UI will show the source URL field, where the user can enter the URL of the repository to connect to.
 - sourceUrlFieldPlaceholder: the placeholder for the source URL field.
 - sourceUrlFieldValue: when configured, it contains the default value for the source URL field. When this value is always the same for a given plugin, e.g., ``https://github.com``, then the sourceUrlFieldName can be left empty, and the field will not be shown (but will always contain the configured default value). 
-- sourceUrlFieldValueMap: the same as sourceUrlFieldValue, but it contains mapping between a repository name and a URL. This can be used when, e.g., different IRODS zones use different URLs.
 - usernameFieldName: when the user needs to authenticate with a username to the given repository (e.g., OAuth is not configured for this repository instance), this field should be set to the name of this field, e.g., "Username"
 - usernameFieldPlaceholder: the placeholder for the username field.
 - repoNameFieldName: repository selection field name.
