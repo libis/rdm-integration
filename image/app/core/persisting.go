@@ -186,7 +186,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			if err != nil {
 				return
 			}
-		} else {
+		} /*else {
 			var nm map[string]tree.Node
 			fileFound := false
 			written := tree.Node{}
@@ -216,7 +216,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 		if remoteHashVlaue != fmt.Sprintf("%x", newH) {
 			err = fmt.Errorf("written file hash not equal")
-		}
+			return
+		}*/
 
 		if hashValue != remoteHashVlaue {
 			knownHashes[v.Id] = calculatedHashes{
