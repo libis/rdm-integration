@@ -188,7 +188,8 @@ Having multiple instances for plugin types is useful when certain features, e.g.
 - repoNameFieldPlaceholder: the placeholder for the repository selection field.
 - repoNameFieldEditable: if set to ``true``, the user can paste or type repository name directly, without the use of the dropdown.
 - repoNameFieldValues: suggested or possible repository names. When this is filled out, a dropdown will be presented to the user, otherwise a text field will be presented.
-- repoNameFieldHasSearch: when the plugin implements ``Search`` function, this field can be set to ``true`` for searchable repository names. 
+- repoNameFieldHasSearch: when the plugin implements ``Search`` function, this field can be set to ``true`` for searchable repository names.
+- repoNameFieldHasInit: when the plugin implements ``Search`` function, this field can be set to ``true`` for initial search without the search term (initializes the dropdown to the default values as implemented by the search function).
 - parseSourceUrlField: when set to true, the repoName field can be left not configured and the repository name is parsed from the source URL field.
 - tokenName: when set to a unique value, the credential needed for authentication is stored in the browser.
 - tokenGetter: OAuth configuration for the repository instance containing the URL where authorizations should be redirected to, and the oauth_client_id from the OAuth application setting (e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps)). See also the backend configuration section on how to configure the needed client secrets.

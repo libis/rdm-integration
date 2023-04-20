@@ -11,35 +11,8 @@
     "sendMails": true,
     "plugins": [
         {
-            "id": "mango",
-            "name": "ManGO (KU Leuven IRODS)",
-            "plugin": "irods",
-            "pluginName": "IRODS",
-            "optionFieldName": "Folder",
-            "optionFieldPlaceholder": "Select folder",
-            "optionFieldInteractive": true,
-            "tokenFieldName": "Token (IRODS password)",
-            "tokenFieldPlaceholder": "password",
-            "sourceUrlFieldValue": "PAM://ghum.irods.icts.kuleuven.be:1247",
-            "usernameFieldName": "Username",
-            "usernameFieldPlaceholder": "u-number",
-            "repoNameFieldName": "Zone",
-            "repoNameFieldPlaceholder": "zone",
-            "repoNameFieldEditable": true,
-            "repoNameFieldValues": [
-                "gbiomed",
-                "gbiomed_eximious",
-                "gbiomed_fbi",
-                "ghum",
-                "set"
-            ],
-            "tokenGetter": {
-                "URL": "https://mango.kuleuven.be/data-platform/connection-info"
-            }
-        },
-        {
             "id": "irods",
-            "name": "Other IRODS",
+            "name": "IRODS",
             "plugin": "irods",
             "pluginName": "IRODS",
             "optionFieldName": "Folder",
