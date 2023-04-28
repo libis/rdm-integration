@@ -19,6 +19,7 @@ type JsonData struct {
 	StorageIdentifier string    `json:"storageIdentifier,omitempty"`
 	FileName          string    `json:"fileName,omitempty"`
 	MimeType          string    `json:"mimeType,omitempty"`
+	TabIngest         bool      `json:"tabIngest"`
 	Checksum          *Checksum `json:"checksum,omitempty"`
 }
 

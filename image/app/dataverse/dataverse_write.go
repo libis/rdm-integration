@@ -107,6 +107,7 @@ func SaveAfterDirectUpload(ctx context.Context, token, user, persistentId, stora
 		FileName:          v.Name,
 		DirectoryLabel:    v.Path,
 		MimeType:          "application/octet-stream", // default that will be replaced by Dataverse while adding/replacing the file
+		TabIngest:         false,
 		Checksum: &Checksum{
 			Type:  v.Attributes.DestinationFile.HashType,
 			Value: v.Attributes.DestinationFile.Hash,
