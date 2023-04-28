@@ -11,6 +11,14 @@
     "sendMails": true,
     "plugins": [
         {
+            "id": "local",
+            "name": "Local filesystem",
+            "plugin": "local",
+            "pluginName": "Local filesystem",
+            "sourceUrlFieldName": "Directory",
+            "sourceUrlFieldPlaceholder": "Path to a directory on your filesystem"
+        },
+        {
             "id": "irods",
             "name": "IRODS",
             "plugin": "irods",

@@ -1,5 +1,5 @@
 {
-    "dataverseServer": "https://localhost:7000",
+    "dataverseServer": "http://localhost:7008",
     "redisHost": "localhost:6379",
     "options": {
         "rootDataverseId": "rdr",
