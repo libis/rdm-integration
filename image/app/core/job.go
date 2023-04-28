@@ -119,6 +119,7 @@ func ProcessJobs() {
 					sendJobFailedMail(err, job)
 				} else {
 					logging.Logger.Println("job failed, but will retry:", persistentId, err)
+					time.Sleep(time.Duration(job.ErrCnt * 10 * time.Now().Second()))
 				}
 			}
 			if len(job.WritableNodes) > 0 && job.ErrCnt < 3 {
