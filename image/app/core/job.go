@@ -119,10 +119,10 @@ func ProcessJobs() {
 					sendJobFailedMail(err, job)
 				} else {
 					logging.Logger.Println("job failed, but will retry:", persistentId, err)
-					time.Sleep(time.Duration(job.ErrCnt * 10 * time.Now().Second()))
+					time.Sleep(10 * time.Second)
 				}
 			}
-			if len(job.WritableNodes) > 0 && job.ErrCnt < 3 {
+			if len(job.WritableNodes) > 0 && job.ErrCnt < 100 {
 				ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
 				err = addJob(ctx, job, false)
 				cancel()
