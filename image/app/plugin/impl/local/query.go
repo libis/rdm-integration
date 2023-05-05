@@ -29,10 +29,30 @@ func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.
 	if err != nil {
 		return nil, err
 	}
-	return toNodeMap(path, path, entries, dvNodes)
+	dirs, nodes, err := toNodeMap(path, path, entries, dvNodes)
+	if err != nil {
+		return nil, err
+	}
+	for len(dirs) != 0 {
+		for _, d := range dirs {
+			subEntries, err := list(path, d, dvNodes)
+			if err != nil {
+				return nil, err
+			}
+			var irodsNm map[string]tree.Node
+			dirs, irodsNm, err = toNodeMap(path, d, subEntries, dvNodes)
+			if err != nil {
+				return nil, err
+			}
+			for k, v := range irodsNm {
+				nodes[k] = v
+			}
+		}
+	}
+	return nodes, nil
 }
 
-func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Node) (map[string]tree.Node, error) {
+func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Node) ([]string, map[string]tree.Node, error) {
 	res := map[string]tree.Node{}
 	dirs := []string{}
 	for _, e := range entries {
@@ -55,20 +75,7 @@ func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Nod
 		}
 		res[e.Id] = node
 	}
-	for _, d := range dirs {
-		subEntries, err := list(root, d, dvNodes)
-		if err != nil {
-			return nil, err
-		}
-		irodsNm, err := toNodeMap(root, d, subEntries, dvNodes)
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range irodsNm {
-			res[k] = v
-		}
-	}
-	return res, nil
+	return dirs, res, nil
 }
 
 func list(root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
