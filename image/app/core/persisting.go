@@ -128,6 +128,10 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	i := 0
 	total := len(writableNodes)
 	writtenKeys := []string{}
+	toAddIdentifiers := []string{}
+	toAddNodes := []tree.Node{}
+	toReplaceIdentifiers := []string{}
+	toReplaceNodes := []tree.Node{}
 
 	for k, v := range writableNodes {
 		select {
@@ -182,42 +186,14 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 
 		if Destination.IsDirectUpload() {
-			err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, storageIdentifier, v)
-			if err != nil {
-				return
+			if v.Attributes.DestinationFile.Id != 0 {
+				toReplaceIdentifiers = append(toReplaceIdentifiers, storageIdentifier)
+				toReplaceNodes = append(toReplaceNodes, v)
+			} else {
+				toReplaceIdentifiers = append(toReplaceIdentifiers, storageIdentifier)
+				toReplaceNodes = append(toReplaceNodes, v)
 			}
-		} /*else {
-			var nm map[string]tree.Node
-			fileFound := false
-			written := tree.Node{}
-			sleep := 2
-			for i := 0; !fileFound && i < 5; i++ {
-				nm, err = Destination.Query(ctx, persistentId, dataverseKey, user)
-				if err != nil {
-					return
-				}
-				written, fileFound = nm[k]
-				if !fileFound {
-					time.Sleep(time.Duration(sleep * int(time.Second)))
-					sleep = sleep * 2
-				}
-			}
-			if !fileFound {
-				err = fmt.Errorf("file is written but not found back")
-				return
-			}
-			v.Attributes.DestinationFile.Id = written.Attributes.DestinationFile.Id
 		}
-
-		var newH []byte
-		newH, err = doHash(ctx, dataverseKey, user, persistentId, v)
-		if err != nil {
-			return
-		}
-		if remoteHashVlaue != fmt.Sprintf("%x", newH) {
-			err = fmt.Errorf("written file hash not equal")
-			return
-		}*/
 
 		if hashValue != remoteHashVlaue {
 			knownHashes[v.Id] = calculatedHashes{
@@ -230,6 +206,18 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		writtenKeys = append(writtenKeys, redisKey)
 
 		delete(out.WritableNodes, k)
+	}
+	if len(toAddNodes) > 0 {
+		err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)
+		if err != nil {
+			return
+		}
+	}
+	if len(toReplaceNodes) > 0 {
+		err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, toReplaceIdentifiers, toReplaceNodes)
+		if err != nil {
+			return
+		}
 	}
 	select {
 	case <-ctx.Done():

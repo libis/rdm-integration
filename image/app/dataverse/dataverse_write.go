@@ -99,23 +99,27 @@ func GetUserEmail(ctx context.Context, token, user string) (string, error) {
 	return u.Data.Email, nil
 }
 
-func SaveAfterDirectUpload(ctx context.Context, token, user, persistentId, storageIdentifier string, v tree.Node) error {
-	jsonData := JsonData{
-		FileToReplaceId:   v.Attributes.DestinationFile.Id,
-		ForceReplace:      v.Attributes.DestinationFile.Id != 0,
-		StorageIdentifier: storageIdentifier,
-		FileName:          v.Name,
-		DirectoryLabel:    v.Path,
-		MimeType:          "application/octet-stream", // default that will be replaced by Dataverse while adding/replacing the file
-		TabIngest:         false,
-		Checksum: &Checksum{
-			Type:  v.Attributes.DestinationFile.HashType,
-			Value: v.Attributes.DestinationFile.Hash,
-		},
+func SaveAfterDirectUpload(ctx context.Context, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error {
+	jsonData := []JsonData{}
+	for i, v := range nodes {
+		jsonData = append(jsonData, JsonData{
+			FileToReplaceId:   v.Attributes.DestinationFile.Id,
+			ForceReplace:      v.Attributes.DestinationFile.Id != 0,
+			StorageIdentifier: storageIdentifiers[i],
+			FileName:          v.Name,
+			DirectoryLabel:    v.Path,
+			MimeType:          "application/octet-stream", // default that will be replaced by Dataverse while adding/replacing the file
+			TabIngest:         false,
+			Checksum: &Checksum{
+				Type:  v.Attributes.DestinationFile.HashType,
+				Value: v.Attributes.DestinationFile.Hash,
+			},
+		})
 	}
-	url := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/add?persistentId=" + persistentId
-	if jsonData.FileToReplaceId != 0 {
-		url = config.GetConfig().DataverseServer + "/api/v1/files/" + fmt.Sprint(jsonData.FileToReplaceId) + "/replace"
+
+	url := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/addFiles?persistentId=" + persistentId
+	if jsonData[0].FileToReplaceId != 0 {
+		url = config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/replaceFiles?persistentId=" + persistentId
 	}
 	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
 	if err != nil {
