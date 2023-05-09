@@ -190,8 +190,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 				toReplaceIdentifiers = append(toReplaceIdentifiers, storageIdentifier)
 				toReplaceNodes = append(toReplaceNodes, v)
 			} else {
-				toReplaceIdentifiers = append(toReplaceIdentifiers, storageIdentifier)
-				toReplaceNodes = append(toReplaceNodes, v)
+				toAddIdentifiers = append(toAddIdentifiers, storageIdentifier)
+				toAddNodes = append(toAddNodes, v)
 			}
 		}
 
@@ -240,13 +240,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (err error) {
 	if len(toAddNodes) > 0 {
-		err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)
+		err = Destination.SaveAfterDirectUpload(ctx, false, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)
 		if err != nil {
 			return
 		}
 	}
 	if len(toReplaceNodes) > 0 {
-		err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, toReplaceIdentifiers, toReplaceNodes)
+		err = Destination.SaveAfterDirectUpload(ctx, true, dataverseKey, user, persistentId, toReplaceIdentifiers, toReplaceNodes)
 	}
 	return
 }

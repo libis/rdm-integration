@@ -99,7 +99,7 @@ func GetUserEmail(ctx context.Context, token, user string) (string, error) {
 	return u.Data.Email, nil
 }
 
-func SaveAfterDirectUpload(ctx context.Context, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error {
+func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error {
 	jsonData := []JsonData{}
 	for i, v := range nodes {
 		jsonData = append(jsonData, JsonData{
@@ -118,7 +118,7 @@ func SaveAfterDirectUpload(ctx context.Context, token, user, persistentId string
 	}
 
 	url := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/addFiles?persistentId=" + persistentId
-	if jsonData[0].FileToReplaceId != 0 {
+	if replace {
 		url = config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/replaceFiles?persistentId=" + persistentId
 	}
 	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
