@@ -206,7 +206,39 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		writtenKeys = append(writtenKeys, redisKey)
 
 		delete(out.WritableNodes, k)
+
+		if i%1000 == 0 && i < total && (len(toAddNodes) > 0 || len(toReplaceNodes) > 0) {
+			logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
+			err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
+			if err != nil {
+				return
+			}
+			toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes = []string{}, []string{}, []tree.Node{}, []tree.Node{}
+			logging.Logger.Printf("%v: flushed\n", persistentId)
+		}
 	}
+
+	if len(toAddNodes) > 0 || len(toReplaceNodes) > 0 {
+		logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
+		err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
+		if err != nil {
+			return
+		}
+		logging.Logger.Printf("%v: flushed\n", persistentId)
+	}
+
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+		return
+	default:
+		writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
+		err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
+	}
+	return
+}
+
+func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (err error) {
 	if len(toAddNodes) > 0 {
 		err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)
 		if err != nil {
@@ -215,17 +247,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	}
 	if len(toReplaceNodes) > 0 {
 		err = Destination.SaveAfterDirectUpload(ctx, dataverseKey, user, persistentId, toReplaceIdentifiers, toReplaceNodes)
-		if err != nil {
-			return
-		}
-	}
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-		return
-	default:
-		writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
-		err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
 	}
 	return
 }
