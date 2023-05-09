@@ -207,7 +207,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		delete(out.WritableNodes, k)
 
-		/*if i%1000 == 0 && i < total && (len(toAddNodes) > 0 || len(toReplaceNodes) > 0) {
+		if i%100 == 0 && i < total && (len(toAddNodes) > 0 || len(toReplaceNodes) > 0) {
 			logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
 			err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
 			if err != nil {
@@ -215,7 +215,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			}
 			toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes = []string{}, []string{}, []tree.Node{}, []tree.Node{}
 			logging.Logger.Printf("%v: flushed\n", persistentId)
-		}*/
+		}
 	}
 
 	if len(toAddNodes) > 0 || len(toReplaceNodes) > 0 {
