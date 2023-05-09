@@ -208,8 +208,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
 		writtenKeys = append(writtenKeys, redisKey)
 
-		delete(out.WritableNodes, k)
-
 		if i%100 == 0 && i < total && (len(toAddNodes) > 0 || len(toReplaceNodes) > 0) {
 			logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
 			var flushed []string
