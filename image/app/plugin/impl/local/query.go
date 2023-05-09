@@ -34,20 +34,24 @@ func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.
 		return nil, err
 	}
 	for len(dirs) != 0 {
+		moreDirs := []string{}
 		for _, d := range dirs {
 			subEntries, err := list(path, d, dvNodes)
 			if err != nil {
 				return nil, err
 			}
 			var irodsNm map[string]tree.Node
-			dirs, irodsNm, err = toNodeMap(path, d, subEntries, dvNodes)
+			var subDirs []string
+			subDirs, irodsNm, err = toNodeMap(path, d, subEntries, dvNodes)
 			if err != nil {
 				return nil, err
 			}
 			for k, v := range irodsNm {
 				nodes[k] = v
 			}
+			moreDirs = append(moreDirs, subDirs...)
 		}
+		dirs = moreDirs
 	}
 	return nodes, nil
 }
