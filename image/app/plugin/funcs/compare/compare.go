@@ -14,11 +14,15 @@ import (
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var fileNameR, _ = regexp.Compile(`^[^:<>;#"\/\*\|\?\\]*$`)
+var folderNameR, _ = regexp.Compile(`^[a-zA-Z0-9_\.\/\- ]*$`)
 
 func Compare(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
@@ -89,15 +93,18 @@ func doCompare(req types.CompareRequest, key, user, sessionId string) {
 		common.CacheResponse(cachedRes)
 		return
 	}
-	tooLarge := []string{}
+	rejected := []string{}
 	maxFileSize := config.GetMaxFileSize()
 	for k, v := range repoNm {
 		if maxFileSize > 0 && v.Attributes.RemoteFilesize > maxFileSize {
 			delete(repoNm, k)
-			tooLarge = append(tooLarge, v.Id)
-		}
-		// filter out the files and folders starting with "."
-		if strings.HasPrefix(v.Path, ".") || strings.HasPrefix(v.Name, ".") {
+			rejected = append(rejected, v.Id)
+		} else if strings.HasPrefix(v.Path, ".") || strings.HasPrefix(v.Name, ".") {
+			delete(repoNm, k)
+		} else if !fileNameR.MatchString(v.Name) || !folderNameR.MatchString(v.Path) {
+			delete(repoNm, k)
+			rejected = append(rejected, v.Id)
+		} else if len(strings.TrimSpace(v.Name)) == 0 {
 			delete(repoNm, k)
 		}
 	}
@@ -113,6 +120,6 @@ func doCompare(req types.CompareRequest, key, user, sessionId string) {
 
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
-	cachedRes.Response.TooLarge = tooLarge
+	cachedRes.Response.Rejected = rejected
 	common.CacheResponse(cachedRes)
 }

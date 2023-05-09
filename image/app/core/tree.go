@@ -19,7 +19,7 @@ type CompareResponse struct {
 	Data        []tree.Node `json:"data"`
 	Url         string      `json:"url"`
 	MaxFileSize int64       `json:"maxFileSize,omitempty"`
-	TooLarge    []string    `json:"tooLarge,omitempty"`
+	Rejected    []string    `json:"rejected,omitempty"`
 }
 
 func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {
