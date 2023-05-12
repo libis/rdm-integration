@@ -208,28 +208,12 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
 		writtenKeys = append(writtenKeys, redisKey)
 
-		if i%100 == 0 && i < total && (len(toAddNodes) > 0 || len(toReplaceNodes) > 0) {
-			logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
-			var flushed []string
-			flushed, err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
-			for _, nodeId := range flushed {
-				delete(out.WritableNodes, nodeId)
-			}
-			if err != nil {
-				return
-			}
-			logging.Logger.Printf("%v: flushed\n", persistentId)
-			toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes = []string{}, []string{}, []tree.Node{}, []tree.Node{}
-		}
+		delete(out.WritableNodes, k)
 	}
 
 	if len(toAddNodes) > 0 || len(toReplaceNodes) > 0 {
 		logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
-		var flushed []string
-		flushed, err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
-		for _, nodeId := range flushed {
-			delete(out.WritableNodes, nodeId)
-		}
+		_, err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
 		if err != nil {
 			return
 		}
