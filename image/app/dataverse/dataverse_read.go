@@ -288,7 +288,7 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 		url := config.GetConfig().DataverseServer + "/api/v1/mydata/retrieve?" +
 			"selected_page=" + fmt.Sprint(page) +
 			"&dvobject_types=" + objectType +
-			"&published_states=Published&published_states=Unpublished&published_states=Draft&published_states=In%20Review" +
+			"&published_states=Published&published_states=Unpublished&published_states=Draft" +
 			roleIds + "&mydata_search_term=" + searchTerm
 		url, addTokenToUrl, err := signUrl(ctx, url, token, user)
 		if err != nil {
