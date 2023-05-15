@@ -30,7 +30,7 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string) (
 	}
 	body := CreateDatasetRequestBody(user)
 	url := config.GetConfig().DataverseServer + "/api/v1/dataverses/" + collection + "/datasets?doNotValidate=true"
-	url, addTokenToHeader, err := signUrl(ctx, url, token, userName)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, userName, "POST")
 	if err != nil {
 		return "", err
 	}
@@ -62,7 +62,7 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string) (
 
 func getUser(ctx context.Context, token, user string) (User, error) {
 	url := fmt.Sprintf("%s/api/v1/users/:me", config.GetConfig().DataverseServer)
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "GET")
 	if err != nil {
 		return User{}, err
 	}
@@ -121,7 +121,7 @@ func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persi
 	if replace {
 		url = config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/replaceFiles?persistentId=" + persistentId
 	}
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "POST")
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func ApiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persist
 	if dbId != 0 {
 		url = config.GetConfig().DataverseServer + "/api/v1/files/" + fmt.Sprint(dbId) + "/replace"
 	}
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "POST")
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func CleanupLeftOverFiles(ctx context.Context, persistentId, token, user string)
 		return nil
 	}
 	url := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/cleanStorage?persistentId=" + persistentId
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "GET")
 	if err != nil {
 		return err
 	}

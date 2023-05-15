@@ -27,7 +27,7 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
 	defer cancel()
 	url := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/versions/:latest/files?persistentId=" + persistentId
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "GET")
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func CheckPermission(ctx context.Context, token, user, persistentId string) erro
 			return err
 		}
 	}
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "GET")
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func noSlashPermissionUrl(ctx context.Context, persistentId, token, user string)
 		Data `json:"data"`
 	}
 	url := config.GetConfig().DataverseServer + fmt.Sprintf("/api/v1/datasets/:persistentId?persistentId=%s", persistentId)
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "GET")
 	if err != nil {
 		return "", err
 	}
@@ -194,7 +194,7 @@ func GetDatasetUrl(pid string, draft bool) string {
 
 func DownloadFile(ctx context.Context, token, user string, id int64) (io.ReadCloser, error) {
 	url := config.GetConfig().DataverseServer + fmt.Sprintf("/api/v1/access/datafile/%v", id)
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "GET")
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func DeleteFile(ctx context.Context, token, user string, id int64) error {
 	}
 
 	url := fmt.Sprintf("%s/api/v1/files/%d", config.GetConfig().DataverseServer, id)
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
+	url, addTokenToHeader, err := signUrl(ctx, url, token, user, "DELETE")
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 			"&dvobject_types=" + objectType +
 			"&published_states=Published&published_states=Unpublished&published_states=Draft" +
 			roleIds + "&mydata_search_term=" + searchTerm
-		url, addTokenToUrl, err := signUrl(ctx, url, token, user)
+		url, addTokenToUrl, err := signUrl(ctx, url, token, user, "GET")
 		if err != nil {
 			return nil, err
 		}
@@ -328,11 +328,11 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 	return res, nil
 }
 
-func signUrl(ctx context.Context, inUrl, token, user string) (string, bool, error) {
+func signUrl(ctx context.Context, inUrl, token, user, method string) (string, bool, error) {
 	if urlSigning != "true" || user == "" {
 		return inUrl, true, nil
 	}
-	jsonString := fmt.Sprintf(`{"url":"%v","timeOut":500,"user":"%v"}`, inUrl, user)
+	jsonString := fmt.Sprintf(`{"url":"%v","timeOut":500,"user":"%v","httpMethod":"%v"}`, inUrl, user, method)
 	url := config.GetConfig().DataverseServer + "/api/v1/admin/requestSignedUrl?unblock-key=" + config.UnblockKey
 	request, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer([]byte(jsonString)))
 	request.Header.Add("X-Dataverse-key", config.ApiKey)
@@ -354,5 +354,6 @@ func signUrl(ctx context.Context, inUrl, token, user string) (string, bool, erro
 	if res.Status != "OK" {
 		return "", false, fmt.Errorf(res.Message)
 	}
+	fmt.Println(res.Data.SignedUrl)
 	return res.Data.SignedUrl, false, nil
 }

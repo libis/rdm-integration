@@ -15,17 +15,11 @@ import (
 
 func swordDelete(ctx context.Context, token, user string, id int64) error {
 	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.GetConfig().DataverseServer, id)
-	url, addTokenToHeader, err := signUrl(ctx, url, token, user)
-	if err != nil {
-		return err
-	}
 	request, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
 		return err
 	}
-	if addTokenToHeader {
-		request.SetBasicAuth(token, "")
-	}
+	request.SetBasicAuth(token, "")
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return err
