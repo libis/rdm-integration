@@ -78,3 +78,7 @@ multiplatform_kul: fmt frontend ## build KUL executable for multiple platforms
 	cd image && env GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_linux.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_darwin_amd64.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=arm64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_darwin_arm64.bin ./app/local/
+
+upgrade_dependencies: ## upgrade all go dependencies
+	cd image && go get -u ./app/...
+	cd image && go mod tidy
