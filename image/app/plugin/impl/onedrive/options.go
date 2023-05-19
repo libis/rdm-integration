@@ -45,7 +45,7 @@ func listFolderGrapthItems(ctx context.Context, params types.OptionsRequest, dri
 	}
 	items, err := listGraphItems(ctx, folder, params.Url+"/drives/"+d.Id+"/root", params.Token, false)
 	if err != nil {
-		return nil, err
+		return nil, nil // errors break the gui dropdown; most likely the path is a folder, not a file
 	}
 	for _, e := range items {
 		if e.IsDir {
