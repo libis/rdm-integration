@@ -67,7 +67,7 @@ func listGraphItems(ctx context.Context, path, url, token string, recursive bool
 		sep = ""
 	}
 	for _, v := range response {
-		isDir := v.File.MimeType == ""
+		isDir := v.File.Hashes.Sha1Hash != "" || v.File.Hashes.Sha256Hash != "" || v.File.Hashes.QuickXorHash != ""
 		id := path + sep + v.Name
 		if recursive && isDir && v.Folder.ChildCount > 0 {
 			folderEntries, err := listGraphItems(ctx, id, url, token, true)
