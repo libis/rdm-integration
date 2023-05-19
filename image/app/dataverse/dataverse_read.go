@@ -354,6 +354,5 @@ func signUrl(ctx context.Context, inUrl, token, user, method string) (string, bo
 	if res.Status != "OK" {
 		return "", false, fmt.Errorf(res.Message)
 	}
-	fmt.Println(res.Data.SignedUrl)
 	return res.Data.SignedUrl, false, nil
 }
