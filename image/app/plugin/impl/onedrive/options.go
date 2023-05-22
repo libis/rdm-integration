@@ -5,6 +5,7 @@ package onedrive
 import (
 	"context"
 	"fmt"
+	"integration/app/logging"
 	"integration/app/plugin/types"
 	"strings"
 )
@@ -44,8 +45,10 @@ func listFolderGrapthItems(ctx context.Context, params types.OptionsRequest, dri
 		}
 	}
 	items, err := listGraphItems(ctx, folder, params.Url+"/drives/"+d.Id+"/root", params.Token, false)
+	res = []types.SelectItem{}
 	if err != nil {
-		return nil, nil // errors break the gui dropdown; most likely the path is a folder, not a file
+		logging.Logger.Printf("onedrive plugin err: %v\n", err)
+		return res, nil // errors break the gui dropdown; most likely the path is a file, not a folder
 	}
 	for _, e := range items {
 		if e.IsDir {
