@@ -39,20 +39,33 @@ func SendMail(msg string, to []string) error {
 }
 
 func getSubjectOnSucces(job Job) string {
-	return fmt.Sprintf("[rdm-integration] Done updating files in dataset %v", job.PersistentId)
+	template := "[rdm-integration] Done uploading files to dataset %v"
+	if config.GetConfig().Options.MailConfig.SubjectOnSucces != "" {
+		template = config.GetConfig().Options.MailConfig.SubjectOnSucces
+	}
+	return fmt.Sprintf(template, job.PersistentId)
 }
 
 func getContentOnSucces(job Job) string {
-	return fmt.Sprintf("All files are updated sucessfuly. You can review the content and edit the metadata in the dataset: "+
-		"<a href=\"%v\">%v</a>.", Destination.GetRepoUrl(job.PersistentId, true), job.PersistentId)
+	template := "All files are updated sucessfuly. You can review the content and edit the metadata in the dataset: <a href=\"%v\">%v</a>."
+	if config.GetConfig().Options.MailConfig.ContentOnSucces != "" {
+		template = config.GetConfig().Options.MailConfig.ContentOnSucces
+	}
+	return fmt.Sprintf(template, Destination.GetRepoUrl(job.PersistentId, true), job.PersistentId)
 }
 
 func getSubjectOnError(_ error, job Job) string {
-	return fmt.Sprintf("[rdm-integration] Failed updating files in dataset %v", job.PersistentId)
+	template := "[rdm-integration] Failed to upload all files to dataset %v"
+	if config.GetConfig().Options.MailConfig.SubjectOnError != "" {
+		template = config.GetConfig().Options.MailConfig.SubjectOnError
+	}
+	return fmt.Sprintf(template, job.PersistentId)
 }
 
 func getContentOnError(errIn error, job Job) string {
-	return fmt.Sprintf("Updating files in dataset <a href=\"%v\">%v</a> has failed with the following error: "+
-		"%v<br><br>Please try again later. If the error persists, contact the helpdesk.",
-		Destination.GetRepoUrl(job.PersistentId, true), job.PersistentId, errIn)
+	template := "Updating files in dataset <a href=\"%v\">%v</a> has failed. Please try again later. If the error persists, contact the helpdesk."
+	if config.GetConfig().Options.MailConfig.ContentOnError != "" {
+		template = config.GetConfig().Options.MailConfig.ContentOnError
+	}
+	return fmt.Sprintf(template, Destination.GetRepoUrl(job.PersistentId, true), job.PersistentId)
 }
