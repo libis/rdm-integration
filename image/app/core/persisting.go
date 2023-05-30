@@ -213,8 +213,21 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 	if len(toAddNodes) > 0 || len(toReplaceNodes) > 0 {
 		logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
-		_, err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
+		var flushed map[string]bool
+		flushed, err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
 		if err != nil {
+			rollback := toAddNodes
+			rollback = append(rollback, toReplaceNodes...)
+			shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
+			defer cancel()
+			for _, rb := range rollback {
+				k := rb.Id
+				if !flushed[k] {
+					out.WritableNodes[k] = rb
+					delete(knownHashes, k)
+					config.GetRedis().Del(shortContext, k)
+				}
+			}
 			return
 		}
 		logging.Logger.Printf("%v: flushed\n", persistentId)
@@ -231,14 +244,15 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	return
 }
 
-func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (res []string, err error) {
+func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (res map[string]bool, err error) {
+	res = make(map[string]bool)
 	if len(toAddNodes) > 0 {
 		err = Destination.SaveAfterDirectUpload(ctx, false, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)
 		if err != nil {
 			return
 		}
 		for _, node := range toAddNodes {
-			res = append(res, node.Id)
+			res[node.Id] = true
 		}
 	}
 	if len(toReplaceNodes) > 0 {
@@ -247,23 +261,23 @@ func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddId
 			return
 		}
 		for _, node := range toReplaceNodes {
-			res = append(res, node.Id)
+			res[node.Id] = true
 		}
 	}
 	return
 }
 
 func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
-	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
-	defer cancel()
-	go cleanRedis(shortContext, writtenKeys)
+	go cleanRedis(writtenKeys)
 	return Destination.CleanupLeftOverFiles(ctx, persistentId, token, user)
 }
 
-func cleanRedis(ctx context.Context, writtenKeys []string) {
+func cleanRedis(writtenKeys []string) {
 	time.Sleep(FileNamesInCacheDuration)
+	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
+	defer cancel()
 	for _, k := range writtenKeys {
-		config.GetRedis().Del(ctx, k)
+		config.GetRedis().Del(shortContext, k)
 	}
 }
 
