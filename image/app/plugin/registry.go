@@ -38,7 +38,7 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 	"irods": {
 		Query:   irods.Query,
 		Options: irods.Options,
-		Search:  nil,
+		Search:  irods.Search,
 		Streams: irods.Streams,
 	},
 	"redcap": {
