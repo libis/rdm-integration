@@ -18,7 +18,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	project := params.RepoName
 	token := params.Token
 	if project == "" || token == "" || base == "" {
-		return nil, fmt.Errorf("branches: missing parameters: expected base, group (optional), project and token, got: %v", params)
+		return nil, fmt.Errorf("branches: missing parameters: expected base, group (optional), project and token")
 	}
 	url := base + "/api/v4/projects/" + url.PathEscape(project) + "/repository/branches"
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)

@@ -17,7 +17,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	project := streamParams.RepoName
 	token := streamParams.Token
 	if project == "" || token == "" || base == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected base, group (optional), project and token, got: %v", streamParams)
+		return nil, fmt.Errorf("streams: missing parameters: expected base, group (optional), project and token")
 	}
 	res := map[string]types.Stream{}
 

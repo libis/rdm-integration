@@ -16,7 +16,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	token := streamParams.Token
 	url := fmt.Sprintf("%s/api/", streamParams.Url)
 	if token == "" || url == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %v", streamParams)
+		return nil, fmt.Errorf("streams: missing parameters: expected url, token")
 	}
 	res := map[string]types.Stream{}
 

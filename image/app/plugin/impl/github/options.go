@@ -23,7 +23,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	}
 	token := params.Token
 	if user == "" || repo == "" || token == "" {
-		return nil, fmt.Errorf("branches: missing parameters: expected user, repo and token, got: %v", params)
+		return nil, fmt.Errorf("branches: missing parameters: expected user, repo and token")
 	}
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},

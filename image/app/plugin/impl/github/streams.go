@@ -24,7 +24,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	}
 	token := streamParams.Token
 	if user == "" || repo == "" || token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected user, repo and token, got: %v", streamParams)
+		return nil, fmt.Errorf("streams: missing parameters: expected user, repo and token")
 	}
 	res := map[string]types.Stream{}
 	ts := oauth2.StaticTokenSource(

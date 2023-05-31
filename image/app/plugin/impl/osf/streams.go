@@ -14,7 +14,7 @@ import (
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
 	token := streamParams.Token
 	if token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected token, got: %v", streamParams)
+		return nil, fmt.Errorf("streams: missing parameters: expected token")
 	}
 	res := map[string]types.Stream{}
 
