@@ -61,12 +61,14 @@ func getVersion() dvVersion {
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		logging.Logger.Println("error when getting version:", err)
-		return ""
+		logging.Logger.Println("using default 5.13 version")
+		return "5.13"
 	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		logging.Logger.Println("error when getting version:", err)
-		return ""
+		logging.Logger.Println("using default 5.13 version")
+		return "5.13"
 	}
 	defer r.Body.Close()
 	b, _ := io.ReadAll(r.Body)
@@ -76,7 +78,12 @@ func getVersion() dvVersion {
 	}
 	json.Unmarshal(b, &res)
 	logging.Logger.Println("Dataverse version:", res.Data.Version)
-	return dvVersion(res.Data.Version)
+	ver := res.Data.Version
+	if ver == "" {
+		logging.Logger.Println("using default 5.13 version")
+		ver = "5.13"
+	}
+	return dvVersion(ver)
 }
 
 func (v1 dvVersion) GreaterOrEqual(v2 string) bool {
