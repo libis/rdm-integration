@@ -42,6 +42,7 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
