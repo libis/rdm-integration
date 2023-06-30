@@ -4,6 +4,7 @@ package plugin
 
 import (
 	"context"
+	"integration/app/plugin/impl/dataverse"
 	"integration/app/plugin/impl/github"
 	"integration/app/plugin/impl/gitlab"
 	"integration/app/plugin/impl/irods"
@@ -58,6 +59,12 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Options: onedrive.Options,
 		Search:  nil,
 		Streams: onedrive.Streams,
+	},
+	"dataverse": {
+		Query:   dataverse.Query,
+		Options: nil,
+		Search:  dataverse.Search,
+		Streams: dataverse.Streams,
 	},
 	"local": {
 		Query:   local.Query,

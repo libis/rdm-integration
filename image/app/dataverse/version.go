@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
+	"integration/app/dataverse/api"
 	"integration/app/logging"
 	"io"
 	"net/http"
@@ -72,7 +73,7 @@ func getVersion() dvVersion {
 	}
 	defer r.Body.Close()
 	b, _ := io.ReadAll(r.Body)
-	res := VersionResponse{}
+	res := api.VersionResponse{}
 	if r.StatusCode != 200 {
 		logging.Logger.Println("error when getting version:", res.Message)
 	}

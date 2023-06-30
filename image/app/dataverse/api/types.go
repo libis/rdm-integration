@@ -1,6 +1,6 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package dataverse
+package api
 
 import (
 	"bytes"
@@ -44,8 +44,13 @@ type VersionData struct {
 }
 
 type AddReplaceFileResponse struct {
-	DvResponse
-	Data AddReplaceFileData `json:"data"`
+	Status  string             `json:"status"`
+	Message Message            `json:"message"`
+	Data    AddReplaceFileData `json:"data"`
+}
+
+type Message struct {
+	Message string `json:"message"`
 }
 
 type AddReplaceFileData struct {
