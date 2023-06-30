@@ -86,7 +86,7 @@
             "id": "demoDataverse",
             "name": "Demo Dataverse",
             "plugin": "dataverse",
-            "pluginName": "Dataverse",
+            "pluginName": "Demo Dataverse",
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "Demo Dataverse token",
             "sourceUrlFieldValue": "https://demo.dataverse.org",
