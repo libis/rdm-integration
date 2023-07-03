@@ -5,9 +5,9 @@ package dataverse
 import (
 	"context"
 	"fmt"
+	"github.com/libis/rdm-dataverse-go-api/api"
 	"integration/app/config"
 	"integration/app/core"
-	"integration/app/dataverse/api"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"

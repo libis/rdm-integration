@@ -4,7 +4,7 @@ package dataverse
 
 import (
 	"fmt"
-	"integration/app/dataverse/api"
+	"github.com/libis/rdm-dataverse-go-api/api"
 )
 
 type Configuration struct {
