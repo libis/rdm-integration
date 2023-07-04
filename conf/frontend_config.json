@@ -152,10 +152,22 @@
             "id": "demoDataverse",
             "name": "Demo Dataverse",
             "plugin": "dataverse",
-            "pluginName": "Demo Dataverse",
+            "pluginName": "Dataverse",
             "tokenFieldName": "Token",
             "tokenFieldPlaceholder": "Demo Dataverse token",
             "sourceUrlFieldValue": "https://demo.dataverse.org",
+            "repoNameFieldName": "Dataset",
+            "repoNameFieldPlaceholder": "Select dataset",
+            "repoNameFieldHasSearch": true
+        },
+        {
+            "id": "pilotDataverse",
+            "name": "Pilot RDR",
+            "plugin": "dataverse",
+            "pluginName": "Dataverse",
+            "tokenFieldName": "Token",
+            "tokenFieldPlaceholder": "Pilot RDR token",
+            "sourceUrlFieldValue": "https://www.rdm.libis.kuleuven.be",
             "repoNameFieldName": "Dataset",
             "repoNameFieldPlaceholder": "Select dataset",
             "repoNameFieldHasSearch": true
