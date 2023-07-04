@@ -118,6 +118,16 @@ func doCompare(req types.CompareRequest, key, user, sessionId string) {
 		return
 	}
 
+	//copy metadata if the source is a Dataverse installation and destination is a newly created dataset
+	if req.Plugin == "dataverse" && req.NewlyCreated {
+		err = copyMetaData(req, user)
+		if err != nil {
+			cachedRes.ErrorMessage = err.Error()
+			common.CacheResponse(cachedRes)
+			return
+		}
+	}
+
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
 	cachedRes.Response.Rejected = rejected

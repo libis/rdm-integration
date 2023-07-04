@@ -23,7 +23,7 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 		"&dvobject_types=Dataset" +
 		"&published_states=Published&published_states=Unpublished&published_states=Draft" +
 		roleIds(params.PluginId) + "&mydata_search_term=" + params.RepoName
-	client, urlSigning := newClient(params.PluginId, params.Url, params.User, params.Token)
+	client, urlSigning := NewClient(params.PluginId, params.Url, params.User, params.Token)
 	if !urlSigning {
 		path = path + "&key=" + params.Token
 	}

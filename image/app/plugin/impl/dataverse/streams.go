@@ -12,7 +12,7 @@ import (
 
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
 	res := map[string]types.Stream{}
-	client, _ := newClient(streamParams.PluginId, streamParams.Url, streamParams.User, streamParams.Token)
+	client, _ := NewClient(streamParams.PluginId, streamParams.Url, streamParams.User, streamParams.Token)
 	for k, v := range in {
 		var reader io.ReadCloser
 		var err error

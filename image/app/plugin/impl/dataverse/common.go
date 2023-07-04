@@ -15,7 +15,7 @@ type Configuration struct {
 
 var Config = map[string]Configuration{}
 
-func newClient(pluginId, server, user, token string) (*api.Client, bool) {
+func NewClient(pluginId, server, user, token string) (*api.Client, bool) {
 	res := api.NewClient(server)
 	res.User = user
 	res.Token = token
