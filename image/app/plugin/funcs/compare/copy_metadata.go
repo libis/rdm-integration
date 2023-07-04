@@ -35,7 +35,7 @@ func getMetadata(ctx context.Context, compareRequest types.CompareRequest, user 
 		return nil, err
 	}
 	if md["status"] != "OK" {
-		return nil, fmt.Errorf("metadata copy failed: get status is %v", md["status"])
+		return nil, fmt.Errorf("metadata copy failed: %v", md["message"])
 	}
 	metadataBlocks := map[string]interface{}{}
 	metadataBlocks["metadataBlocks"] = md["data"].(map[string]interface{})["metadataBlocks"]
@@ -43,15 +43,15 @@ func getMetadata(ctx context.Context, compareRequest types.CompareRequest, user 
 }
 
 func putMetadata(ctx context.Context, compareRequest types.CompareRequest, user string, data []byte) error {
-	to := "/api/v1/datasets/:persistentId/versions/:latest?persistentId=" + compareRequest.PersistentId
-	toReq := dataverse.GetRequest(to, "PUT", user, compareRequest.Token, bytes.NewBuffer(data), api.JsonContentHeader())
+	to := "/api/v1/datasets/:persistentId/versions/:draft?persistentId=" + compareRequest.PersistentId
+	toReq := dataverse.GetRequest(to, "PUT", user, compareRequest.DataverseKey, bytes.NewBuffer(data), api.JsonContentHeader())
 	res := map[string]interface{}{}
 	err := api.Do(ctx, toReq, &res)
 	if err != nil {
 		return err
 	}
 	if res["status"] != "OK" {
-		return fmt.Errorf("metadata copy failed: put status is %v", res["status"])
+		return fmt.Errorf("metadata copy failed: %v", res["message"])
 	}
 	return nil
 }
