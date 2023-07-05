@@ -9,6 +9,7 @@
         "pathToApiKey": "../../rdm-deployment/data/.secrets/api/adminkey",
         "pathToUnblockKey": "../../rdm-deployment/data/.secrets/api/key",
         "pathToOauthSecrets": "../../rdm-deployment/data/datasync/oauth/secrets.json",
-        "maxFileSize": 21474836480
+        "maxFileSize": 21474836480,
+        "PathToDataversePluginsConfig": "../../rdm-deployment/data/datasync/pilot_rdr_secrets.json"
     }
 }
