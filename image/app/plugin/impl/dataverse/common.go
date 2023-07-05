@@ -8,9 +8,9 @@ import (
 )
 
 type Configuration struct {
-	AdminApiKey string
-	UnblockKey  string
-	RoleIds     []int
+	AdminApiKey string `json:"adminApiKey,omitempty"`
+	UnblockKey  string `json:"unblockKey,omitempty"`
+	RoleIds     []int  `json:"roleIds,omitempty"`
 }
 
 var Config = map[string]Configuration{}
