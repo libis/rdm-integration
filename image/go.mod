@@ -7,7 +7,7 @@ require (
 	github.com/go-redis/redis/v9 v9.0.0-rc.2
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/uuid v1.3.0
-	github.com/libis/rdm-dataverse-go-api v1.0.1
+	github.com/libis/rdm-dataverse-go-api v1.0.2
 	golang.org/x/oauth2 v0.8.0
 )
 

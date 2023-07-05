@@ -27,7 +27,7 @@ func copyMetaData(compareRequest types.CompareRequest, user string) error {
 
 func getMetadata(ctx context.Context, compareRequest types.CompareRequest, user string) ([]byte, error) {
 	from := "/api/v1/datasets/:persistentId/versions/:latest?persistentId=" + compareRequest.RepoName
-	fromClient, _ := dv.NewClient(compareRequest.PluginId, compareRequest.Url, user, compareRequest.Token)
+	fromClient := dv.NewClient(compareRequest.PluginId, compareRequest.Url, user, compareRequest.Token)
 	fromRequest := fromClient.NewRequest(from, "GET", nil, nil)
 	md := map[string]interface{}{}
 	err := api.Do(ctx, fromRequest, &md)

@@ -12,7 +12,7 @@ import (
 
 func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
 	path := "/api/v1/datasets/:persistentId/versions/:latest/files?persistentId=" + req.RepoName
-	client, _ := NewClient(req.PluginId, req.Url, req.User, req.Token)
+	client := NewClient(req.PluginId, req.Url, req.User, req.Token)
 	request := client.NewRequest(path, "GET", nil, nil)
 	res := api.ListResponse{}
 	err := api.Do(ctx, request, &res)
