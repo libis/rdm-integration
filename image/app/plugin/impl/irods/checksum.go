@@ -7,9 +7,19 @@ import (
 	"fmt"
 
 	"github.com/cyverse/go-irodsclient/irods/common"
+	"github.com/cyverse/go-irodsclient/irods/connection"
 	"github.com/cyverse/go-irodsclient/irods/message"
 	"github.com/cyverse/go-irodsclient/irods/types"
 )
+
+func (i *IrodsClient) Checksum(irodsPath string) (string, error) {
+	conn, err := i.Session.AcquireConnection()
+	if err != nil {
+		return "", err
+	}
+	defer i.Session.ReturnConnection(conn)
+	return checksum(conn, irodsPath)
+}
 
 type ChecksumRequest message.IRODSMessageDataObjectRequest
 
@@ -40,7 +50,7 @@ func (msg *ChecksumRequest) GetMessage() (*message.IRODSMessage, error) {
 
 // A Response to retrieve from irods.
 type ChecksumResponse struct {
-	checksum string
+	Checksum string
 }
 
 type STRI_PI struct {
@@ -53,23 +63,18 @@ func (c *ChecksumResponse) FromMessage(m *message.IRODSMessage) error {
 	}
 	res := STRI_PI{}
 	err := xml.Unmarshal(m.Body.Message, &res)
-	c.checksum = res.MyStr
+	c.Checksum = res.MyStr
 	return err
 }
 
 func (c *ChecksumResponse) CheckError() error {
-	if len(c.checksum) == 0 {
+	if len(c.Checksum) == 0 {
 		return fmt.Errorf("checksum not present in response message")
 	}
 	return nil
 }
 
-func (i *IrodsClient) Checksum(irodsPath string) (string, error) {
-	conn, err := i.Session.AcquireConnection()
-	if err != nil {
-		return "", err
-	}
-	defer i.Session.ReturnConnection(conn)
+func checksum(conn *connection.IRODSConnection, irodsPath string) (string, error) {
 	metrics := conn.GetMetrics()
 	if metrics != nil {
 		metrics.IncreaseCounterForDataObjectOpen(1)
@@ -97,7 +102,7 @@ func (i *IrodsClient) Checksum(irodsPath string) (string, error) {
 
 	response := ChecksumResponse{}
 
-	err = conn.RequestAndCheck(request, &response, nil)
+	err := conn.RequestAndCheck(request, &response, nil)
 	if err != nil {
 		if types.GetIRODSErrorCode(err) == common.CAT_NO_ROWS_FOUND {
 			return "", types.NewFileNotFoundErrorf("could not find a data object")
@@ -106,5 +111,5 @@ func (i *IrodsClient) Checksum(irodsPath string) (string, error) {
 		return "", err
 	}
 
-	return response.checksum, nil
+	return response.Checksum, nil
 }
