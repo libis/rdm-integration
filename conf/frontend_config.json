@@ -153,8 +153,6 @@
             "name": "Demo Dataverse",
             "plugin": "dataverse",
             "pluginName": "Dataverse",
-            "tokenFieldName": "Token",
-            "tokenFieldPlaceholder": "Demo Dataverse token",
             "sourceUrlFieldValue": "https://demo.dataverse.org",
             "repoNameFieldName": "Dataset",
             "repoNameFieldPlaceholder": "Select dataset",
