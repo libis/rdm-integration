@@ -91,7 +91,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry, nm map[strin
 
 func hash(cl *IrodsClient, folder, path string, nm map[string]tree.Node) (string, string, error) {
 	if _, ok := nm[path]; !ok {
-		return "md5", types.NotNeeded, nil
+		return types.Md5, types.NotNeeded, nil
 	}
 	checksum, err := cl.Checksum(folder + "/" + path)
 	if err != nil {
