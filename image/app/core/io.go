@@ -67,20 +67,21 @@ func generateStorageIdentifier(fileName string) string {
 }
 
 func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
-	if hashType == types.Md5 {
+	lowerHashType := strings.ToLower(hashType)
+	if lowerHashType == strings.ToLower(types.Md5) {
 		hasher = md5.New()
-	} else if hashType == types.SHA1 {
+	} else if lowerHashType == strings.ToLower(types.SHA1) {
 		hasher = sha1.New()
-	} else if hashType == types.SHA256 {
+	} else if lowerHashType == strings.ToLower(types.SHA256) {
 		hasher = sha256.New()
-	} else if hashType == types.SHA512 {
+	} else if lowerHashType == strings.ToLower(types.SHA512) {
 		hasher = sha512.New()
-	} else if hashType == types.GitHash {
+	} else if lowerHashType == strings.ToLower(types.GitHash) {
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
-	} else if hashType == types.QuickXorHash {
+	} else if lowerHashType == strings.ToLower(types.QuickXorHash) {
 		hasher = &QuickXorHash{}
-	} else if hashType == types.FileSize {
+	} else if lowerHashType == strings.ToLower(types.FileSize) {
 		hasher = &FileSizeHash{}
 	} else {
 		err = fmt.Errorf("unsupported hash type: %v", hashType)
