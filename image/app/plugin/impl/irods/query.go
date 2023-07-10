@@ -4,8 +4,6 @@ package irods
 
 import (
 	"context"
-	"encoding/base64"
-	"fmt"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"strings"
@@ -46,19 +44,9 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry, nm map[strin
 			parentId = strings.Join(ancestors[:len(ancestors)-1], "/")
 			fileName = ancestors[len(ancestors)-1]
 		}
-		hashType := ""
-		h := ""
-		var err error
-		if e.CheckSum == "" {
-			hashType, h, err = hash(cl, folder, id, nm)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			hashType, h, err = splitHash(e.CheckSum)
-			if err != nil {
-				return nil, err
-			}
+		hashType, h, err := hash(cl, folder, id, nm)
+		if err != nil {
+			return nil, err
 		}
 		node := tree.Node{
 			Id:   id,
@@ -93,25 +81,5 @@ func hash(cl *IrodsClient, folder, path string, nm map[string]tree.Node) (string
 	if _, ok := nm[path]; !ok {
 		return types.Md5, types.NotNeeded, nil
 	}
-	checksum, err := cl.Checksum(folder + "/" + path)
-	if err != nil {
-		return "", "", err
-	}
-	return splitHash(checksum)
-}
-
-func splitHash(checksum string) (string, string, error) {
-	sp := strings.Split(checksum, ":")
-	if len(sp) != 2 {
-		return "", "", fmt.Errorf("unexpected checksum: %v", string(checksum))
-	}
-	hashType := sp[0]
-	hash, err := base64.StdEncoding.DecodeString(sp[1])
-
-	if hashType == "sha2" && len(hash) == 256/8 {
-		hashType = types.SHA256
-	} else if hashType == "sha2" && len(hash) == 512/8 {
-		hashType = types.SHA512
-	}
-	return hashType, fmt.Sprintf("%x", hash), err
+	return cl.Checksum(folder + "/" + path)
 }
