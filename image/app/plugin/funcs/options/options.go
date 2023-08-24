@@ -19,7 +19,6 @@ func Options(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - bad request"))
-		
 		return
 	}
 
