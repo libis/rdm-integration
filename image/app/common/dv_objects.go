@@ -24,7 +24,7 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		w.Write([]byte("500 - bad request"))
 		return
 	}
 
@@ -32,7 +32,7 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(b, &req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		w.Write([]byte("500 - bad request"))
 		return
 	}
 

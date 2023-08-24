@@ -52,7 +52,7 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		w.Write([]byte("500 - bad request"))
 		return
 	}
 
@@ -60,7 +60,7 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(b, &key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		w.Write([]byte("500 - bad request"))
 		return
 	}
 
@@ -98,13 +98,13 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		w.Write([]byte("500 - bad request"))
 		return
 	}
 	err = json.Unmarshal(b, &req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		w.Write([]byte("500 - bad request"))
 		return
 	}
 
