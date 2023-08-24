@@ -124,11 +124,6 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	//compare and write response
 	user := core.GetUserFromHeader(r.Header)
 	res := core.Compare(r.Context(), nm, req.PersistentId, req.DataverseKey, user, false)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
 	b, err = json.Marshal(res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
