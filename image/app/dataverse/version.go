@@ -18,6 +18,7 @@ import (
 type dvVersion string
 
 var version dvVersion
+var defaultVersion dvVersion = "5.14"
 
 var filesCleanup = "5.13"
 var urlSigning = "5.14"
@@ -62,14 +63,14 @@ func getVersion() dvVersion {
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		logging.Logger.Println("error when getting version:", err)
-		logging.Logger.Println("using default 5.13 version")
-		return "5.13"
+		logging.Logger.Println("using default " + defaultVersion + " version")
+		return defaultVersion
 	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		logging.Logger.Println("error when getting version:", err)
-		logging.Logger.Println("using default 5.13 version")
-		return "5.13"
+		logging.Logger.Println("using default " + defaultVersion + " version")
+		return defaultVersion
 	}
 	defer r.Body.Close()
 	b, _ := io.ReadAll(r.Body)
@@ -81,8 +82,8 @@ func getVersion() dvVersion {
 	logging.Logger.Println("Dataverse version:", res.Data.Version)
 	ver := res.Data.Version
 	if ver == "" {
-		logging.Logger.Println("using default 5.13 version")
-		ver = "5.13"
+		logging.Logger.Println("using default " + defaultVersion + " version")
+		ver = string(defaultVersion)
 	}
 	return dvVersion(ver)
 }
