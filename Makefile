@@ -5,6 +5,7 @@ BASE_HREF ?= /integration/
 
 include env.$(STAGE)
 include .env
+-include ../rdm-deployment/data/datasync/aws/aws.env
 export
 
 .SILENT:
