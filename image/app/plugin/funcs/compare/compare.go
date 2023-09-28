@@ -14,10 +14,15 @@ import (
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var fileNameR, _ = regexp.Compile(`^[^:<>;#"\/\*\|\?\\]*$`)
+var folderNameR, _ = regexp.Compile(`^[a-zA-Z0-9_\.\/\- ]*$`)
 
 func Compare(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
@@ -94,6 +99,13 @@ func doCompare(req types.CompareRequest, key, user, sessionId string) {
 		if maxFileSize > 0 && v.Attributes.RemoteFilesize > maxFileSize {
 			delete(repoNm, k)
 			rejected = append(rejected, v.Id)
+		} else if strings.HasPrefix(v.Path, ".") || strings.HasPrefix(v.Name, ".") {
+			delete(repoNm, k)
+		} else if !fileNameR.MatchString(v.Name) || !folderNameR.MatchString(v.Path) {
+			delete(repoNm, k)
+			rejected = append(rejected, v.Id)
+		} else if len(strings.TrimSpace(v.Name)) == 0 {
+			delete(repoNm, k)
 		}
 	}
 	nm = core.MergeNodeMaps(nm, repoNm)
