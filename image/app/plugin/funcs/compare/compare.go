@@ -22,7 +22,7 @@ import (
 )
 
 var fileNameR, _ = regexp.Compile(`^[^:<>;#"\/\*\|\?\\]*$`)
-var folderNameR, _ = regexp.Compile(`^[a-zA-Z0-9_\.\/\- ]*$`)
+var folderNameR, _ = regexp.Compile(`^[a-zA-Z0-9_\.\/\- \\]*$`)
 
 func Compare(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
