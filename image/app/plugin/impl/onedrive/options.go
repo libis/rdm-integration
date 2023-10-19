@@ -14,8 +14,9 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	if params.Url == "" || params.Token == "" {
 		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %+v", params)
 	}
-	drives, err := getResponse(ctx, params.Url+"/me/followedSites", params.Token)
+	drives, err := getResponse(ctx, params.Url+"/me/drives", params.Token)
 	/*
+	    drives, err := getResponse(ctx, params.Url+"/me/followedSites", params.Token)//500 - accessDenied: This operation is not supported with the provided scopes
 		drives, err = getResponse(ctx, params.Url+"/sites/kuleuven.sharepoint.com:/sites/LiriasRDM-RDR-BIBandLIBIS:/sites", params.Token)
 		fmt.Printf("/sites/kuleuven.sharepoint.com:/sites/LiriasRDM-RDR-BIBandLIBIS:/sites - %+v - %v\n\n", drives, err)
 		drives, err = getResponse(ctx, params.Url+"/sites/kuleuven.sharepoint.com:/sites/LiriasRDM-RDR-BIBandLIBIS:/Shared Documents", params.Token)
