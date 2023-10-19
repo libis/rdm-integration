@@ -15,6 +15,12 @@ import (
 type Response struct {
 	Value []GraphItem `json:"value"`
 	Next  string      `json:"@odata.nextLink"`
+	Error Error       `json:"error"`
+}
+
+type Error struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 type GraphItem struct {
@@ -138,5 +144,9 @@ func getParialResponse(ctx context.Context, url string, token string) (Response,
 	if err != nil {
 		return Response{}, fmt.Errorf(string(b))
 	}
+	if response.Error.Message != "" {
+		return response, fmt.Errorf("%v: %v", response.Error.Code, response.Error.Message)
+	}
+	response.Next = ""
 	return response, nil
 }
