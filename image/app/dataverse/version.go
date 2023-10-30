@@ -22,7 +22,7 @@ var defaultVersion dvVersion = "5.14"
 
 var filesCleanup = "5.13"
 var urlSigning = "5.14"
-var directUpload = "https://github.com/IQSS/dataverse/pull/9003"       // will be replaced with verion when pull request is merged
+var directUpload = "6.1"
 var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be replaced with verion when pull request is merged
 var nativeApiDelete = "5.14"
 
