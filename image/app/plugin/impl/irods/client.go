@@ -14,10 +14,13 @@ import (
 	"time"
 
 	"github.com/cyverse/go-irodsclient/fs"
-	"github.com/cyverse/go-irodsclient/irods/connection"
-	irods_fs "github.com/cyverse/go-irodsclient/irods/fs"
 	"github.com/cyverse/go-irodsclient/irods/session"
 	"github.com/cyverse/go-irodsclient/irods/types"
+)
+
+const (
+	ClientProgramName  string        = "iRODS_Go_RDR"
+	connectionLifespan time.Duration = 168 * time.Hour
 )
 
 type IrodsClient struct {
@@ -67,32 +70,6 @@ type IrodsEnvironment struct {
 	Cwd                     string `json:"irods_cwd"`
 }
 
-type fileReader struct {
-	handle  *types.IRODSFileHandle
-	conn    *connection.IRODSConnection
-	session *session.IRODSSession
-}
-
-var fileSystemConfig = &fs.FileSystemConfig{
-	ApplicationName:       "iRODS_Go_RDR",
-	CacheTimeout:          2 * time.Minute,
-	CacheCleanupTime:      2 * time.Minute,
-	ConnectionMax:         1,
-	ConnectionIdleTimeout: 2 * time.Minute,
-	OperationTimeout:      48 * time.Hour,
-}
-
-var sessionConfig = &session.IRODSSessionConfig{
-	ApplicationName:       "iRODS_Go_RDR",
-	ConnectionLifespan:    48 * time.Hour,
-	OperationTimeout:      48 * time.Hour,
-	ConnectionIdleTimeout: 2 * time.Minute,
-	ConnectionMax:         1,
-	ConnectionInitNumber:  1,
-	ConnectionMaxIdle:     1,
-	StartNewTransaction:   true,
-}
-
 var serverMap = map[string]Server{
 	"PAM://ghum.irods.icts.kuleuven.be:1247": {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "PAM", Port: 1247},
 	"default":                                {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "PAM", Port: 1247},
@@ -139,13 +116,18 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		return nil, err
 	}
 
+	sessionConfig := session.NewIRODSSessionConfigWithDefault(ClientProgramName)
 	i.Session, err = session.NewIRODSSession(account, sessionConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	i.FileSystem, err = fs.NewFileSystem(account, fileSystemConfig)
+	fsConfig := fs.NewFileSystemConfig(ClientProgramName, fs.FileSystemConnectionErrorTimeoutDefault, fs.FileSystemConnectionInitNumberDefault, connectionLifespan,
+		connectionLifespan, fs.FileSystemTimeoutDefault, fs.FileSystemConnectionMaxDefault, fs.FileSystemTCPBufferSizeDefault,
+		fs.FileSystemTimeoutDefault, fs.FileSystemTimeoutDefault, []fs.MetadataCacheTimeoutSetting{}, true, true)
+	i.FileSystem, err = fs.NewFileSystem(account, fsConfig)
 	if err != nil {
+		i.Session.Release()
 		return nil, err
 	}
 
@@ -190,23 +172,9 @@ func (i *IrodsClient) Close() {
 
 func (i *IrodsClient) StreamFile(irodsPath string) (io.ReadCloser, error) {
 	if i.FileSystem.ExistsFile(irodsPath) {
-		conn, err := i.Session.AcquireConnection()
-		if err != nil {
-			return nil, err
-		}
-		handle, _, err := irods_fs.OpenDataObject(conn, irodsPath, "", "r")
-		return &fileReader{handle, conn, i.Session}, err
+		return i.FileSystem.OpenFile(irodsPath, "", "r")
 	}
 	return nil, errors.New("file not found")
-}
-
-func (fr *fileReader) Read(bytes []byte) (n int, err error) {
-	n, err = irods_fs.ReadDataObject(fr.conn, fr.handle, bytes)
-	return
-}
-
-func (fr *fileReader) Close() error {
-	return fr.session.ReturnConnection(fr.conn)
 }
 
 func getConnectionInfo(zone, token string) (ConnectionInfo, error) {
