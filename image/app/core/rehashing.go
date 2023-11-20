@@ -10,6 +10,7 @@ import (
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"sync"
 )
 
 type calculatedHashes struct {
@@ -107,6 +108,24 @@ func storeKnownHashes(ctx context.Context, persistentId string, knownHashes map[
 		return
 	}
 	config.GetRedis().Set(shortContext, "hashes: "+persistentId, string(knownHashesJson), 0)
+}
+
+var hashesMutex = sync.Mutex{}
+
+func putKnownHash(ctx context.Context, persistentId string, key string, value calculatedHashes) {
+	hashesMutex.Lock()
+	defer hashesMutex.Unlock()
+	hashes := getKnownHashes(ctx, persistentId)
+	hashes[key] = value
+	storeKnownHashes(ctx, persistentId, hashes)
+}
+
+func deleteKnownHash(ctx context.Context, persistentId string, key string) {
+	hashesMutex.Lock()
+	defer hashesMutex.Unlock()
+	hashes := getKnownHashes(ctx, persistentId)
+	delete(hashes, key)
+	storeKnownHashes(ctx, persistentId, hashes)
 }
 
 func invalidateKnownHashes(ctx context.Context, persistentId string) {

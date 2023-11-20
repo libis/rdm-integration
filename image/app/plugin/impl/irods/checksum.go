@@ -21,6 +21,12 @@ func (i *IrodsClient) Checksum(irodsPath string) (string, string, error) {
 		return "", "", err
 	}
 	hashType := strings.ToUpper(string(cs.Algorithm))
+	if hashType == "SHA-256" {
+		hashType = types.SHA256
+	}
+	if hashType == "SHA-512" {
+		hashType = types.SHA512
+	}
 	if hashType != types.Md5 && hashType != types.SHA256 && hashType != types.SHA512 {
 		return "", "", fmt.Errorf("unknown hash type: %v", hashType)
 	}

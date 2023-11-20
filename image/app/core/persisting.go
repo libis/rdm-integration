@@ -10,6 +10,7 @@ import (
 	"integration/app/plugin/funcs/stream"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"sync"
 	"time"
 )
 
@@ -35,18 +36,77 @@ func doWork(job Job) (Job, error) {
 	if err != nil {
 		return job, err
 	}
-	knownHashes := getKnownHashes(ctx, job.PersistentId)
 	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
-	writableNodes, err := filterRedundant(ctx, job, knownHashes)
+	writableNodes, err := filterRedundant(ctx, job)
 	if err != nil {
 		return job, err
 	}
-	job.WritableNodes = writableNodes
-	j, err := doPersistNodeMap(ctx, streams, job, knownHashes)
-	if err != nil {
-		return j, err
+
+	writableNodesSlice := splitInMultipleNodeMaps(writableNodes)
+	notPersisted := map[string]tree.Node{}
+	writtenKeys := &[]string{}
+	mutex := &sync.Mutex{}
+	wg := &sync.WaitGroup{}
+	for _, w := range writableNodesSlice {
+		wg.Add(1)
+		go doPersistNodeMapAsync(ctx, mutex, job, w, streams, writtenKeys, notPersisted, &err, wg)
 	}
-	return j, sendJobSuccesMail(j)
+	wg.Wait()
+	job.WritableNodes = notPersisted
+	if err != nil {
+		return job, err
+	}
+
+	*writtenKeys = append(*writtenKeys, fmt.Sprintf("error %v", job.PersistentId))
+	err = cleanup(ctx, job.DataverseKey, job.User, job.PersistentId, *writtenKeys)
+	if err != nil {
+		return job, err
+	}
+
+	return job, sendJobSuccesMail(job)
+}
+
+func doPersistNodeMapAsync(ctx context.Context, mutex *sync.Mutex, job Job, w map[string]tree.Node, streams map[string]types.Stream, writtenKeys *[]string, notPersisted map[string]tree.Node, err *error, wg *sync.WaitGroup) {
+	job.WritableNodes = w
+	np, wk, e := doPersistNodeMap(ctx, streams, job)
+	mutex.Lock()
+	defer mutex.Unlock()
+	*writtenKeys = append(*writtenKeys, wk...)
+	for k, v := range np {
+		notPersisted[k] = v
+	}
+	if e != nil {
+		*err = e
+	}
+	wg.Done()
+}
+
+func splitInMultipleNodeMaps(writableNodes map[string]tree.Node) (res []map[string]tree.Node) {
+	if !Destination.IsDirectUpload() {
+		return []map[string]tree.Node{writableNodes}
+	}
+	slice := []string{}
+	for k := range writableNodes {
+		slice = append(slice, k)
+	}
+	chunk := len(writableNodes) / config.GetNbSubTasks()
+	if chunk == 0 {
+		chunk = 1
+	}
+
+	for i := 0; i < len(slice); i += chunk {
+		end := i + chunk
+		if end > len(slice) {
+			end = len(slice)
+		}
+		m := map[string]tree.Node{}
+		for _, key := range slice[i:end] {
+			m[key] = writableNodes[key]
+		}
+		res = append(res, m)
+	}
+
+	return
 }
 
 func sendJobFailedMail(errIn error, job Job) error {
@@ -85,9 +145,10 @@ func sendJobSuccesMail(job Job) error {
 	return nil
 }
 
-func filterRedundant(ctx context.Context, job Job, knownHashes map[string]calculatedHashes) (map[string]tree.Node, error) {
+func filterRedundant(ctx context.Context, job Job) (map[string]tree.Node, error) {
 	filteredEqual := map[string]tree.Node{}
 	isDelete := false
+	knownHashes := getKnownHashes(ctx, job.PersistentId)
 	for k, v := range job.WritableNodes {
 		localHash := knownHashes[k].LocalHashValue
 		h, ok := knownHashes[k].RemoteHashes[v.Attributes.RemoteHashType]
@@ -116,18 +177,17 @@ func filterRedundant(ctx context.Context, job Job, knownHashes map[string]calcul
 	return res, nil
 }
 
-func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in Job, knownHashes map[string]calculatedHashes) (out Job, err error) {
+func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in Job) (notPersisted map[string]tree.Node, writtenKeys []string, err error) {
 	dataverseKey, user, persistentId, writableNodes := in.DataverseKey, in.User, in.PersistentId, in.WritableNodes
 	err = Destination.CheckPermission(ctx, dataverseKey, user, persistentId)
 	if err != nil {
 		return
 	}
-	defer storeKnownHashes(ctx, persistentId, knownHashes)
 
-	out = in
+	notPersisted = in.WritableNodes
 	i := 0
 	total := len(writableNodes)
-	writtenKeys := []string{}
+	writtenKeys = []string{}
 	toAddIdentifiers := []string{}
 	toAddNodes := []tree.Node{}
 	toReplaceIdentifiers := []string{}
@@ -142,7 +202,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 		i++
 		if i%10 == 0 && i < total {
-			storeKnownHashes(ctx, persistentId, knownHashes) //if we have many files to hash -> polling at the gui is happier to see some progress
 			logging.Logger.Printf("%v: processed %v/%v\n", persistentId, i, total)
 		}
 
@@ -152,8 +211,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			if err != nil {
 				return
 			}
-			delete(knownHashes, v.Id)
-			delete(out.WritableNodes, k)
+			deleteKnownHash(ctx, persistentId, v.Id)
+			delete(notPersisted, k)
 			config.GetRedis().Set(ctx, redisKey, types.Deleted, FileNamesInCacheDuration)
 			writtenKeys = append(writtenKeys, redisKey)
 			continue
@@ -179,11 +238,11 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		v.Attributes.DestinationFile.Filesize = size
 
 		//updated or new: always rehash
-		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
+		remoteHashValue := fmt.Sprintf("%x", remoteH)
 		if remoteHashType == types.GitHash {
-			remoteHashVlaue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
+			remoteHashValue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
 		}
-		if v.Attributes.RemoteHash != remoteHashVlaue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
+		if v.Attributes.RemoteHash != remoteHashValue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
 			err = fmt.Errorf("downloaded file hash not equal")
 			return
 		}
@@ -198,17 +257,18 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			}
 		}
 
-		if hashValue != remoteHashVlaue {
-			knownHashes[v.Id] = calculatedHashes{
+		if hashValue != remoteHashValue {
+			calculatedHash := calculatedHashes{
 				LocalHashType:  hashType,
 				LocalHashValue: hashValue,
-				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
+				RemoteHashes:   map[string]string{remoteHashType: remoteHashValue},
 			}
+			putKnownHash(ctx, persistentId, v.Id, calculatedHash)
 		}
 		config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
 		writtenKeys = append(writtenKeys, redisKey)
 
-		delete(out.WritableNodes, k)
+		delete(notPersisted, k)
 	}
 
 	if len(toAddNodes) > 0 || len(toReplaceNodes) > 0 {
@@ -223,8 +283,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			for _, rb := range rollback {
 				k := rb.Id
 				if !flushed[k] {
-					out.WritableNodes[k] = rb
-					delete(knownHashes, k)
+					notPersisted[k] = rb
+					deleteKnownHash(shortContext, persistentId, k)
 					config.GetRedis().Del(shortContext, k)
 				}
 			}
@@ -238,13 +298,15 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = ctx.Err()
 		return
 	default:
-		writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
-		err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
 	}
 	return
 }
 
+var flashMutex = sync.Mutex{}
+
 func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (res map[string]bool, err error) {
+	flashMutex.Lock()
+	defer flashMutex.Unlock()
 	res = make(map[string]bool)
 	if len(toAddNodes) > 0 {
 		err = Destination.SaveAfterDirectUpload(ctx, false, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)

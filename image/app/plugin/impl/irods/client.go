@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"integration/app/config"
 	"io"
 	"net/http"
 	"strconv"
@@ -123,7 +124,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	}
 
 	fsConfig := fs.NewFileSystemConfig(ClientProgramName, fs.FileSystemConnectionErrorTimeoutDefault, fs.FileSystemConnectionInitNumberDefault, connectionLifespan,
-		connectionLifespan, fs.FileSystemTimeoutDefault, fs.FileSystemConnectionMaxDefault, fs.FileSystemTCPBufferSizeDefault,
+		connectionLifespan, fs.FileSystemTimeoutDefault, config.GetNbSubTasks()+2, fs.FileSystemTCPBufferSizeDefault,
 		fs.FileSystemTimeoutDefault, fs.FileSystemTimeoutDefault, []fs.MetadataCacheTimeoutSetting{}, true, true)
 	i.FileSystem, err = fs.NewFileSystem(account, fsConfig)
 	if err != nil {
@@ -170,11 +171,45 @@ func (i *IrodsClient) Close() {
 	i.Session.Release()
 }
 
+type fileReader struct {
+	handle *fs.FileHandle
+	buffer []byte
+	i      int
+	n      int
+	err    error
+}
+
 func (i *IrodsClient) StreamFile(irodsPath string) (io.ReadCloser, error) {
 	if i.FileSystem.ExistsFile(irodsPath) {
-		return i.FileSystem.OpenFile(irodsPath, "", "r")
+		handle, err := i.FileSystem.OpenFile(irodsPath, "", "r")
+		return &fileReader{handle, make([]byte, fs.FileSystemTCPBufferSizeDefault), 0, 0, nil}, err
 	}
 	return nil, errors.New("file not found")
+}
+
+func (fr *fileReader) Read(bytes []byte) (int, error) {
+	if fr.n == 0 {
+		fr.n, fr.err = fr.handle.Read(fr.buffer)
+		if fr.err != nil && fr.err != io.EOF {
+			return 0, fr.err
+		}
+	}
+	toCopy := fr.n - fr.i
+	if toCopy > len(bytes) {
+		toCopy = len(bytes)
+	}
+	n := copy(bytes, fr.buffer[fr.i:fr.i+toCopy])
+	fr.i = fr.i + n
+	if fr.i == fr.n {
+		fr.i = 0
+		fr.n = 0
+		return n, fr.err
+	}
+	return n, nil
+}
+
+func (fr *fileReader) Close() error {
+	return fr.handle.Close()
 }
 
 func getConnectionInfo(zone, token string) (ConnectionInfo, error) {
