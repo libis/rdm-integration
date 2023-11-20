@@ -42,8 +42,14 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 				return reader, irodsErr
 			},
 			Close: func() error {
+				if reader == nil {
+					return fmt.Errorf("iRods reader is nil, close not possible")
+				}
 				closeErr := reader.Close()
 				cl.Close()
+				if cl == nil {
+					return fmt.Errorf("iRods client is nil, close not possible")
+				}
 				return closeErr
 			},
 		}

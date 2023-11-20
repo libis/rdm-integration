@@ -105,10 +105,10 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 		return nil, nil, 0, err
 	}
 	readStream, err := fileStream.Open()
-	defer fileStream.Close()
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	defer fileStream.Close()
 	reader := hashingReader{readStream, hasher}
 	reader = hashingReader{reader, sizeHasher}
 	reader = hashingReader{reader, remoteHasher}
@@ -139,7 +139,7 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 		uploader := s3manager.NewUploader(sess)
 		uploader.PartSize = 1024 * 1024 * 1024
 		uploader.MaxUploadParts = 1000
-		uploader.Concurrency = 10
+		uploader.Concurrency = 2
 		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 			Bucket: aws.String(s.bucket),
 			Key:    aws.String(pid + "/" + s.filename),
