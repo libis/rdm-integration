@@ -88,7 +88,6 @@ var redisPassword = "" // will be read from pathToRedisPassword
 var SmtpPassword = ""  // will be read from pathToSmtpPassword
 var AllowQuit = false
 var LockMaxDuration = 24 * time.Hour
-var nbSubTasks = 10
 
 func init() {
 	// read configuration
@@ -226,8 +225,4 @@ func GetExternalDestinationURL() string {
 		return config.Options.DataverseExternalUrl
 	}
 	return config.DataverseServer
-}
-
-func GetNbSubTasks() int {
-	return nbSubTasks
 }

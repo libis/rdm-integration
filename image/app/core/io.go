@@ -137,6 +137,9 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 			return nil, nil, 0, err
 		}
 		uploader := s3manager.NewUploader(sess)
+		uploader.PartSize = 1024 * 1024 * 1024
+		uploader.MaxUploadParts = 1000
+		uploader.Concurrency = 10
 		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 			Bucket: aws.String(s.bucket),
 			Key:    aws.String(pid + "/" + s.filename),
