@@ -161,9 +161,8 @@ func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) (
 	if !ok {
 		return token, false
 	}
-	//expired := time.Now().After(res.Issued.Add(time.Duration((res.ExpiresIn-5))*time.Second))
+	expired := time.Now().After(res.Issued.Add(time.Duration((res.ExpiresIn-5))*time.Second))
 	ok = true
-	expired := true
 	if expired {
 		_, err := GetOauthToken(ctx, pluginId, "", res.RefreshToken, sessionId)
 		if err != nil {
