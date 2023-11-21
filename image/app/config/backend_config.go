@@ -87,7 +87,7 @@ var UnblockKey = ""    // will be read from pathToUnblockKey
 var redisPassword = "" // will be read from pathToRedisPassword
 var SmtpPassword = ""  // will be read from pathToSmtpPassword
 var AllowQuit = false
-var LockMaxDuration = 24 * time.Hour
+var LockMaxDuration = 168 * time.Hour
 
 func init() {
 	// read configuration
