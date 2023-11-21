@@ -131,10 +131,11 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	i := 0
 	total := len(writableNodes)
 	writtenKeys := []string{}
-	toAddIdentifiers := []string{}
-	toAddNodes := []tree.Node{}
-	toReplaceIdentifiers := []string{}
-	toReplaceNodes := []tree.Node{}
+	toAddIdentifiers := &[]string{}
+	toAddNodes := &[]tree.Node{}
+	toReplaceIdentifiers := &[]string{}
+	toReplaceNodes := &[]tree.Node{}
+	defer doFlush(ctx, toAddNodes, toReplaceNodes, &out, knownHashes, toAddIdentifiers, toReplaceIdentifiers)
 
 	for k, v := range writableNodes {
 		select {
@@ -193,11 +194,11 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		if Destination.IsDirectUpload() {
 			if v.Attributes.DestinationFile.Id != 0 {
-				toReplaceIdentifiers = append(toReplaceIdentifiers, storageIdentifier)
-				toReplaceNodes = append(toReplaceNodes, v)
+				*toReplaceIdentifiers = append(*toReplaceIdentifiers, storageIdentifier)
+				*toReplaceNodes = append(*toReplaceNodes, v)
 			} else {
-				toAddIdentifiers = append(toAddIdentifiers, storageIdentifier)
-				toAddNodes = append(toAddNodes, v)
+				*toAddIdentifiers = append(*toAddIdentifiers, storageIdentifier)
+				*toAddNodes = append(*toAddNodes, v)
 			}
 		}
 
@@ -214,28 +215,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		delete(out.WritableNodes, k)
 	}
 
-	if len(toAddNodes) > 0 || len(toReplaceNodes) > 0 {
-		logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", persistentId, len(toAddNodes), len(toReplaceNodes))
-		var flushed map[string]bool
-		flushed, err = flush(ctx, dataverseKey, user, persistentId, toAddIdentifiers, toReplaceIdentifiers, toAddNodes, toReplaceNodes)
-		if err != nil {
-			rollback := toAddNodes
-			rollback = append(rollback, toReplaceNodes...)
-			shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
-			defer cancel()
-			for _, rb := range rollback {
-				k := rb.Id
-				if !flushed[k] {
-					out.WritableNodes[k] = rb
-					delete(knownHashes, k)
-					config.GetRedis().Del(shortContext, k)
-				}
-			}
-			return
-		}
-		logging.Logger.Printf("%v: flushed\n", persistentId)
-	}
-
 	select {
 	case <-ctx.Done():
 		err = ctx.Err()
@@ -245,6 +224,32 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
 	}
 	return
+}
+
+func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tree.Node, job *Job, knownHashes map[string]calculatedHashes, toAddIdentifiers, toReplaceIdentifiers *[]string) {
+	if len(*toAddNodes) > 0 || len(*toReplaceNodes) > 0 {
+		logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", job.PersistentId, len(*toAddNodes), len(*toReplaceNodes))
+		flushed, err := flush(ctx, job.DataverseKey, job.User, job.PersistentId, *toAddIdentifiers, *toReplaceIdentifiers, *toAddNodes, *toReplaceNodes)
+		if err != nil {
+			rollback := *toAddNodes
+			rollback = append(rollback, *toReplaceNodes...)
+			shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
+			defer cancel()
+			for _, rb := range rollback {
+				k := rb.Id
+				if !flushed[k] {
+					job.WritableNodes[k] = rb
+					delete(knownHashes, k)
+					config.GetRedis().Del(shortContext, k)
+				}
+			}
+		}
+		*toAddNodes = []tree.Node{}
+		*toAddIdentifiers = []string{}
+		*toReplaceNodes = []tree.Node{}
+		*toReplaceIdentifiers = []string{}
+		logging.Logger.Printf("%v: flushed\n", job.PersistentId)
+	}
 }
 
 func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (res map[string]bool, err error) {
