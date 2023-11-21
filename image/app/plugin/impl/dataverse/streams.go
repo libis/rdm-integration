@@ -10,7 +10,7 @@ import (
 	"io"
 )
 
-func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
+func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
 	res := map[string]types.Stream{}
 	client := NewClient(streamParams.PluginId, streamParams.Url, streamParams.User, streamParams.Token)
 	for k, v := range in {
@@ -27,5 +27,5 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			},
 		}
 	}
-	return res, nil
+	return types.StreamsType{Streams: res, Cleanup: nil}, nil
 }

@@ -35,6 +35,9 @@ func doWork(job Job) (Job, error) {
 	if err != nil {
 		return job, err
 	}
+	if streams.Cleanup != nil {
+		defer streams.Cleanup()
+	}
 	knownHashes := getKnownHashes(ctx, job.PersistentId)
 	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
 	writableNodes, err := filterRedundant(ctx, job, knownHashes)
@@ -42,7 +45,7 @@ func doWork(job Job) (Job, error) {
 		return job, err
 	}
 	job.WritableNodes = writableNodes
-	j, err := doPersistNodeMap(ctx, streams, job, knownHashes)
+	j, err := doPersistNodeMap(ctx, streams.Streams, job, knownHashes)
 	if err != nil {
 		return j, err
 	}

@@ -20,7 +20,7 @@ type Plugin struct {
 	Query   func(ctx context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error)
 	Options func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
 	Search  func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
-	Streams func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error)
+	Streams func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error)
 }
 
 var pluginMap map[string]Plugin = map[string]Plugin{

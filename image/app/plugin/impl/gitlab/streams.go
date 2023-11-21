@@ -12,12 +12,12 @@ import (
 	"net/url"
 )
 
-func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
+func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
 	base := streamParams.Url
 	project := streamParams.RepoName
 	token := streamParams.Token
 	if project == "" || token == "" || base == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected base, group (optional), project and token")
+		return types.StreamsType{}, fmt.Errorf("streams: missing parameters: expected base, group (optional), project and token")
 	}
 	res := map[string]types.Stream{}
 
@@ -27,12 +27,12 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			continue
 		}
 		if sha == "" {
-			return nil, fmt.Errorf("streams: sha not found")
+			return types.StreamsType{}, fmt.Errorf("streams: sha not found")
 		}
 		url := base + "/api/v4/projects/" + url.PathEscape(project) + "/repository/blobs/" + sha + "/raw"
 		request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
-			return nil, err
+			return types.StreamsType{}, err
 		}
 		request.Header.Add("Authorization", "Bearer "+token)
 		var r *http.Response
@@ -55,5 +55,5 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			},
 		}
 	}
-	return res, nil
+	return types.StreamsType{Streams: res, Cleanup: nil}, nil
 }

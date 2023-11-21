@@ -8,3 +8,8 @@ type Stream struct {
 	Open  func() (io.Reader, error)
 	Close func() error
 }
+
+type StreamsType struct {
+	Streams map[string]Stream
+	Cleanup func() error
+}

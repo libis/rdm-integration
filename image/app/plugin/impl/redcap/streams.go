@@ -12,11 +12,11 @@ import (
 	"strconv"
 )
 
-func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
+func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
 	token := streamParams.Token
 	url := fmt.Sprintf("%s/api/", streamParams.Url)
 	if token == "" || url == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected url, token")
+		return types.StreamsType{}, fmt.Errorf("streams: missing parameters: expected url, token")
 	}
 	res := map[string]types.Stream{}
 
@@ -31,7 +31,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		}
 		request, err := http.NewRequestWithContext(ctx, "POST", url, encode(data))
 		if err != nil {
-			return nil, err
+			return types.StreamsType{}, err
 		}
 		request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		request.Header.Add("Accept", "application/json")
@@ -55,5 +55,5 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			},
 		}
 	}
-	return res, nil
+	return types.StreamsType{Streams: res, Cleanup: nil}, nil
 }

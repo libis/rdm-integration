@@ -117,6 +117,8 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	}
 
 	sessionConfig := session.NewIRODSSessionConfigWithDefault(ClientProgramName)
+	sessionConfig.ConnectionLifespan = connectionLifespan
+	sessionConfig.OperationTimeout = connectionLifespan
 	i.Session, err = session.NewIRODSSession(account, sessionConfig)
 	if err != nil {
 		return nil, err
@@ -165,9 +167,10 @@ func getServer(server string) Server {
 	return d
 }
 
-func (i *IrodsClient) Close() {
+func (i *IrodsClient) Close() error {
 	i.FileSystem.Release()
 	i.Session.Release()
+	return nil
 }
 
 func (i *IrodsClient) StreamFile(irodsPath string) (io.ReadCloser, error) {

@@ -14,7 +14,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
+func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
 	user := ""
 	repo := ""
 	splitted := strings.Split(streamParams.RepoName, "/")
@@ -24,7 +24,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	}
 	token := streamParams.Token
 	if user == "" || repo == "" || token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected user, repo and token")
+		return types.StreamsType{}, fmt.Errorf("streams: missing parameters: expected user, repo and token")
 	}
 	res := map[string]types.Stream{}
 	ts := oauth2.StaticTokenSource(
@@ -40,7 +40,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			continue
 		}
 		if sha == "" {
-			return nil, fmt.Errorf("streams: sha not found")
+			return types.StreamsType{}, fmt.Errorf("streams: sha not found")
 		}
 		var gitErr error
 		var err error
@@ -57,7 +57,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			},
 		}
 	}
-	return res, nil
+	return types.StreamsType{Streams: res, Cleanup: nil}, nil
 }
 
 func GetBlobRaw(client *github.Client, ctx context.Context, owner, repo, sha string, err error) (io.ReadCloser, error) {

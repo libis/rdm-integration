@@ -11,17 +11,17 @@ import (
 	"net/http"
 )
 
-func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
+func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
 	token := streamParams.Token
 	if token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected token")
+		return types.StreamsType{}, fmt.Errorf("streams: missing parameters: expected token")
 	}
 	res := map[string]types.Stream{}
 
 	for k, v := range in {
 		request, err := http.NewRequestWithContext(ctx, "GET", v.Attributes.URL, nil)
 		if err != nil {
-			return nil, err
+			return types.StreamsType{}, err
 		}
 		request.Header.Add("Authorization", "Bearer "+token)
 		var r *http.Response
@@ -44,5 +44,5 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			},
 		}
 	}
-	return res, nil
+	return types.StreamsType{Streams: res, Cleanup: nil}, nil
 }

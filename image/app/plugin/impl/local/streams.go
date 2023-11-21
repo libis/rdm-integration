@@ -12,10 +12,10 @@ import (
 	"strings"
 )
 
-func Streams(_ context.Context, in map[string]tree.Node, streamParams types.StreamParams) (map[string]types.Stream, error) {
+func Streams(_ context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
 	url := strings.TrimSuffix(streamParams.Url, string(os.PathSeparator))
 	if url == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected url")
+		return types.StreamsType{}, fmt.Errorf("streams: missing parameters: expected url")
 	}
 	res := map[string]types.Stream{}
 	for k, v := range in {
@@ -33,5 +33,5 @@ func Streams(_ context.Context, in map[string]tree.Node, streamParams types.Stre
 			},
 		}
 	}
-	return res, nil
+	return types.StreamsType{Streams: res, Cleanup: nil}, nil
 }
