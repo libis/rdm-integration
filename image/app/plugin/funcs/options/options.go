@@ -31,7 +31,7 @@ func Options(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionId := core.GetShibSessionFromHeader(r.Header)
-	params.Token, _ = core.GetTokenFromCache(r.Context(), params.Token, sessionId)
+	params.Token, _ = core.GetTokenFromCache(r.Context(), params.Token, sessionId, params.PluginId)
 	if params.User == "" {
 		params.User = core.GetUserFromHeader(r.Header)
 	}

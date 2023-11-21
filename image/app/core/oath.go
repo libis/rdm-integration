@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -19,7 +20,8 @@ import (
 type OauthTokenRequest struct {
 	ClientId     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
-	Code         string `json:"code"`
+	Code         string `json:"code,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 	RedirectUri  string `json:"redirect_uri"`
 	GrantType    string `json:"grant_type"`
 	Resource     string `json:"resource,omitempty"`
@@ -36,6 +38,7 @@ type OauthTokenResponse struct {
 	Error                 string `json:"error"`
 	Error_description     string `json:"error_description"`
 	Error_uri             string `json:"error_uri"`
+	Issued                time.Time
 }
 
 type OauthTokenResponseStrings struct {
@@ -70,7 +73,7 @@ type ExchangeResponse struct {
 var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
-func GetOauthToken(ctx context.Context, pluginId, code, nounce, sessionId string) (TokenResponse, error) {
+func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId string) (TokenResponse, error) {
 	res := TokenResponse{uuid.NewString()}
 	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
@@ -78,7 +81,11 @@ func GetOauthToken(ctx context.Context, pluginId, code, nounce, sessionId string
 	if err != nil {
 		return res, err
 	}
-	req := OauthTokenRequest{clientId, clientSecret, code, redirectUri, "authorization_code", resource}
+	grantType := "authorization_code"
+	if code == "" && refreshToken != "" {
+		grantType = "refresh_token"
+	}
+	req := OauthTokenRequest{clientId, clientSecret, code, refreshToken, redirectUri, grantType, resource}
 	//data, _ := json.Marshal(req)
 	//body := bytes.NewBuffer(data)
 	request, _ := http.NewRequestWithContext(ctx, "POST", postUrl, encode(req))
@@ -140,6 +147,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, nounce, sessionId string
 			return res, err
 		}
 	}
+	result.Issued = time.Now()
 	tokenBytes, err := json.Marshal(result)
 	if err != nil {
 		return res, err
@@ -148,20 +156,45 @@ func GetOauthToken(ctx context.Context, pluginId, code, nounce, sessionId string
 	return res, nil
 }
 
-func GetTokenFromCache(ctx context.Context, token, sessionId string) (string, bool) {
+func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) (string, bool) {
+	res, ok := getTokenFromCache(ctx, token, sessionId, pluginId)
+	if !ok {
+		return token, false
+	}
+	//expired := time.Now().After(res.Issued.Add(time.Duration((res.ExpiresIn-5))*time.Second))
+	ok = true
+	expired := true
+	if expired {
+		_, err := GetOauthToken(ctx, pluginId, "", res.RefreshToken, sessionId)
+		if err != nil {
+			return res.AccessToken, false
+		}
+		res, ok = getTokenFromCache(ctx, token, sessionId, pluginId)
+	}
+	return res.AccessToken, ok
+}
+
+func getTokenFromCache(ctx context.Context, token, sessionId, pluginId string) (OauthTokenResponse, bool) {
 	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", token, sessionId))
 	jsonString := cached.Val()
 	if jsonString == "" {
-		return token, false
+		return OauthTokenResponse{}, false
 	}
 	res := OauthTokenResponse{}
 	json.Unmarshal([]byte(jsonString), &res)
-	return res.AccessToken, true
+	return res, true
 }
 
 func encode(req OauthTokenRequest) *bytes.Buffer {
-	s := fmt.Sprintf("code=%s&client_id=%s&client_secret=%s&redirect_uri=%s&grant_type=%s",
-		url.QueryEscape(req.Code),
+	codeOrRefreshToken := req.Code
+	codeOrRefreshTokenName := "code"
+	if req.Code == "" && req.RefreshToken != "" {
+		codeOrRefreshToken = req.RefreshToken
+		codeOrRefreshTokenName = "refresh_token"
+	}
+	s := fmt.Sprintf("%s=%s&client_id=%s&client_secret=%s&redirect_uri=%s&grant_type=%s",
+		codeOrRefreshTokenName,
+		url.QueryEscape(codeOrRefreshToken),
 		url.QueryEscape(req.ClientId),
 		url.QueryEscape(req.ClientSecret),
 		url.QueryEscape(req.RedirectUri),
