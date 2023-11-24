@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
+	"integration/app/logging"
 	"io"
 	"net/http"
 	"net/url"
@@ -152,29 +153,36 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 	if err != nil {
 		return res, err
 	}
-	config.GetRedis().Set(ctx, fmt.Sprintf("%v-%v", res.SessionId, sessionId), string(tokenBytes), config.LockMaxDuration)
+	config.GetRedis().Set(ctx, fmt.Sprintf("%v-%v", pluginId, sessionId), string(tokenBytes), config.LockMaxDuration)
 	return res, nil
 }
 
-func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) (string, bool) {
-	res, ok := getTokenFromCache(ctx, token, sessionId, pluginId)
+func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) string {
+	res, ok := getTokenFromCache(ctx, pluginId, sessionId)
 	if !ok {
-		return token, false
+		logging.Logger.Println("token not in cache for plugin id: ", pluginId)
+		return token
 	}
-	expired := time.Now().After(res.Issued.Add(time.Duration((res.ExpiresIn-5))*time.Second))
+	expired := time.Now().After(res.Issued.Add(time.Duration((res.ExpiresIn - 5*60)) * time.Second))
 	ok = true
 	if expired {
+		logging.Logger.Println("refreshing token for plugin id: ", pluginId)
 		_, err := GetOauthToken(ctx, pluginId, "", res.RefreshToken, sessionId)
 		if err != nil {
-			return res.AccessToken, false
+			logging.Logger.Println("token refresh failed:", err)
+			return res.AccessToken
 		}
-		res, ok = getTokenFromCache(ctx, token, sessionId, pluginId)
+		res, ok = getTokenFromCache(ctx, pluginId, sessionId)
+		if !ok {
+			logging.Logger.Println("token not in cache after refresh for plugin id: ", pluginId)
+			return token
+		}
 	}
-	return res.AccessToken, ok
+	return res.AccessToken
 }
 
-func getTokenFromCache(ctx context.Context, token, sessionId, pluginId string) (OauthTokenResponse, bool) {
-	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", token, sessionId))
+func getTokenFromCache(ctx context.Context, pluginId, sessionId string) (OauthTokenResponse, bool) {
+	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", pluginId, sessionId))
 	jsonString := cached.Val()
 	if jsonString == "" {
 		return OauthTokenResponse{}, false

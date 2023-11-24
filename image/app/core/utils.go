@@ -8,20 +8,27 @@ import (
 	"integration/app/logging"
 	"net/http"
 	"net/smtp"
+
+	"github.com/google/uuid"
 )
 
 func GetUserFromHeader(h http.Header) string {
-	return getValueFromHeader(h, "Ajp_uid")
-}
-
-func GetShibSessionFromHeader(h http.Header) string {
-	return getValueFromHeader(h, "Ajp_shib-Session-Id")
-}
-
-func getValueFromHeader(h http.Header, hn string) string {
+	hn := "Ajp_uid"
 	if config.GetConfig().Options.UserHeaderName != "" {
 		hn = config.GetConfig().Options.UserHeaderName
 	}
+	return getValueFromHeader(h, hn)
+}
+
+func GetSessionId(h http.Header) string {
+	fromHeader := getValueFromHeader(h, "Ajp_shib-Session-Id")
+	if fromHeader == "" {
+		return uuid.NewString()
+	}
+	return fromHeader
+}
+
+func getValueFromHeader(h http.Header, hn string) string {
 	return h.Get(hn)
 }
 

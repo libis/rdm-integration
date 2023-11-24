@@ -32,7 +32,7 @@ func GetOauthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionId := core.GetShibSessionFromHeader(r.Header)
+	sessionId := core.GetSessionId(r.Header)
 	res, err := core.GetOauthToken(r.Context(), req.PluginId, req.Code, "", sessionId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

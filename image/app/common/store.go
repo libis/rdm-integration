@@ -54,14 +54,13 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := core.GetUserFromHeader(r.Header)
-	sessionId := core.GetShibSessionFromHeader(r.Header)
 	if req.StreamParams.User == "" {
 		req.StreamParams.User = user
 	}
 	err = core.AddJob(r.Context(), core.Job{
 		DataverseKey:      req.DataverseKey,
 		User:              user,
-		SessionId:         sessionId,
+		SessionId:         req.StreamParams.Token,
 		PersistentId:      req.PersistentId,
 		WritableNodes:     selected,
 		Plugin:            req.Plugin,
