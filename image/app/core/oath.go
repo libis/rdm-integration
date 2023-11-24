@@ -14,8 +14,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type OauthTokenRequest struct {
@@ -75,7 +73,7 @@ var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
 func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId string) (TokenResponse, error) {
-	res := TokenResponse{uuid.NewString()}
+	res := TokenResponse{sessionId}
 	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
 	clientSecret, resource, postUrl, exchange, err := config.ClientSecret(clientId)
@@ -160,13 +158,11 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) string {
 	res, ok := getTokenFromCache(ctx, pluginId, sessionId)
 	if !ok {
-		logging.Logger.Println("token not in cache for plugin id: ", pluginId)
 		return token
 	}
 	expired := time.Now().After(res.Issued.Add(time.Duration((res.ExpiresIn - 5*60)) * time.Second))
 	ok = true
 	if expired {
-		logging.Logger.Println("refreshing token for plugin id: ", pluginId)
 		_, err := GetOauthToken(ctx, pluginId, "", res.RefreshToken, sessionId)
 		if err != nil {
 			logging.Logger.Println("token refresh failed:", err)
@@ -174,7 +170,7 @@ func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) s
 		}
 		res, ok = getTokenFromCache(ctx, pluginId, sessionId)
 		if !ok {
-			logging.Logger.Println("token not in cache after refresh for plugin id: ", pluginId)
+			logging.Logger.Println("token not in cache after refresh for plugin id:", pluginId)
 			return token
 		}
 	}
