@@ -20,10 +20,6 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		return types.StreamsType{}, fmt.Errorf("folders: missing parameters: expected server, zone, folder, user and password, got: %+v", streamParams)
 	}
 	res := map[string]types.Stream{}
-	cl, clientErr := NewIrodsClient(server, zone, user, password)
-	if clientErr != nil {
-		return types.StreamsType{}, clientErr
-	}
 	for k, v := range in {
 		path := v.Id
 		if !v.Attributes.IsFile || (v.Action != tree.Update && v.Action != tree.Copy) {
@@ -34,19 +30,29 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		}
 
 		var reader io.ReadCloser
+		var cl *IrodsClient
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
-				var irodsErr error
-				reader, irodsErr = cl.StreamFile(folder + "/" + path)
-				return reader, irodsErr
-			},
-			Close: func() error {
-				if reader == nil {
-					return fmt.Errorf("iRods reader is nil, close not possible")
+				var err error
+				cl, err = NewIrodsClient(server, zone, user, password)
+				if err != nil {
+					return nil, err
 				}
-				return reader.Close()
+				reader, err = cl.StreamFile(folder + "/" + path)
+				return reader, err
+			},
+			Close: func() (err error) {
+				if reader == nil {
+					err = fmt.Errorf("iRods reader is nil, close not possible")
+				} else {
+					err = reader.Close()
+				}
+				if cl != nil {
+					cl.Close()
+				}
+				return
 			},
 		}
 	}
-	return types.StreamsType{Streams: res, Cleanup: cl.Close}, nil
+	return types.StreamsType{Streams: res, Cleanup: nil}, nil
 }
