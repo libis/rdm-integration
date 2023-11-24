@@ -19,6 +19,10 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	if user == "" || password == "" || server == "" || zone == "" || folder == "" {
 		return types.StreamsType{}, fmt.Errorf("folders: missing parameters: expected server, zone, folder, user and password, got: %+v", streamParams)
 	}
+	cl, clientErr := NewIrodsClient(server, zone, user, password)
+	if clientErr != nil {
+		return types.StreamsType{}, clientErr
+	}
 	res := map[string]types.Stream{}
 	for k, v := range in {
 		path := v.Id
@@ -34,10 +38,6 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
 				var err error
-				cl, err = NewIrodsClient(server, zone, user, password)
-				if err != nil {
-					return nil, err
-				}
 				reader, err = cl.StreamFile(folder + "/" + path)
 				return reader, err
 			},
@@ -47,12 +47,9 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 				} else {
 					err = reader.Close()
 				}
-				if cl != nil {
-					cl.Close()
-				}
 				return
 			},
 		}
 	}
-	return types.StreamsType{Streams: res, Cleanup: nil}, nil
+	return types.StreamsType{Streams: res, Cleanup: cl.Close}, nil
 }
