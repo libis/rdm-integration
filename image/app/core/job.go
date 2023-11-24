@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const maxErrors = 100
+
 type Job struct {
 	DataverseKey      string
 	User              string
@@ -114,7 +116,7 @@ func ProcessJobs() {
 			job, err := doWork(job)
 			if err != nil {
 				job.ErrCnt = job.ErrCnt + 1
-				if job.ErrCnt == 3 {
+				if job.ErrCnt == maxErrors {
 					logging.Logger.Println("job failed and will not be retried:", persistentId, err)
 					sendJobFailedMail(err, job)
 				} else {
@@ -122,7 +124,7 @@ func ProcessJobs() {
 					time.Sleep(10 * time.Second)
 				}
 			}
-			if len(job.WritableNodes) > 0 && job.ErrCnt < 100 {
+			if len(job.WritableNodes) > 0 && job.ErrCnt < maxErrors {
 				ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
 				err = addJob(ctx, job, false)
 				cancel()
