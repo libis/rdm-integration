@@ -34,7 +34,6 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		}
 
 		var reader io.ReadCloser
-		var cl *IrodsClient
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
 				var err error
