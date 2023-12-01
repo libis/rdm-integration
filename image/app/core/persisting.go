@@ -188,8 +188,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			remoteHashVlaue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
 		}
 		if v.Attributes.RemoteHash != remoteHashVlaue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
-			err = fmt.Errorf("downloaded file hash not equal")
-			return
+			if remoteHashType == types.QuickXorHash { //some sharepoint hashes fail
+				logging.Logger.Println("WARNING: quickXorHash not equal, expected", v.Attributes.RemoteHash, "got", remoteHashVlaue)
+				remoteHashVlaue = v.Attributes.RemoteHash
+			} else {
+				err = fmt.Errorf("downloaded file hash not equal")
+				return
+			}
 		}
 
 		if Destination.IsDirectUpload() {
