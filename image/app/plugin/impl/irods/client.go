@@ -120,12 +120,12 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	if account.AuthenticationScheme == types.AuthSchemePAM {
 		// Make a single connection using PAM to retrieve a "native" password with a longer lifetime
 		account.PamTTL = 168 // hours
-	
+
 		conn := connection.NewIRODSConnection(account, time.Minute, "libis-obtain-native-pass")
 		conn.Connect()
 		nativePass := conn.GetGeneratedPasswordForPAMAuth()
 		conn.Disconnect()
-	
+
 		// Future connections use native protocol
 		account.Password = nativePass
 		account.AuthenticationScheme = types.AuthSchemeNative
