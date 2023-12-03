@@ -11,7 +11,7 @@ COPY . .
 RUN go build -ldflags "-s -w" -v -o /usr/local/bin/app ./app
 RUN go build -ldflags "-s -w" -v -o /usr/local/bin/workers ./app/workers
 
-FROM alpine
+FROM alpine:3.18.3
 
 RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
 COPY ./USERTrust_RSA_Certification_Authority.pem /usr/local/share/ca-certificates/USERTrust_RSA_Certification_Authority.pem
