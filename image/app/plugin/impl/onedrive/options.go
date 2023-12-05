@@ -17,37 +17,23 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	if params.Option != "" {
 		return listFolderGrapthItems(ctx, params)
 	}
-	drives, err := getResponse(ctx, params.Url+"/me/drives", params.Token)
-	if err != nil {
-		return nil, err
-	}
-	siteDrives, err := listSiteDrives(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-	drives = append(drives, siteDrives...)
-	res := []types.SelectItem{}
-	for _, d := range drives {
-		res = append(res, types.SelectItem{Label: d.Name, Value: d.Id})
-	}
-	return res, nil
-}
-
-func listSiteDrives(ctx context.Context, params types.OptionsRequest) (res []GraphItem, err error) {
-	sites, err := getResponse(ctx, params.Url+"/sites?search=", params.Token)
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range sites {
-		url := params.Url + "/sites/" + s.Id + "/drives"
-		drives, err := getResponse(ctx, url, params.Token)
+	var drives []GraphItem
+	var err error
+	if params.RepoName == "" {
+		drives, err = getResponse(ctx, params.Url+"/me/drives", params.Token)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		url := params.Url + "/sites/" + params.RepoName + "/drives"
+		drives, err = getResponse(ctx, url, params.Token)
 		if err != nil {
 			fmt.Println(err)
 		}
-		for _, d := range drives {
-			d.Name = s.Name + ": " + d.Name
-			res = append(res, d)
-		}
+	}
+	res := []types.SelectItem{}
+	for _, d := range drives {
+		res = append(res, types.SelectItem{Label: d.Name, Value: d.Id})
 	}
 	return res, nil
 }

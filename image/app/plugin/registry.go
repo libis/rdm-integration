@@ -57,7 +57,7 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 	"onedrive": {
 		Query:   onedrive.Query,
 		Options: onedrive.Options,
-		Search:  nil,
+		Search:  onedrive.Search,
 		Streams: onedrive.Streams,
 	},
 	"dataverse": {

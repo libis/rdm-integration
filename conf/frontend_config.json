@@ -137,13 +137,30 @@
         },
         {
             "id": "onedrive",
-            "name": "OneDrive and SharePoint online",
+            "name": "OneDrive",
             "plugin": "onedrive",
             "pluginName": "OneDrive and SharePoint online",
             "sourceUrlFieldValue": "https://graph.microsoft.com/v1.0",
             "optionFieldName": "Folder",
             "optionFieldPlaceholder": "Select folder",
             "optionFieldInteractive": true,
+            "tokenGetter": {
+                "URL": "https://login.microsoftonline.com/3973589b-9e40-4eb5-800e-b0b6383d1621/oauth2/authorize?scope=onedrive.read.all",
+                "oauth_client_id": "210f1c67-8571-484d-8a48-a4911505e0b1"
+            }
+        },
+        {
+            "id": "sharepoint",
+            "name": "SharePoint online",
+            "plugin": "onedrive",
+            "pluginName": "OneDrive and SharePoint online",
+            "sourceUrlFieldValue": "https://graph.microsoft.com/v1.0",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "optionFieldInteractive": true,
+            "repoNameFieldName": "Site",
+            "repoNameFieldPlaceholder": "Select site",
+            "repoNameFieldHasSearch": true,
             "tokenGetter": {
                 "URL": "https://login.microsoftonline.com/3973589b-9e40-4eb5-800e-b0b6383d1621/oauth2/authorize?scope=onedrive.read.all",
                 "oauth_client_id": "210f1c67-8571-484d-8a48-a4911505e0b1"
