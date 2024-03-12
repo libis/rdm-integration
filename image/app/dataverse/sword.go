@@ -13,7 +13,7 @@ import (
 	"sync"
 )
 
-func swordDelete(ctx context.Context, token, user string, id int64) error {
+func swordDelete(ctx context.Context, token, _ string, id int64) error {
 	url := fmt.Sprintf("%s/dvn/api/data-deposit/v1.1/swordv2/edit-media/file/%d", config.GetConfig().DataverseServer, id)
 	request, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
@@ -32,7 +32,7 @@ func swordDelete(ctx context.Context, token, user string, id int64) error {
 	return nil
 }
 
-func uploadViaSword(ctx context.Context, dbId int64, id, token, user, persistentId string, wg *sync.WaitGroup, async_err *core.ErrorHolder) (io.WriteCloser, error) {
+func uploadViaSword(ctx context.Context, _ int64, id, token, _, persistentId string, wg *sync.WaitGroup, async_err *core.ErrorHolder) (io.WriteCloser, error) {
 	url := config.GetConfig().DataverseServer + "/dvn/api/data-deposit/v1.1/swordv2/edit-media/study/" + persistentId
 	pr, pw := io.Pipe()
 	zipWriter := zip.NewWriter(pw)
