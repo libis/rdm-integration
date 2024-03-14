@@ -69,7 +69,7 @@ func getSubjectOnError(_ error, job Job) string {
 	return fmt.Sprintf(template, job.PersistentId)
 }
 
-func getContentOnError(errIn error, job Job) string {
+func getContentOnError(_ error, job Job) string {
 	template := "Updating files in dataset <a href=\"%v\">%v</a> has failed. Please try again later. If the error persists, contact the helpdesk."
 	if config.GetConfig().Options.MailConfig.ContentOnError != "" {
 		template = config.GetConfig().Options.MailConfig.ContentOnError

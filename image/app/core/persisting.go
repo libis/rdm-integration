@@ -226,7 +226,8 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		return
 	default:
 		writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
-		err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
+		//err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
+		err = cleanup(writtenKeys)
 	}
 	return
 }
@@ -280,7 +281,8 @@ func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddId
 	return
 }
 
-func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
+//func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
+func cleanup(writtenKeys []string) error {
 	go cleanRedis(writtenKeys)
 	return nil
 	//return Destination.CleanupLeftOverFiles(ctx, persistentId, token, user)
@@ -295,7 +297,7 @@ func cleanRedis(writtenKeys []string) {
 	}
 }
 
-func deleteFile(ctx context.Context, token, user string, id int64) error {
+func deleteFile(_ context.Context, token, user string, id int64) error {
 	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
 	defer cancel()
 	return Destination.DeleteFile(shortContext, token, user, id)

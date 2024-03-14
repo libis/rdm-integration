@@ -46,7 +46,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 		res[k] = node
 	}
 	if len(jobNodes) > 0 && addJobs {
-		AddJob(ctx,
+		err := AddJob(ctx,
 			Job{
 				DataverseKey:  dataverseKey,
 				User:          user,
@@ -55,6 +55,9 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 				Plugin:        "hash-only",
 			},
 		)
+		if err != nil {
+			logging.Logger.Println("adding rehashing job failed: " + err.Error())
+		}
 	}
 	return res, len(jobNodes) > 0
 }
