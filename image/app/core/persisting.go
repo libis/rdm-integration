@@ -281,7 +281,7 @@ func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddId
 	return
 }
 
-//func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
+// func cleanup(ctx context.Context, token, user, persistentId string, writtenKeys []string) error {
 func cleanup(writtenKeys []string) error {
 	go cleanRedis(writtenKeys)
 	return nil
