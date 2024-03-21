@@ -3,7 +3,7 @@ module integration
 go 1.19
 
 require (
-	github.com/aws/aws-sdk-go v1.50.38
+	github.com/aws/aws-sdk-go v1.51.4
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/libis/rdm-dataverse-go-api v1.0.3
@@ -12,7 +12,9 @@ require (
 )
 
 require (
+	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
@@ -25,7 +27,7 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/cyverse/go-irodsclient v0.13.2
+	github.com/cyverse/go-irodsclient v0.14.1
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
