@@ -101,10 +101,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		algorithm, keySize, saltSize, hashRounds = info.EncryptionAlgorithm, info.EncryptionKeySize, info.EncryptionSaltSize, info.EncryptionNumHashRounds
 		negotiationPolicy = types.CSNegotiationRequire(info.ClientServerPolicy)
 	}
-	method, err := types.GetAuthScheme(s.AuthScheme)
-	if err != nil {
-		return nil, err
-	}
+	method := types.GetAuthScheme(s.AuthScheme)
 	account, err := types.CreateIRODSAccount(s.Server, s.Port, username, zone, method, password, "")
 	if err != nil {
 		return nil, err
@@ -112,7 +109,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	account.CSNegotiationPolicy = negotiationPolicy
 	account.ClientServerNegotiation = true
 
-	account.SSLConfiguration, err = types.CreateIRODSSSLConfig("/etc/ssl/certs/ca-certificates.crt", keySize, algorithm, saltSize, hashRounds)
+	account.SSLConfiguration, err = types.CreateIRODSSSLConfig("/etc/ssl/certs/ca-certificates.crt", "", keySize, algorithm, saltSize, hashRounds)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +120,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 
 		conn := connection.NewIRODSConnection(account, time.Minute, "libis-obtain-native-pass")
 		conn.Connect()
-		nativePass := conn.GetGeneratedPasswordForPAMAuth()
+		nativePass := conn.GetAccount().PamToken
 		conn.Disconnect()
 
 		// Future connections use native protocol
