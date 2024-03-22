@@ -83,4 +83,4 @@ multiplatform_kul: fmt frontend ## build KUL executable for multiple platforms
 upgrade_dependencies: ## upgrade all go dependencies
 	cd image && go get -u ./app/...
 	cd image && go mod tidy
-	cd ../rdm-integration-frontend && npm audit fix
+	cd ../rdm-integration-frontend && npx npm-check-updates -u && npm install
