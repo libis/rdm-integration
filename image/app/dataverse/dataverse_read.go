@@ -184,7 +184,7 @@ func DvObjects(ctx context.Context, objectType, collection, searchTerm, token, u
 func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstPart, token, user string) ([]api.Item, error) {
 	searchTerm := ""
 	if searchTermFirstPart != "" {
-		searchTerm = "text:(" + searchTermFirstPart + ")"
+		searchTerm = "text:\"" + searchTermFirstPart + "\""
 		if collection != "" {
 			searchTerm = " identifierOfDataverse:(+" + collection + ")"
 		}

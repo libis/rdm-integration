@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.51.4
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/uuid v1.6.0
-	github.com/libis/rdm-dataverse-go-api v1.0.3
+	github.com/libis/rdm-dataverse-go-api v1.0.5
 	github.com/redis/go-redis/v9 v9.5.1
 	golang.org/x/oauth2 v0.18.0
 )
