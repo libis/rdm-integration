@@ -20,11 +20,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	cfg "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 )
 
@@ -89,6 +88,19 @@ func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
 	return
 }
 
+func newS3Client(ctx context.Context) (*s3.Client, error) {
+	awsConfig, err := cfg.LoadDefaultConfig(ctx,
+		cfg.WithRegion(config.GetConfig().Options.S3Config.AWSRegion),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return s3.NewFromConfig(awsConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(config.GetConfig().Options.S3Config.AWSEndpoint)
+		o.UsePathStyle = config.GetConfig().Options.S3Config.AWSPathstyle
+	}), nil
+}
+
 func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
@@ -127,20 +139,15 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 			return nil, nil, 0, fmt.Errorf("writing failed: %v: %v: %v", err_close, err_copy, async_err.Err)
 		}
 	} else if s.driver == "s3" {
-		sess, err := session.NewSession(&aws.Config{
-			Region:           aws.String(config.GetConfig().Options.S3Config.AWSRegion),
-			Endpoint:         aws.String(config.GetConfig().Options.S3Config.AWSEndpoint),
-			Credentials:      credentials.NewEnvCredentials(),
-			S3ForcePathStyle: aws.Bool(config.GetConfig().Options.S3Config.AWSPathstyle),
-		})
+		client, err := newS3Client(ctx)
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		uploader := s3manager.NewUploader(sess)
+		uploader := manager.NewUploader(client)
 		uploader.PartSize = 1024 * 1024 * 1024
 		uploader.MaxUploadParts = 1000
 		uploader.Concurrency = 2
-		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
+		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(s.bucket),
 			Key:    aws.String(pid + "/" + s.filename),
 			Body:   reader,
@@ -203,14 +210,11 @@ func doHash(ctx context.Context, dataverseKey, user, persistentId string, node t
 		defer f.Close()
 		reader = f
 	} else if s.driver == "s3" {
-		sess, _ := session.NewSession(&aws.Config{
-			Region:           aws.String(config.GetConfig().Options.S3Config.AWSRegion),
-			Endpoint:         aws.String(config.GetConfig().Options.S3Config.AWSEndpoint),
-			Credentials:      credentials.NewEnvCredentials(),
-			S3ForcePathStyle: aws.Bool(config.GetConfig().Options.S3Config.AWSPathstyle),
-		})
-		svc := s3.New(sess)
-		rawObject, err := svc.GetObject(
+		client, err := newS3Client(ctx)
+		if err != nil {
+			return nil, err
+		}
+		rawObject, err := client.GetObject(ctx,
 			&s3.GetObjectInput{
 				Bucket: aws.String(s.bucket),
 				Key:    aws.String(pid + "/" + s.filename),

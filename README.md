@@ -26,7 +26,7 @@ For building the frontend, you need to have [Angular CLI](https://github.com/ang
 
 ## Dependencies
 This application can be used by accessing the API directly (from cron jobs, etc.), or with a frontend providing GUI for the end users. The frontend ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)) needs to be checked out separately prior to building this application. Besides the frontend dependency, the build process use the following libraries and their dependencies (``go build`` command resolves them from ``go.mod`` and ``go.sum`` files, and they do not need to be installed separately):
-- [AWS SDK for Go](https://github.com/aws/aws-sdk-go)
+- [AWS SDK for Go v2](https://github.com/aws/aws-sdk-go-v2)
 - [Redis client for Go](https://github.com/go-redis/redis)
 - [go-github](https://github.com/google/go-github)
 - [uuid](https://github.com/google/uuid)
