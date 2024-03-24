@@ -15,7 +15,8 @@ import (
 func main() {
 	destination.SetDataverseAsDestination()
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	numberWorkers := 0
+	numberWorkers := -1
+	queue := "ALL"
 	var err error
 	if len(os.Args) > 1 {
 		numberWorkers, err = strconv.Atoi(os.Args[1])
@@ -23,9 +24,12 @@ func main() {
 			logging.Logger.Println("failed to parse number of workers from", numberWorkers)
 		}
 	}
-	if numberWorkers <= 0 {
+	if len(os.Args) > 2 {
+		queue = os.Args[2]
+	}
+	if numberWorkers < 0 {
 		numberWorkers = 200
 	}
 	logging.Logger.Println("nuber workers:", numberWorkers)
-	spinner.SpinWorkers(numberWorkers)
+	spinner.SpinWorkers(numberWorkers, queue)
 }

@@ -26,25 +26,33 @@ type Config struct {
 }
 
 type OptionalConfig struct {
-	DataverseExternalUrl         string     `json:"dataverseExternalUrl,omitempty"` // set this if different from dataverseServer -> this is used to generate a link to the dataset based
-	RootDataverseId              string     `json:"rootDataverseId,omitempty"`      // root dataverse collection id, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
-	DefaultHash                  string     `json:"defaultHash,omitempty"`          // preset to md5, the default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
-	MyDataRoleIds                []int      `json:"myDataRoleIds"`                  // role ids that are sent with the "retrieve" my data api call
-	PathToApiKey                 string     `json:"pathToApiKey,omitempty"`         // api (admin) API key is needed for URL signing. Configure the path to api key in this field to enable the URL signing.
-	PathToUnblockKey             string     `json:"pathToUnblockKey,omitempty"`     // configure to enable checking permissions before requesting jobs
-	PathToRedisPassword          string     `json:"pathToRedisPassword,omitempty"`  // by default no password for Redis is set, if you need to authenticate, store here the path to the file containing the redis password
-	RedisDB                      int        `json:"redisDB,omitempty"`              // by default DB 0 is used, if you need to use other DB, specify it here
-	DefaultDriver                string     `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
-	PathToFilesDir               string     `json:"pathToFilesDir,omitempty"`       // path to the folder where dataverse files are stored (only needed when using "file" driver)
-	S3Config                     S3Config   `json:"s3Config,omitempty"`             // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
-	PathToOauthSecrets           string     `json:"pathToOauthSecrets,omitempty"`   // path to file containing the oath client ids and secrets
-	MaxFileSize                  int64      `json:"maxFileSize,omitempty"`          // if not set, the upload file size is unlimited
-	UserHeaderName               string     `json:"userHeaderName,omitempty"`       // URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
-	SmtpConfig                   Smtp       `json:"smtpConfig,omitempty"`           // configure this when you wish to send notification emails to the users: on job error and on job completion
-	PathToSmtpPassword           string     `json:"pathToSmtpPassword,omitempty"`   // path to the file containing the password needed to authenticate with the SMTP server
-	MailConfig                   MailConfig `json:"mailConfig,omitempty"`
-	MaxDvObjectPages             int        `json:"maxDvObjectPages"`
-	PathToDataversePluginsConfig string     `json:"pathToDataversePluginsConfig"`
+	DataverseExternalUrl         string        `json:"dataverseExternalUrl,omitempty"` // set this if different from dataverseServer -> this is used to generate a link to the dataset based
+	RootDataverseId              string        `json:"rootDataverseId,omitempty"`      // root dataverse collection id, needed for creating new dataset when no collection was chosen in the UI (fallback to root collection)
+	DefaultHash                  string        `json:"defaultHash,omitempty"`          // preset to md5, the default hash for most Dataverse installations, change this only when using a different hash (e.g., SHA-1)
+	MyDataRoleIds                []int         `json:"myDataRoleIds"`                  // role ids that are sent with the "retrieve" my data api call
+	PathToApiKey                 string        `json:"pathToApiKey,omitempty"`         // api (admin) API key is needed for URL signing. Configure the path to api key in this field to enable the URL signing.
+	PathToUnblockKey             string        `json:"pathToUnblockKey,omitempty"`     // configure to enable checking permissions before requesting jobs
+	PathToRedisPassword          string        `json:"pathToRedisPassword,omitempty"`  // by default no password for Redis is set, if you need to authenticate, store here the path to the file containing the redis password
+	RedisDB                      int           `json:"redisDB,omitempty"`              // by default DB 0 is used, if you need to use other DB, specify it here
+	DefaultDriver                string        `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
+	PathToFilesDir               string        `json:"pathToFilesDir,omitempty"`       // path to the folder where dataverse files are stored (only needed when using "file" driver)
+	S3Config                     S3Config      `json:"s3Config,omitempty"`             // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
+	PathToOauthSecrets           string        `json:"pathToOauthSecrets,omitempty"`   // path to file containing the oath client ids and secrets
+	MaxFileSize                  int64         `json:"maxFileSize,omitempty"`          // if not set, the upload file size is unlimited
+	UserHeaderName               string        `json:"userHeaderName,omitempty"`       // URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
+	SmtpConfig                   Smtp          `json:"smtpConfig,omitempty"`           // configure this when you wish to send notification emails to the users: on job error and on job completion
+	PathToSmtpPassword           string        `json:"pathToSmtpPassword,omitempty"`   // path to the file containing the password needed to authenticate with the SMTP server
+	MailConfig                   MailConfig    `json:"mailConfig,omitempty"`
+	MaxDvObjectPages             int           `json:"maxDvObjectPages"`
+	PathToDataversePluginsConfig string        `json:"pathToDataversePluginsConfig"`
+	ComputationQueues            []Queue       `json:"computationQueues"`
+	ComputationAccessEndpoint    string        `json:"computationAccessEndpoint"`
+	ComputationAccessConfig      []QueueAccess `json:"computationAccessConfig"`
+}
+
+type QueueAccess struct {
+	UserEmail string   `json:"userEmail"`
+	Queue     []string `json:"queue"`
 }
 
 type MailConfig struct {
@@ -79,6 +87,7 @@ type OauthSecret struct {
 
 var config Config
 var oauthSecrets = map[string]OauthSecret{}
+var queueAccess = map[string]map[string]bool{}
 
 // static vars
 var rdb RedisClient    // redis client singleton
@@ -160,6 +169,15 @@ func init() {
 		}
 	}
 	dataverse.Config = dvPluginsConfig
+
+	for _, qa := range config.Options.ComputationAccessConfig {
+		if queueAccess[qa.UserEmail] == nil {
+			queueAccess[qa.UserEmail] = map[string]bool{}
+		}
+		for _, q := range qa.Queue {
+			queueAccess[qa.UserEmail][q] = true
+		}
+	}
 }
 
 type RedisClient interface {
@@ -225,4 +243,15 @@ func GetExternalDestinationURL() string {
 		return config.Options.DataverseExternalUrl
 	}
 	return config.DataverseServer
+}
+
+func GetComputationQueues() []Queue {
+	return config.Options.ComputationQueues
+}
+
+func HasAccessToQueue(userEmail, queue string) bool {
+	if queue == "" {
+		return len(queueAccess[userEmail]) > 0
+	}
+	return queueAccess[userEmail][queue]
 }

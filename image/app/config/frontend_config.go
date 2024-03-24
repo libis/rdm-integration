@@ -46,4 +46,11 @@ type Configuration struct {
 	StoreDvToken            bool         `json:"storeDvToken,omitempty"`
 	SendMails               bool         `json:"sendMails"`
 	Plugins                 []RepoPlugin `json:"plugins"`
+	Queues                  []Queue      `json:"queues"`
+}
+
+type Queue struct {
+	Label          string   `json:"label"`
+	Value          string   `json:"value"`
+	Fileextensions []string `json:"fileextensions"`
 }

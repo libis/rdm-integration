@@ -28,6 +28,8 @@ type Job struct {
 	ErrCnt            int
 	Deadline          time.Time
 	SendEmailOnSucces bool
+	Key               string
+	Queue             string
 }
 
 var Stop = make(chan struct{})
@@ -78,14 +80,22 @@ func addJob(ctx context.Context, job Job, requireLock bool) error {
 	if err != nil {
 		return err
 	}
-	cmd := config.GetRedis().LPush(ctx, "jobs", string(b))
+	key := "jobs"
+	if job.Queue != "" {
+		key = job.Queue + " " + key
+	}
+	cmd := config.GetRedis().LPush(ctx, key, string(b))
 	return cmd.Err()
 }
 
-func popJob() (Job, bool) {
+func popJob(queue string) (Job, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxDuration)
 	defer cancel()
-	cmd := config.GetRedis().RPop(ctx, "jobs")
+	key := "jobs"
+	if queue != "" {
+		key = queue + " " + key
+	}
+	cmd := config.GetRedis().RPop(ctx, key)
 	err := cmd.Err()
 	if err != nil {
 		return Job{}, false
@@ -100,7 +110,7 @@ func popJob() (Job, bool) {
 	return job, true
 }
 
-func ProcessJobs() {
+func ProcessJobs(queue string) {
 	defer Wait.Done()
 	defer logging.Logger.Println("worker exited grecefully")
 	for {
@@ -109,11 +119,16 @@ func ProcessJobs() {
 			return
 		case <-time.After(1 * time.Second):
 		}
-		job, ok := popJob()
+		job, ok := popJob(queue)
 		if ok {
 			persistentId := job.PersistentId
 			logging.Logger.Printf("%v: job started\n", persistentId)
-			job, err := doWork(job)
+			var err error
+			if job.Plugin == "compute" {
+				job, err = compute(job)
+			} else {
+				job, err = doWork(job)
+			}
 			if err != nil {
 				job.ErrCnt = job.ErrCnt + 1
 				if job.ErrCnt == maxErrors {

@@ -44,6 +44,7 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(Config.ExternalURL, "kuleuven") {
 			Config.CollectionOptionsHidden = true
 		}
+		Config.Queues = config.GetComputationQueues()
 	}
 	b, err := json.Marshal(Config)
 	if err != nil {

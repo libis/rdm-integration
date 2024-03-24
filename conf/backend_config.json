@@ -15,6 +15,27 @@
             "awsRegion": "us-east-1",
             "awsPathstyle": true,
             "awsBucket": "dataverse-local"
-        }
+        },
+        "computationQueues": [
+            {
+                "label": "Default queue",
+                "value": "default",
+                "fileextensions": ["r", "py"]
+            }, {
+                "label": "GPU cluster",
+                "value": "cuda",
+                "fileextensions": ["py"]
+            }, {
+                "label": "R queue",
+                "value": "r",
+                "fileextensions": ["r"]
+            }
+        ],
+        "computationAccessConfig": [
+            {
+                "userEmail": "rdrResearcher@kuleuven.be",
+                "queue": ["default", "r"]
+            }
+        ]
     }
 }

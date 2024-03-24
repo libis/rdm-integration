@@ -90,7 +90,7 @@ func main() {
 		}
 	}()
 
-	spinner.SpinWorkers(1)
+	spinner.SpinWorkers(1, "ALL")
 	ticker.Stop()
 	done <- true
 }

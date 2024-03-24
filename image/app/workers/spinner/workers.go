@@ -3,6 +3,7 @@
 package spinner
 
 import (
+	"integration/app/config"
 	"integration/app/core"
 	"integration/app/logging"
 	"math/rand"
@@ -12,14 +13,23 @@ import (
 	"time"
 )
 
-func SpinWorkers(numberWorkers int) {
+func SpinWorkers(numberWorkers int, queue string) {
 	// start workers in background
 	for i := 0; i < numberWorkers; i++ {
 		if numberWorkers > 1 {
 			time.Sleep(time.Duration(rand.Intn(10000/numberWorkers)) * time.Millisecond)
 		}
-		core.Wait.Add(1)
-		go core.ProcessJobs()
+		if queue == "ALL" {
+			core.Wait.Add(1)
+			go core.ProcessJobs("") // sync/hashing queue
+			for _, q := range config.GetConfig().Options.ComputationQueues {
+				core.Wait.Add(1)
+				go core.ProcessJobs(q.Value)
+			}
+		} else {
+			core.Wait.Add(1)
+			go core.ProcessJobs(queue)
+		}
 	}
 
 	// wait for termination

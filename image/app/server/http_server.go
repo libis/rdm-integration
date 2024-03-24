@@ -34,6 +34,10 @@ func Start() {
 	srvMux.HandleFunc("/api/common/cached", common.GetCachedResponse)
 	srvMux.HandleFunc("/api/common/store", common.Store)
 	srvMux.HandleFunc("/api/common/dvobjects", common.DvObjects)
+	srvMux.HandleFunc("/api/common/executable", common.GetExecutableFiles)
+	srvMux.HandleFunc("/api/common/checkaccess", common.GetAccessToQueue)
+	srvMux.HandleFunc("/api/common/compute", common.Compute)
+	srvMux.HandleFunc("/api/common/cachedcompute", common.GetCachedComputeResponse)
 
 	// frontend config
 	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)
