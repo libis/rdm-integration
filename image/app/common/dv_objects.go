@@ -35,14 +35,7 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("500 - bad request"))
 		return
 	}
-
 	res, err := core.Destination.Options(r.Context(), req.ObjectType, req.Collection, req.SearchTerm, req.Token, user)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

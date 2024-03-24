@@ -40,12 +40,6 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
 	if len(res) == 0 {
 		res = append(res, types.SelectItem{Label: "no results found for \"" + params.RepoName + "\"", Value: "empty"})
 	}

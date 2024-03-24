@@ -29,7 +29,7 @@ func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.
 	if err != nil {
 		return nil, err
 	}
-	dirs, nodes, err := toNodeMap(path, path, entries, dvNodes)
+	dirs, nodes, err := toNodeMap(entries)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.
 			}
 			var irodsNm map[string]tree.Node
 			var subDirs []string
-			subDirs, irodsNm, err = toNodeMap(path, d, subEntries, dvNodes)
+			subDirs, irodsNm, err = toNodeMap(subEntries)
 			if err != nil {
 				return nil, err
 			}
@@ -56,7 +56,7 @@ func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.
 	return nodes, nil
 }
 
-func toNodeMap(root, folder string, entries []Entry, dvNodes map[string]tree.Node) ([]string, map[string]tree.Node, error) {
+func toNodeMap(entries []Entry) ([]string, map[string]tree.Node, error) {
 	res := map[string]tree.Node{}
 	dirs := []string{}
 	for _, e := range entries {
