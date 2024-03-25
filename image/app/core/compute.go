@@ -5,6 +5,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"integration/app/config"
 	"os/exec"
 	"time"
@@ -69,12 +70,71 @@ func doCompute(fileName string, job Job) (string, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), job.Deadline)
 	defer cancel()
 	out := ""
-	// TODO: mount S3 -> https://github.com/kahing/goofys
-	cmd := exec.CommandContext(ctx, fileName)
-	err := cmd.Run()
-	if err == nil {
-		o, _ := cmd.Output()
+	dir, err := mountDataset(ctx, job)
+	if err != nil {
+		out = dir
+	} else {
+		cmd := exec.CommandContext(ctx, "bash", "-c", "python "+fileName)
+		cmd.Dir = dir
+		o, err := cmd.CombinedOutput()
 		out = string(o)
+		if err != nil {
+			out = out + "\n\n" + err.Error()
+		}
 	}
+	unmount(job)
 	return out, err
+}
+
+func mountDataset(ctx context.Context, job Job) (string, error) {
+	s3Dir := job.Key + "/s3"
+	linkedDir := job.Key + "/linked"
+	b, err := exec.Command("mkdir", job.Key).CombinedOutput()
+	if err != nil {
+		return string(b), err
+	}
+	b, err = exec.Command("mkdir", s3Dir).CombinedOutput()
+	if err != nil {
+		return string(b), err
+	}
+	use_path_request_style := "use_path_request_style,"
+	if !config.GetConfig().Options.S3Config.AWSPathstyle {
+		use_path_request_style = ""
+	}
+	command := fmt.Sprintf("s3fs -o %vbucket=%v,host=\"%v\" %v", use_path_request_style, config.GetConfig().Options.S3Config.AWSBucket, config.GetConfig().Options.S3Config.AWSEndpoint, s3Dir)
+	b, err = exec.Command("bash", "-c", command).CombinedOutput()
+	if err != nil {
+		return string(b), err
+	}
+	b, err = exec.Command("mkdir", linkedDir).CombinedOutput()
+	if err != nil {
+		return string(b), err
+	}
+	nm, err := Destination.Query(ctx, job.PersistentId, job.DataverseKey, job.User)
+	if err != nil {
+		return err.Error(), err
+	}
+	for _, n := range nm {
+		identifier, err := trimProtocol(job.PersistentId)
+		if err != nil {
+			return err.Error(), err
+		}
+		filename := identifier + "/" + getStorage(n.Attributes.DestinationFile.StorageIdentifier).filename
+		command = fmt.Sprintf("ln -s $(pwd)/%v $(pwd)/%v", s3Dir+"/"+filename, linkedDir+"/"+n.Id)
+		fmt.Println(command)
+		b, err = exec.Command("bash", "-c", command).CombinedOutput()
+		if err != nil {
+			return string(b), err
+		}
+	}
+	return linkedDir, err
+}
+
+func unmount(job Job) {
+	s3Dir := job.Key + "/s3"
+	linkedDir := job.Key + "/linked"
+	exec.Command("rm", "-rf", linkedDir).Output()
+	exec.Command("fusermount", "-uz", s3Dir).CombinedOutput()
+	exec.Command("rmdir", s3Dir).Output()
+	exec.Command("rmdir", job.Key).Output()
 }
