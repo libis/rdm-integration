@@ -185,6 +185,21 @@
             "repoNameFieldName": "Dataset",
             "repoNameFieldPlaceholder": "Select dataset",
             "repoNameFieldHasSearch": true
+        },
+        {
+            "id": "sftp",
+            "name": "SFTP",
+            "plugin": "sftp",
+            "pluginName": "SFTP",
+            "sourceUrlFieldName": "SFTP URL",
+            "sourceUrlFieldPlaceholder": "sftp.example.org:22",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "optionFieldInteractive": true,
+            "usernameFieldName": "Username",
+            "usernameFieldPlaceholder": "username",
+            "tokenFieldName": "Password",
+            "tokenFieldPlaceholder": "password"
         }
     ]
 }
