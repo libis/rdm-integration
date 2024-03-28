@@ -12,6 +12,7 @@ import (
 	"integration/app/plugin/impl/onedrive"
 	"integration/app/plugin/impl/osf"
 	"integration/app/plugin/impl/redcap"
+	"integration/app/plugin/impl/sftp_plugin"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 )
@@ -71,6 +72,12 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Options: nil,
 		Search:  nil,
 		Streams: local.Streams,
+	},
+	"sftp": {
+		Query:   sftp_plugin.Query,
+		Options: sftp_plugin.Options,
+		Search:  nil,
+		Streams: sftp_plugin.Streams,
 	},
 }
 

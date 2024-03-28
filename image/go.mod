@@ -12,7 +12,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/libis/rdm-dataverse-go-api v1.0.6
 	github.com/redis/go-redis/v9 v9.5.1
+	golang.org/x/crypto v0.21.0
 	golang.org/x/oauth2 v0.18.0
+)
+
+require (
+	github.com/kr/fs v0.1.0 // indirect
+	github.com/stretchr/testify v1.8.3 // indirect
 )
 
 require (
@@ -40,6 +46,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/pkg/sftp v1.13.6
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	golang.org/x/net v0.22.0 // indirect

@@ -1,6 +1,6 @@
-// Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
+// Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
 
-package local
+package sftp_plugin
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
-	"os"
 	"strings"
 )
 
@@ -24,8 +23,15 @@ type Entry struct {
 }
 
 func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error) {
-	path := strings.TrimSuffix(req.Url, string(os.PathSeparator))
-	entries, err := list(path, path, dvNodes)
+	path := req.Option
+
+	cl, err := getClient(req.Url, req.User, req.Token)
+	if err != nil {
+		return nil, err
+	}
+	defer cl.Close()
+
+	entries, err := list(cl, path, path, dvNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +42,7 @@ func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.
 	for len(dirs) != 0 {
 		moreDirs := []string{}
 		for _, d := range dirs {
-			subEntries, err := list(path, d, dvNodes)
+			subEntries, err := list(cl, path, d, dvNodes)
 			if err != nil {
 				return nil, err
 			}
@@ -82,14 +88,14 @@ func toNodeMap(entries []Entry) ([]string, map[string]tree.Node, error) {
 	return dirs, res, nil
 }
 
-func list(root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
-	files, err := os.ReadDir(folder)
+func list(cl *client, root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
+	files, err := cl.SftpClient.ReadDir(folder)
 	if err != nil {
 		return nil, err
 	}
 	res := []Entry{}
 	for _, v := range files {
-		path := folder + string(os.PathSeparator) + v.Name()
+		path := folder + "/" + v.Name()
 		checkSum := types.NotNeeded
 		parentId := ""
 		id := ""
@@ -97,18 +103,15 @@ func list(root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
 		idDir := v.IsDir()
 		var size int64
 		if !idDir {
-			info, err := v.Info()
-			if err == nil {
-				size = info.Size()
-			}
+			size = v.Size()
 			id = fileName
 			if len(folder) > len(root) {
-				ancestors := strings.Split(folder[len(root)+1:], string(os.PathSeparator))
+				ancestors := strings.Split(folder[len(root)+1:], "/")
 				parentId = strings.Join(ancestors, "/")
 				id = parentId + "/" + fileName
 			}
 			if _, ok := dvNodes[id]; ok {
-				checkSum, err = hash(path)
+				checkSum, err = hash(cl, path)
 				if err != nil {
 					return nil, err
 				}
@@ -127,8 +130,8 @@ func list(root, folder string, dvNodes map[string]tree.Node) ([]Entry, error) {
 	return res, nil
 }
 
-func hash(path string) (string, error) {
-	f, err := os.Open(path)
+func hash(cl *client, path string) (string, error) {
+	f, err := cl.SftpClient.Open(path)
 	if err != nil {
 		return "", err
 	}

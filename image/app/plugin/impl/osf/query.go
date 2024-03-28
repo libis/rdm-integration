@@ -13,10 +13,10 @@ func Query(ctx context.Context, req types.CompareRequest, nm map[string]tree.Nod
 	if err != nil {
 		return nil, err
 	}
-	return toNodeMap(files, nm, req.Url, req.Token)
+	return toNodeMap(files)
 }
 
-func toNodeMap(files []File, nm map[string]tree.Node, url, token string) (map[string]tree.Node, error) {
+func toNodeMap(files []File) (map[string]tree.Node, error) {
 	res := map[string]tree.Node{}
 	for _, file := range files {
 		if file.IsDir {
