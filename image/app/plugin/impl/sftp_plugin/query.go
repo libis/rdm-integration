@@ -116,6 +116,8 @@ func list(cl *client, root, folder string, dvNodes map[string]tree.Node) ([]Entr
 					return nil, err
 				}
 			}
+		} else if v.Name() == ".snapshot" {
+			continue
 		}
 		res = append(res, Entry{
 			Path:     path,
