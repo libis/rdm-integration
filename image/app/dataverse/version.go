@@ -24,7 +24,7 @@ var filesCleanup = "5.13"
 var urlSigning = "5.14"
 var directUpload = "5.14"
 var slashInPermissions = "https://github.com/IQSS/dataverse/pull/8995" // will be replaced with verion when pull request is merged
-var nativeApiDelete = "5.14"
+var nativeApiDelete = "broken in 6.2"
 
 func init() {
 	if config.GetConfig().DataverseServer != "" {
