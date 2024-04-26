@@ -36,7 +36,7 @@ func getDirs(cl *client, dir string) ([]types.SelectItem, error) {
 	}
 	res := []types.SelectItem{}
 	for _, v := range entries {
-		if v.IsDir() {
+		if v.IsDir() && v.Name() != ".snapshot" {
 			res = append(res, types.SelectItem{Label: v.Name(), Value: dir + v.Name() + "/"})
 		}
 	}
