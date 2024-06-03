@@ -72,8 +72,8 @@ type IrodsEnvironment struct {
 }
 
 var serverMap = map[string]Server{
-	"PAM://ghum.irods.icts.kuleuven.be:1247": {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "PAM", Port: 1247},
-	"default":                                {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "PAM", Port: 1247},
+	"native://ghum.irods.icts.kuleuven.be:1247": {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "native", Port: 1247},
+	"default":                                {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "native", Port: 1247},
 }
 
 func NewIrodsClient(server, zone, username, password string) (*IrodsClient, error) {
@@ -94,14 +94,14 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		}
 		s = Server{
 			Server:     info.Host,
-			AuthScheme: "PAM",
+			AuthScheme: info.AuthenticationScheme,
 			Port:       info.Port,
 		}
 		username, password = info.Username, info.Password
 		algorithm, keySize, saltSize, hashRounds = info.EncryptionAlgorithm, info.EncryptionKeySize, info.EncryptionSaltSize, info.EncryptionNumHashRounds
 		negotiationPolicy = types.CSNegotiationRequire(info.ClientServerPolicy)
 	}
-	method := types.GetAuthScheme(s.AuthScheme)
+	method := types.GetAuthScheme(strings.ToLower(s.AuthScheme))
 	account, err := types.CreateIRODSAccount(s.Server, s.Port, username, zone, method, password, "")
 	if err != nil {
 		return nil, err
@@ -156,9 +156,7 @@ func getServer(server string) Server {
 			s := strings.Split(server, "://")
 			if len(s) > 1 {
 				d.Server = s[1]
-				if s[0] == string(types.AuthSchemeNative) || s[0] == string(types.AuthSchemeGSI) || s[0] == string(types.AuthSchemePAM) {
-					d.AuthScheme = s[0]
-				}
+				d.AuthScheme = s[0]
 			} else {
 				d.Server = s[0]
 			}
