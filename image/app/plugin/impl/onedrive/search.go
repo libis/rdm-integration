@@ -11,7 +11,7 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %+v", params)
 	}
 	if params.Option != "" {
-		return listFolderGrapthItems(ctx, params)
+		return listFolderGraphItems(ctx, params)
 	}
 
 	drives, err := getResponse(ctx, params.Url+"/sites?search="+params.RepoName, params.Token)

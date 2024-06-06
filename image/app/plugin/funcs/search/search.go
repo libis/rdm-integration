@@ -13,7 +13,7 @@ import (
 )
 
 func Search(w http.ResponseWriter, r *http.Request) {
-	//process requeststream
+	//process request stream
 	b, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {

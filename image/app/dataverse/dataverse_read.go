@@ -73,7 +73,7 @@ func mapToNodes(data []api.MetaData) map[string]tree.Node {
 			Attributes: tree.Attributes{
 				DestinationFile: tree.DestinationFile{
 					Id:                d.DataFile.Id,
-					Filesize:          d.DataFile.FileSize,
+					FileSize:          d.DataFile.FileSize,
 					Hash:              hash,
 					HashType:          hashType,
 					StorageIdentifier: d.DataFile.StorageIdentifier,

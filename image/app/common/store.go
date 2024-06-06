@@ -15,7 +15,7 @@ import (
 
 type StoreResult struct {
 	Status    string `json:"status"`
-	DatsetUrl string `json:"datasetUrl"`
+	DatasetUrl string `json:"datasetUrl"`
 }
 
 type StoreRequest struct {
@@ -24,7 +24,7 @@ type StoreRequest struct {
 	PersistentId      string             `json:"persistentId"`
 	DataverseKey      string             `json:"dataverseKey"`
 	SelectedNodes     []tree.Node        `json:"selectedNodes"`
-	SendEmailOnSucces bool               `json:"sendEmailOnSucces"`
+	SendEmailOnSuccess bool               `json:"sendEmailOnSuccess"`
 }
 
 func Store(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		WritableNodes:     selected,
 		Plugin:            req.Plugin,
 		StreamParams:      req.StreamParams,
-		SendEmailOnSucces: req.SendEmailOnSucces,
+		SendEmailOnSuccess: req.SendEmailOnSuccess,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -74,7 +74,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	}
 	res := StoreResult{
 		Status:    "OK",
-		DatsetUrl: core.Destination.GetRepoUrl(req.PersistentId, true),
+		DatasetUrl: core.Destination.GetRepoUrl(req.PersistentId, true),
 	}
 	b, err = json.Marshal(res)
 	if err != nil {

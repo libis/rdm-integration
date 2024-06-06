@@ -95,7 +95,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	rejected := []string{}
 	maxFileSize := config.GetMaxFileSize()
 	for k, v := range repoNm {
-		if maxFileSize > 0 && v.Attributes.RemoteFilesize > maxFileSize {
+		if maxFileSize > 0 && v.Attributes.RemoteFileSize > maxFileSize {
 			delete(repoNm, k)
 			rejected = append(rejected, v.Id)
 		} else if !fileNameR.MatchString(v.Name) || !folderNameR.MatchString(v.Path) {

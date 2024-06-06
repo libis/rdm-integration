@@ -29,7 +29,7 @@ type WriterCloser struct {
 	pw     io.WriteCloser
 }
 
-func NewWritterCloser(writer io.Writer, closer io.Closer, pipeWriter io.WriteCloser) WriterCloser {
+func NewWriterCloser(writer io.Writer, closer io.Closer, pipeWriter io.WriteCloser) WriterCloser {
 	return WriterCloser{writer, closer, pipeWriter}
 }
 
@@ -43,7 +43,7 @@ func (z WriterCloser) Close() error {
 }
 
 type FileWriter struct {
-	part1writtern bool
+	part1written bool
 	part1bytes    []byte
 	part2         io.Writer
 	writer        *multipart.Writer
@@ -55,10 +55,10 @@ func NewFileWriter(filename string, part1bytes []byte, writer *multipart.Writer)
 }
 
 func (f *FileWriter) Write(p []byte) (int, error) {
-	if !f.part1writtern {
+	if !f.part1written {
 		part1, _ := f.writer.CreateFormField("jsonData")
 		part1.Write(f.part1bytes)
-		f.part1writtern = true
+		f.part1written = true
 		f.part2, _ = f.writer.CreateFormFile("file", f.filename)
 	}
 	n, err := f.part2.Write(p)
@@ -66,7 +66,7 @@ func (f *FileWriter) Write(p []byte) (int, error) {
 }
 
 func (f *FileWriter) Close() error {
-	if !f.part1writtern {
+	if !f.part1written {
 		f.Write([]byte{})
 	}
 	return f.writer.Close()

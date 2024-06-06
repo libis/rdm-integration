@@ -46,7 +46,7 @@ func toNodeMap(entries []Entry, nm map[string]tree.Node, url, token string) (map
 				IsFile:         !e.IsDir,
 				RemoteHash:     checkSum,
 				RemoteHashType: types.Md5,
-				RemoteFilesize: size,
+				RemoteFileSize: size,
 			},
 		}
 		res[e.Id] = node

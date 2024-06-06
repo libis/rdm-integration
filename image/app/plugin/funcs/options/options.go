@@ -13,7 +13,7 @@ import (
 )
 
 func Options(w http.ResponseWriter, r *http.Request) {
-	//process requeststream
+	//process request stream
 	b, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
@@ -40,12 +40,7 @@ func Options(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		return
-	}
+	
 	b, err = json.Marshal(res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

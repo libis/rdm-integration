@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// this is called when polling for status changes, after specific compare is finished or store is calleed
+// this is called when polling for status changes, after specific compare is finished or store is called
 func GetExecutableFiles(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -39,7 +39,7 @@ func GetExecutableFiles(w http.ResponseWriter, r *http.Request) {
 	// find computable files extensions
 	computable := map[string]bool{}
 	for _, queue := range config.GetComputationQueues() {
-		for _, ext := range queue.Fileextensions {
+		for _, ext := range queue.FileExtensions {
 			computable[ext] = true
 		}
 	}

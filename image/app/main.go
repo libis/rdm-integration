@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	// spin workers if required (otherwise the workers are run independetly, see also workers/main.go)
+	// spin workers if required (otherwise the workers are run independently, see also workers/main.go)
 	numberWorkers := 0
 	queue := "ALL"
 	var err error
@@ -28,7 +28,7 @@ func main() {
 	}
 	if numberWorkers > 0 {
 		destination.SetDataverseAsDestination()
-		logging.Logger.Println("nuber workers:", numberWorkers)
+		logging.Logger.Println("number workers:", numberWorkers)
 		go server.Start()
 		spinner.SpinWorkers(numberWorkers, queue)
 	} else {

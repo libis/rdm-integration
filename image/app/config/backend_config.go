@@ -56,8 +56,8 @@ type QueueAccess struct {
 }
 
 type MailConfig struct {
-	SubjectOnSucces string `json:"subjectOnSucces,omitempty"`
-	ContentOnSucces string `json:"contentOnSucces,omitempty"`
+	SubjectOnSuccess string `json:"subjectOnSuccess,omitempty"`
+	ContentOnSuccess string `json:"contentOnSuccess,omitempty"`
 	SubjectOnError  string `json:"subjectOnError,omitempty"`
 	ContentOnError  string `json:"contentOnError,omitempty"`
 }
@@ -106,7 +106,7 @@ func init() {
 		logging.Logger.Printf("using backend configuration from %v\n", configFile)
 		err := json.Unmarshal(b, &config)
 		if err != nil {
-			panic(fmt.Errorf("config confing could not be loaded from %v: %v", configFile, err))
+			panic(fmt.Errorf("config could not be loaded from %v: %v", configFile, err))
 		}
 	}
 	if config.Options.DefaultHash == "" {

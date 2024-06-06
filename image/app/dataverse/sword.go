@@ -61,5 +61,5 @@ func uploadViaSword(ctx context.Context, _ int64, id, token, _, persistentId str
 		}
 	}(*request)
 
-	return core.NewWritterCloser(writer, zipWriter, pw), nil
+	return core.NewWriterCloser(writer, zipWriter, pw), nil
 }

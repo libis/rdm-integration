@@ -39,7 +39,7 @@ func SpinWorkers(numberWorkers int, queue string) {
 		sig := <-signalChannel
 		switch sig {
 		case os.Interrupt, syscall.SIGTERM:
-			logging.Logger.Println("quiting...")
+			logging.Logger.Println("quitting...")
 			close(core.Stop)
 		}
 	}()

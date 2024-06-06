@@ -13,7 +13,7 @@ import (
 type OauthTokenRequest struct {
 	PluginId string `json:"pluginId"`
 	Code     string `json:"code"`
-	Nounce   string `json:"nounce"`
+	Nonce   string `json:"nonce"`
 }
 
 func GetOauthToken(w http.ResponseWriter, r *http.Request) {

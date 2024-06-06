@@ -45,18 +45,18 @@ func SendMail(msg string, to []string) error {
 	return smtp.SendMail(conf.Host+":"+conf.Port, auth, conf.From, to, []byte(msg))
 }
 
-func getSubjectOnSucces(job Job) string {
+func getSubjectOnSuccess(job Job) string {
 	template := "[rdm-integration] Done uploading files to dataset %v"
-	if config.GetConfig().Options.MailConfig.SubjectOnSucces != "" {
-		template = config.GetConfig().Options.MailConfig.SubjectOnSucces
+	if config.GetConfig().Options.MailConfig.SubjectOnSuccess != "" {
+		template = config.GetConfig().Options.MailConfig.SubjectOnSuccess
 	}
 	return fmt.Sprintf(template, job.PersistentId)
 }
 
-func getContentOnSucces(job Job) string {
-	template := "All files are updated sucessfuly. You can review the content and edit the metadata in the dataset: <a href=\"%v\">%v</a>."
-	if config.GetConfig().Options.MailConfig.ContentOnSucces != "" {
-		template = config.GetConfig().Options.MailConfig.ContentOnSucces
+func getContentOnSuccess(job Job) string {
+	template := "All files are updated successfully. You can review the content and edit the metadata in the dataset: <a href=\"%v\">%v</a>."
+	if config.GetConfig().Options.MailConfig.ContentOnSuccess != "" {
+		template = config.GetConfig().Options.MailConfig.ContentOnSuccess
 	}
 	return fmt.Sprintf(template, Destination.GetRepoUrl(job.PersistentId, true), job.PersistentId)
 }

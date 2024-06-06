@@ -75,7 +75,7 @@ func main() {
 	go server.Start()
 	fr := newFakeRedis()
 	config.SetRedis(fr)
-	openbrowser("http://localhost:7788/")
+	openBrowser("http://localhost:7788/")
 
 	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
@@ -95,7 +95,7 @@ func main() {
 	done <- true
 }
 
-func openbrowser(url string) {
+func openBrowser(url string) {
 	var err error
 
 	switch runtime.GOOS {

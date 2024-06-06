@@ -30,14 +30,14 @@ type Attributes struct {
 	URL             string          `json:"url"`
 	RemoteHash      string          `json:"remoteHash"`
 	RemoteHashType  string          `json:"remoteHashType"`
-	RemoteFilesize  int64           `json:"remoteFilesize"`
+	RemoteFileSize  int64           `json:"remoteFileSize"`
 	IsFile          bool            `json:"isFile"`
-	DestinationFile DestinationFile `json:"destinatinFile"`
+	DestinationFile DestinationFile `json:"destinationFile"`
 }
 
 type DestinationFile struct {
 	Id                int64  `json:"id"`
-	Filesize          int64  `json:"filesize"`
+	FileSize          int64  `json:"fileSize"`
 	Hash              string `json:"hash"`
 	HashType          string `json:"hashType"`
 	StorageIdentifier string `json:"storageIdentifier"`

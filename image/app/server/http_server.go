@@ -47,7 +47,7 @@ func Start() {
 		srvMux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Server shut down and all jobs are cancelled. You can close the browser window now."))
 			defer func() {
-				logging.Logger.Println("quiting...")
+				logging.Logger.Println("quitting...")
 				close(core.Stop)
 			}()
 		})

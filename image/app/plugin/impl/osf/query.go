@@ -32,7 +32,7 @@ func toNodeMap(files []File) (map[string]tree.Node, error) {
 				IsFile:         !file.IsDir,
 				RemoteHash:     file.Hash,
 				RemoteHashType: file.HashType,
-				RemoteFilesize: file.Size,
+				RemoteFileSize: file.Size,
 			},
 		}
 		res[node.Id] = node

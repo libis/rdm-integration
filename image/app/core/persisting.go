@@ -49,7 +49,7 @@ func doWork(job Job) (Job, error) {
 	if err != nil {
 		return j, err
 	}
-	return j, sendJobSuccesMail(j)
+	return j, sendJobSuccessMail(j)
 }
 
 func sendJobFailedMail(errIn error, job Job) error {
@@ -69,21 +69,21 @@ func sendJobFailedMail(errIn error, job Job) error {
 	return errIn
 }
 
-func sendJobSuccesMail(job Job) error {
-	if !job.SendEmailOnSucces {
+func sendJobSuccessMail(job Job) error {
+	if !job.SendEmailOnSuccess {
 		return nil
 	}
 	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	to, err := Destination.GetUserEmail(shortContext, job.DataverseKey, job.User)
 	if err != nil {
-		return fmt.Errorf("error when sending email on succes: %v", err)
+		return fmt.Errorf("error when sending email on success: %v", err)
 	}
 	msg := fmt.Sprintf("To: %v\r\nMIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\n"+
-		"Subject: %v\r\n\r\n<html><body>%v</body>\r\n", to, getSubjectOnSucces(job), getContentOnSucces(job))
+		"Subject: %v\r\n\r\n<html><body>%v</body>\r\n", to, getSubjectOnSuccess(job), getContentOnSuccess(job))
 	err = SendMail(msg, []string{to})
 	if err != nil {
-		return fmt.Errorf("error when sending email on succes: %v", err)
+		return fmt.Errorf("error when sending email on success: %v", err)
 	}
 	return nil
 }
@@ -172,7 +172,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		var h []byte
 		var remoteH []byte
 		var size int64
-		h, remoteH, size, err = write(ctx, v.Attributes.DestinationFile.Id, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.RemoteFilesize)
+		h, remoteH, size, err = write(ctx, v.Attributes.DestinationFile.Id, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.RemoteFileSize)
 		if err != nil {
 			return
 		}
@@ -180,17 +180,17 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		hashValue := fmt.Sprintf("%x", h)
 		v.Attributes.DestinationFile.Hash = hashValue
 		v.Attributes.DestinationFile.HashType = hashType
-		v.Attributes.DestinationFile.Filesize = size
+		v.Attributes.DestinationFile.FileSize = size
 
 		//updated or new: always rehash
-		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
+		remoteHashValue := fmt.Sprintf("%x", remoteH)
 		if remoteHashType == types.GitHash {
-			remoteHashVlaue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
+			remoteHashValue = v.Attributes.RemoteHash // gitlab does not provide file size... If we do not know the file size before calculating the hash, we can't calculate the git hash
 		}
-		if v.Attributes.RemoteHash != remoteHashVlaue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
+		if v.Attributes.RemoteHash != remoteHashValue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
 			if remoteHashType == types.QuickXorHash { //some sharepoint hashes fail
-				logging.Logger.Println("WARNING: quickXorHash not equal, expected", v.Attributes.RemoteHash, "got", remoteHashVlaue)
-				remoteHashVlaue = v.Attributes.RemoteHash
+				logging.Logger.Println("WARNING: quickXorHash not equal, expected", v.Attributes.RemoteHash, "got", remoteHashValue)
+				remoteHashValue = v.Attributes.RemoteHash
 			} else {
 				err = fmt.Errorf("downloaded file hash not equal")
 				return
@@ -207,11 +207,11 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			}
 		}
 
-		if hashValue != remoteHashVlaue {
+		if hashValue != remoteHashValue {
 			knownHashes[v.Id] = calculatedHashes{
 				LocalHashType:  hashType,
 				LocalHashValue: hashValue,
-				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
+				RemoteHashes:   map[string]string{remoteHashType: remoteHashValue},
 			}
 		}
 		config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)

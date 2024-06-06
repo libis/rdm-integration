@@ -48,7 +48,7 @@ func mapToNodes(data []api.MetaData) map[string]tree.Node {
 				IsFile:         true,
 				RemoteHash:     hash,
 				RemoteHashType: hashType,
-				RemoteFilesize: d.DataFile.FileSize,
+				RemoteFileSize: d.DataFile.FileSize,
 			},
 		}
 	}

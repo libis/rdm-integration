@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// this is called when polling for status changes, after specific compare is finished or store is calleed
+// this is called when polling for status changes, after specific compare is finished or store is called
 func Compute(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -65,9 +65,9 @@ func Compute(w http.ResponseWriter, r *http.Request) {
 		User:              core.GetUserFromHeader(r.Header),
 		SessionId:         core.GetSessionId(r.Header),
 		PersistentId:      req.PersistentId,
-		WritableNodes:     map[string]tree.Node{req.Executable: tree.Node{}},
+		WritableNodes:     map[string]tree.Node{req.Executable: {}},
 		Plugin:            "compute",
-		SendEmailOnSucces: req.SenSendEmailOnSucces,
+		SendEmailOnSuccess: req.SenSendEmailOnSuccess,
 		Key:               key,
 		Queue:             req.Queue,
 	})

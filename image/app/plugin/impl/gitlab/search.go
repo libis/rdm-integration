@@ -12,7 +12,7 @@ import (
 )
 
 type Item struct {
-	PathWithBamespace string `json:"path_with_namespace"`
+	PathWithNamespace string `json:"path_with_namespace"`
 }
 
 func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
@@ -38,7 +38,7 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 
 	res := []types.SelectItem{}
 	for _, v := range results {
-		res = append(res, types.SelectItem{Label: v.PathWithBamespace, Value: v.PathWithBamespace})
+		res = append(res, types.SelectItem{Label: v.PathWithNamespace, Value: v.PathWithNamespace})
 	}
 	return res, err
 }

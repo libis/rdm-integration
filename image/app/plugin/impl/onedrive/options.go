@@ -15,7 +15,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %+v", params)
 	}
 	if params.Option != "" {
-		return listFolderGrapthItems(ctx, params)
+		return listFolderGraphItems(ctx, params)
 	}
 	var drives []GraphItem
 	var err error
@@ -38,7 +38,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	return res, nil
 }
 
-func listFolderGrapthItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
+func listFolderGraphItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
 	s := strings.Split(params.Option, "/")
 	folder := ""
 	if len(s) > 1 {

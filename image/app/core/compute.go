@@ -16,7 +16,7 @@ type ComputeRequest struct {
 	DataverseKey         string `json:"dataverseKey"`
 	Queue                string `json:"queue"`
 	Executable           string `json:"executable"`
-	SenSendEmailOnSucces bool   `json:"senSendEmailOnSucces"`
+	SenSendEmailOnSuccess bool   `json:"senSendEmailOnSuccess"`
 }
 
 type CachedComputeResponse struct {

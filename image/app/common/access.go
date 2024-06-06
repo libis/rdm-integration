@@ -22,7 +22,7 @@ type AccessResponse struct {
 	Message string `json:"message"`
 }
 
-// this is called when polling for status changes, after specific compare is finished or store is calleed
+// this is called when polling for status changes, after specific compare is finished or store is called
 func GetAccessToQueue(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -45,13 +45,12 @@ func GetAccessToQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	res, err := checkAccess(req, r)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - bad request"))
 		return
 	}
-
-	res, err := checkAccess(req, r)
 
 	b, err = json.Marshal(res)
 	if err != nil {

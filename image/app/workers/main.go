@@ -30,6 +30,6 @@ func main() {
 	if numberWorkers < 0 {
 		numberWorkers = 200
 	}
-	logging.Logger.Println("nuber workers:", numberWorkers)
+	logging.Logger.Println("number workers:", numberWorkers)
 	spinner.SpinWorkers(numberWorkers, queue)
 }

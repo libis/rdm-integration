@@ -52,5 +52,5 @@ type Configuration struct {
 type Queue struct {
 	Label          string   `json:"label"`
 	Value          string   `json:"value"`
-	Fileextensions []string `json:"fileextensions"`
+	FileExtensions []string `json:"fileExtensions"`
 }

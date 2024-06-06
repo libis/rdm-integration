@@ -40,13 +40,13 @@ func Query(_ context.Context, req types.CompareRequest, dvNodes map[string]tree.
 			if err != nil {
 				return nil, err
 			}
-			var irodsNm map[string]tree.Node
+			var nm map[string]tree.Node
 			var subDirs []string
-			subDirs, irodsNm, err = toNodeMap(subEntries)
+			subDirs, nm, err = toNodeMap(subEntries)
 			if err != nil {
 				return nil, err
 			}
-			for k, v := range irodsNm {
+			for k, v := range nm {
 				nodes[k] = v
 			}
 			moreDirs = append(moreDirs, subDirs...)
@@ -74,7 +74,7 @@ func toNodeMap(entries []Entry) ([]string, map[string]tree.Node, error) {
 				IsFile:         isFile,
 				RemoteHash:     e.CheckSum,
 				RemoteHashType: types.Md5,
-				RemoteFilesize: e.Size,
+				RemoteFileSize: e.Size,
 			},
 		}
 		res[e.Id] = node

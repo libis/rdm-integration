@@ -51,7 +51,7 @@ func toNodeMap(folder string, entries []Entry, nm map[string]tree.Node, token st
 				IsFile:         !e.IsDir,
 				RemoteHash:     hash,
 				RemoteHashType: hashType,
-				RemoteFilesize: e.Size,
+				RemoteFileSize: e.Size,
 			},
 		}
 		res[id] = node

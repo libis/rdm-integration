@@ -20,15 +20,15 @@
             {
                 "label": "Default queue",
                 "value": "default",
-                "fileextensions": ["r", "py"]
+                "fileExtensions": ["r", "py"]
             }, {
                 "label": "GPU cluster",
                 "value": "cuda",
-                "fileextensions": ["py"]
+                "fileExtensions": ["py"]
             }, {
                 "label": "R queue",
                 "value": "r",
-                "fileextensions": ["r"]
+                "fileExtensions": ["r"]
             }
         ],
         "computationAccessConfig": [

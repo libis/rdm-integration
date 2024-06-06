@@ -74,7 +74,7 @@ func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persi
 	}
 
 	if res.Status != "OK" {
-		return fmt.Errorf("writting file failed: %+v", res)
+		return fmt.Errorf("writing file failed: %+v", res)
 	}
 	return nil
 }
@@ -139,7 +139,7 @@ func ApiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persist
 		}
 	}(request)
 
-	return core.NewWritterCloser(fw, fw, pw), nil
+	return core.NewWriterCloser(fw, fw, pw), nil
 }
 
 func splitId(id string) (string, string) {

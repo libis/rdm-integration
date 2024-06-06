@@ -27,7 +27,7 @@ type Job struct {
 	StreamParams      types.StreamParams
 	ErrCnt            int
 	Deadline          time.Time
-	SendEmailOnSucces bool
+	SendEmailOnSuccess bool
 	Key               string
 	Queue             string
 }
@@ -104,7 +104,7 @@ func popJob(queue string) (Job, bool) {
 	job := Job{}
 	err = json.Unmarshal([]byte(v), &job)
 	if err != nil {
-		logging.Logger.Println("failed to unmarshall a job:", err)
+		logging.Logger.Println("failed to unmarshal a job:", err)
 		return job, false
 	}
 	return job, true
@@ -112,7 +112,7 @@ func popJob(queue string) (Job, bool) {
 
 func ProcessJobs(queue string) {
 	defer Wait.Done()
-	defer logging.Logger.Println("worker exited grecefully")
+	defer logging.Logger.Println("worker exited gracefully")
 	for {
 		select {
 		case <-Stop:
