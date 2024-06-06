@@ -101,7 +101,7 @@ func mountDataset(ctx context.Context, job Job) (string, error) {
 	if !config.GetConfig().Options.S3Config.AWSPathstyle {
 		use_path_request_style = ""
 	}
-	command := fmt.Sprintf("s3fs -o %vbucket=%v,host=\"%v\" %v", use_path_request_style, config.GetConfig().Options.S3Config.AWSBucket, config.GetConfig().Options.S3Config.AWSEndpoint, s3Dir)
+	command := fmt.Sprintf("s3fs -o %vbucket=%v,host=\"%v\",ro %v", use_path_request_style, config.GetConfig().Options.S3Config.AWSBucket, config.GetConfig().Options.S3Config.AWSEndpoint, s3Dir)
 	b, err = exec.Command("bash", "-c", command).CombinedOutput()
 	if err != nil {
 		return string(b), err
@@ -121,7 +121,6 @@ func mountDataset(ctx context.Context, job Job) (string, error) {
 		}
 		filename := identifier + "/" + getStorage(n.Attributes.DestinationFile.StorageIdentifier).filename
 		command = fmt.Sprintf("ln -s $(pwd)/%v $(pwd)/%v", s3Dir+"/"+filename, linkedDir+"/"+n.Id)
-		fmt.Println(command)
 		b, err = exec.Command("bash", "-c", command).CombinedOutput()
 		if err != nil {
 			return string(b), err

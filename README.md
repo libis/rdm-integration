@@ -311,3 +311,8 @@ sequenceDiagram
         Worker-->>Redis: Notify file is processed
     end
 ```
+# Architecture
+
+![image](https://github.com/libis/rdm-integration/assets/101262459/eb00e789-119f-4a9f-a2ad-9160f60e190e)
+
+
