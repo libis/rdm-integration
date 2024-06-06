@@ -80,7 +80,7 @@ func toNodeMap(entries []Entry) ([]string, map[string]tree.Node, error) {
 				IsFile:         isFile,
 				RemoteHash:     e.CheckSum,
 				RemoteHashType: types.Md5,
-				RemoteFilesize: e.Size,
+				RemoteFileSize: e.Size,
 			},
 		}
 		res[e.Id] = node

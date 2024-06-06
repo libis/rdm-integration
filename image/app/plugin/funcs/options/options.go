@@ -40,7 +40,7 @@ func Options(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
-	
+
 	b, err = json.Marshal(res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

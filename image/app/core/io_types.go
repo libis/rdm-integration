@@ -44,10 +44,10 @@ func (z WriterCloser) Close() error {
 
 type FileWriter struct {
 	part1written bool
-	part1bytes    []byte
-	part2         io.Writer
-	writer        *multipart.Writer
-	filename      string
+	part1bytes   []byte
+	part2        io.Writer
+	writer       *multipart.Writer
+	filename     string
 }
 
 func NewFileWriter(filename string, part1bytes []byte, writer *multipart.Writer) *FileWriter {

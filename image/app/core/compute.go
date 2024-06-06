@@ -12,10 +12,10 @@ import (
 )
 
 type ComputeRequest struct {
-	PersistentId         string `json:"persistentId"`
-	DataverseKey         string `json:"dataverseKey"`
-	Queue                string `json:"queue"`
-	Executable           string `json:"executable"`
+	PersistentId          string `json:"persistentId"`
+	DataverseKey          string `json:"dataverseKey"`
+	Queue                 string `json:"queue"`
+	Executable            string `json:"executable"`
 	SenSendEmailOnSuccess bool   `json:"senSendEmailOnSuccess"`
 }
 

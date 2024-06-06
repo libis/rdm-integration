@@ -61,15 +61,15 @@ func Compute(w http.ResponseWriter, r *http.Request) {
 		ErrorMessage: "",
 	})
 	err = core.AddJob(r.Context(), core.Job{
-		DataverseKey:      req.DataverseKey,
-		User:              core.GetUserFromHeader(r.Header),
-		SessionId:         core.GetSessionId(r.Header),
-		PersistentId:      req.PersistentId,
-		WritableNodes:     map[string]tree.Node{req.Executable: {}},
-		Plugin:            "compute",
+		DataverseKey:       req.DataverseKey,
+		User:               core.GetUserFromHeader(r.Header),
+		SessionId:          core.GetSessionId(r.Header),
+		PersistentId:       req.PersistentId,
+		WritableNodes:      map[string]tree.Node{req.Executable: {}},
+		Plugin:             "compute",
 		SendEmailOnSuccess: req.SenSendEmailOnSuccess,
-		Key:               key,
-		Queue:             req.Queue,
+		Key:                key,
+		Queue:              req.Queue,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

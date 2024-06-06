@@ -14,16 +14,16 @@ import (
 )
 
 type StoreResult struct {
-	Status    string `json:"status"`
+	Status     string `json:"status"`
 	DatasetUrl string `json:"datasetUrl"`
 }
 
 type StoreRequest struct {
-	Plugin            string             `json:"plugin"`
-	StreamParams      types.StreamParams `json:"streamParams"`
-	PersistentId      string             `json:"persistentId"`
-	DataverseKey      string             `json:"dataverseKey"`
-	SelectedNodes     []tree.Node        `json:"selectedNodes"`
+	Plugin             string             `json:"plugin"`
+	StreamParams       types.StreamParams `json:"streamParams"`
+	PersistentId       string             `json:"persistentId"`
+	DataverseKey       string             `json:"dataverseKey"`
+	SelectedNodes      []tree.Node        `json:"selectedNodes"`
 	SendEmailOnSuccess bool               `json:"sendEmailOnSuccess"`
 }
 
@@ -58,13 +58,13 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		req.StreamParams.User = user
 	}
 	err = core.AddJob(r.Context(), core.Job{
-		DataverseKey:      req.DataverseKey,
-		User:              user,
-		SessionId:         req.StreamParams.Token,
-		PersistentId:      req.PersistentId,
-		WritableNodes:     selected,
-		Plugin:            req.Plugin,
-		StreamParams:      req.StreamParams,
+		DataverseKey:       req.DataverseKey,
+		User:               user,
+		SessionId:          req.StreamParams.Token,
+		PersistentId:       req.PersistentId,
+		WritableNodes:      selected,
+		Plugin:             req.Plugin,
+		StreamParams:       req.StreamParams,
 		SendEmailOnSuccess: req.SendEmailOnSuccess,
 	})
 	if err != nil {
@@ -73,7 +73,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := StoreResult{
-		Status:    "OK",
+		Status:     "OK",
 		DatasetUrl: core.Destination.GetRepoUrl(req.PersistentId, true),
 	}
 	b, err = json.Marshal(res)

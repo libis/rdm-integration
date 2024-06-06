@@ -58,8 +58,8 @@ type QueueAccess struct {
 type MailConfig struct {
 	SubjectOnSuccess string `json:"subjectOnSuccess,omitempty"`
 	ContentOnSuccess string `json:"contentOnSuccess,omitempty"`
-	SubjectOnError  string `json:"subjectOnError,omitempty"`
-	ContentOnError  string `json:"contentOnError,omitempty"`
+	SubjectOnError   string `json:"subjectOnError,omitempty"`
+	ContentOnError   string `json:"contentOnError,omitempty"`
 }
 
 type Smtp struct {

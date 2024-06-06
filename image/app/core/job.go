@@ -17,19 +17,19 @@ import (
 const maxErrors = 100
 
 type Job struct {
-	DataverseKey      string
-	User              string
-	SessionId         string
-	PersistentId      string
-	WritableNodes     map[string]tree.Node
-	Plugin            string
-	Streams           map[string]map[string]interface{}
-	StreamParams      types.StreamParams
-	ErrCnt            int
-	Deadline          time.Time
+	DataverseKey       string
+	User               string
+	SessionId          string
+	PersistentId       string
+	WritableNodes      map[string]tree.Node
+	Plugin             string
+	Streams            map[string]map[string]interface{}
+	StreamParams       types.StreamParams
+	ErrCnt             int
+	Deadline           time.Time
 	SendEmailOnSuccess bool
-	Key               string
-	Queue             string
+	Key                string
+	Queue              string
 }
 
 var Stop = make(chan struct{})
