@@ -14,7 +14,7 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 		return listFolderGrapthItems(ctx, params)
 	}
 
-	drives, err := getParialResponse(ctx, params.Url+"/sites?search="+params.RepoName, params.Token)
+	drives, err := getPartialResponse(ctx, params.Url+"/sites?search="+params.RepoName, params.Token)
 	if err != nil {
 		return nil, err
 	}

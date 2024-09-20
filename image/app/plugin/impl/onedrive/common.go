@@ -113,7 +113,7 @@ func getResponse(ctx context.Context, url string, token string) ([]GraphItem, er
 	next := url
 	res := []GraphItem{}
 	for next != "" {
-		response, err := getParialResponse(ctx, next, token)
+		response, err := getPartialResponse(ctx, next, token)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func getResponse(ctx context.Context, url string, token string) ([]GraphItem, er
 	return res, nil
 }
 
-func getParialResponse(ctx context.Context, url string, token string) (Response, error) {
+func getPartialResponse(ctx context.Context, url string, token string) (Response, error) {
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return Response{}, err
