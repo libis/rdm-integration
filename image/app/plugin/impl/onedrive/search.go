@@ -14,12 +14,12 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 		return listFolderGrapthItems(ctx, params)
 	}
 
-	drives, err := getResponse(ctx, params.Url+"/sites?search="+params.RepoName, params.Token)
+	drives, err := getParialResponse(ctx, params.Url+"/sites?search="+params.RepoName, params.Token)
 	if err != nil {
 		return nil, err
 	}
 	res := []types.SelectItem{}
-	for _, d := range drives {
+	for _, d := range drives.Value {
 		res = append(res, types.SelectItem{Label: d.Name, Value: d.Id})
 	}
 	return res, nil
