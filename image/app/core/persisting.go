@@ -10,6 +10,7 @@ import (
 	"integration/app/plugin/funcs/stream"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"strings"
 	"time"
 )
 
@@ -166,7 +167,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		fileStream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
-		hashType := config.GetConfig().Options.DefaultHash
+		hashType := getHashType(v.Attributes.RemoteHashType)
 		remoteHashType := v.Attributes.RemoteHashType
 
 		var h []byte
@@ -230,6 +231,14 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = cleanup(writtenKeys)
 	}
 	return
+}
+
+func getHashType(hType string) string {
+	if hType == types.Md5 || strings.HasPrefix(hType, "SHA") {
+		// allow storing sha and md5 hash types in Dataverse, regardless of what the default hash type is
+		return hType
+	}
+	return config.GetConfig().Options.DefaultHash
 }
 
 func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tree.Node, job *Job, knownHashes map[string]calculatedHashes, toAddIdentifiers, toReplaceIdentifiers *[]string) {
