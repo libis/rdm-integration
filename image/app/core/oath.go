@@ -37,7 +37,10 @@ type OauthTokenResponse struct {
 	Error                 string `json:"error"`
 	Error_description     string `json:"error_description"`
 	Error_uri             string `json:"error_uri"`
+	ResourceServer string `json:"resource_server"`
+	State          string `json:"state"`
 	Issued                time.Time
+	OtherTokens           []OauthTokenResponse `json:"other_tokens"`
 }
 
 type OauthTokenResponseStrings struct {
@@ -85,10 +88,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 		grantType = "refresh_token"
 	}
 	req := OauthTokenRequest{clientId, clientSecret, code, refreshToken, redirectUri, grantType, resource}
-	//data, _ := json.Marshal(req)
-	//body := bytes.NewBuffer(data)
 	request, _ := http.NewRequestWithContext(ctx, "POST", postUrl, encode(req))
-	//request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Add("Accept", "application/json")
 	r, err := http.DefaultClient.Do(request)
@@ -144,6 +144,12 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 		result, err = doExchange(ctx, result, exchange)
 		if err != nil {
 			return res, err
+		}
+	}
+	for _, t := range result.OtherTokens {
+		if t.ResourceServer == "transfer.api.globus.org" {
+			result = t
+			break;
 		}
 	}
 	result.Issued = time.Now()

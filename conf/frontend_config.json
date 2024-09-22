@@ -200,6 +200,23 @@
             "usernameFieldPlaceholder": "username",
             "tokenFieldName": "Password",
             "tokenFieldPlaceholder": "password"
+        },
+        {
+            "id": "globus",
+            "name": "Globus",
+            "plugin": "globus",
+            "pluginName": "Globus",
+            "sourceUrlFieldValue": "https://transfer.api.globusonline.org/v0.10",
+            "optionFieldName": "Folder",
+            "optionFieldPlaceholder": "Select folder",
+            "optionFieldInteractive": true,
+            "repoNameFieldName": "Endpoint",
+            "repoNameFieldPlaceholder": "Select endpoint",
+            "repoNameFieldHasSearch": true,
+            "tokenGetter": {
+                "URL": "https://auth.globus.org/v2/oauth2/authorize?scope=urn%3Aglobus%3Aauth%3Ascope%3Atransfer.api.globus.org%3Aall+openid+email+profile",
+                "oauth_client_id": "33992ba4-2475-47b6-bacb-d0b6b63967e1"
+            }
         }
     ]
 }

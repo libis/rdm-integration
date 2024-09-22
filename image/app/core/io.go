@@ -188,6 +188,9 @@ func doHash(ctx context.Context, dataverseKey, user, persistentId string, node t
 	}
 	storageIdentifier := node.Attributes.DestinationFile.StorageIdentifier
 	hashType := node.Attributes.RemoteHashType
+	if strings.EqualFold(hashType, types.LastModified) {
+		return []byte("unknown"), nil
+	}
 	hasher, err := getHash(hashType, node.Attributes.DestinationFile.Filesize)
 	if err != nil {
 		return nil, err
