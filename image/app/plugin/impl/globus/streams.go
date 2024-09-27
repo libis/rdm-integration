@@ -43,6 +43,34 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		}
 		//TODO: transfer
 		//TODO: addGlobusFiles
+		/* examples:
+-> POST https://transfer.api.globusonline.org/v0.10/transfer
+{"DATA_TYPE":"transfer","DATA":[{"DATA_TYPE":"transfer_item","source_path":"/~/Downloads/authentication.drawio","destination_path":"/10.5072/FK2/TO4LCH/19233b19b57-d9056576dc22","recursive":false},{"DATA_TYPE":"transfer_item","source_path":"/~/Downloads/authentication.svg","destination_path":"/10.5072/FK2/TO4LCH/19233b19b57-f4c99a1f5c55","recursive":false}],"submission_id":"80862113-7cd5-11ef-b6cd-6d7d1acfb36d","notify_on_succeeded":false,"notify_on_failed":false,"source_endpoint":"3ac22a16-70e8-11ef-b4ae-8fef73a45f39","destination_endpoint":"f242e39a-3204-4f6e-aa4c-25be857d731d"}
+
+
+{
+  "DATA_TYPE": "transfer_result",
+  "code": "Accepted",
+  "message": "The transfer has been accepted and a task has been created and queued for execution",
+  "request_id": "SgNsoHlq2",
+  "resource": "/transfer",
+  "submission_id": "80862113-7cd5-11ef-b6cd-6d7d1acfb36d",
+  "task_id": "80862112-7cd5-11ef-b6cd-6d7d1acfb36d",
+  "task_link": {
+    "DATA_TYPE": "link",
+    "href": "task/80862112-7cd5-11ef-b6cd-6d7d1acfb36d?format=json",
+    "rel": "related",
+    "resource": "task",
+    "title": "related task"
+  }
+}
+
+
+-> POST https://localhost:7000/api/v1/datasets/41/addGlobusFiles
+{ "taskIdentifier": "80862112-7cd5-11ef-b6cd-6d7d1acfb36d","files":[{ "description": "", "directoryLabel": "", "restrict": "false","storageIdentifier":"globus://19233b19b57-d9056576dc22","fileName":"authentication.drawio" } ,{ "description": "", "directoryLabel": "", "restrict": "false","storageIdentifier":"globus://19233b19b57-f4c99a1f5c55","fileName":"authentication.svg" } ]}
+
+{"status":"OK","data":{"message":"Async call to Globus Upload started "}}
+		*/
 		fmt.Println(paths)
 		fmt.Println(submissionId.Value)
 		return nil
