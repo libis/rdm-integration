@@ -69,10 +69,6 @@ multiplatform_demo: fmt frontend ## build executable for multiple platforms
 	cd image && env GOOS=darwin GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_darwin_amd64.bin ./app/local/
 	cd image && env GOOS=darwin GOARCH=arm64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_darwin_arm64.bin ./app/local/
 
-fix_optimization_error: ## angular needs newer version of terser to optimize typescript 4.4 or later (static initiallization blocks)
-	rm -rf ../rdm-integration-frontend/node_modules/@angular-devkit/build-angular/node_modules/terser
-	cp -r ../rdm-integration-frontend/node_modules/terser ../rdm-integration-frontend/node_modules/@angular-devkit/build-angular/node_modules/terser
-
 multiplatform_kul: fmt frontend ## build KUL executable for multiple platforms
 	cp -r conf/kul_customizations/* image/app/frontend/dist/datasync/
 	cd image && env GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_windows.exe ./app/local/
