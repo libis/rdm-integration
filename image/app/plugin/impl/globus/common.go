@@ -1,4 +1,4 @@
-// Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
+// Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
 
 package globus
 
@@ -86,26 +86,29 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 }
 
 func getPartialResponse(ctx context.Context, url string, token string, limit, offset int) (Response, error) {
-	request, err := http.NewRequestWithContext(ctx, "GET", url+fmt.Sprintf("&limit=%v&offset=%v", limit, offset), nil)
+	b, err := DoGlobusRequest(ctx, url+fmt.Sprintf("&limit=%v&offset=%v", limit, offset), "GET", token, nil)
 	if err != nil {
 		return Response{}, err
+	}
+	response := Response{}
+	err = json.Unmarshal(b, &response)
+	if err != nil {
+		return Response{}, fmt.Errorf("globus error: Response could not be unmarshalled from %v", string(b))
+	}
+	return response, nil
+}
+
+func DoGlobusRequest(ctx context.Context, url, method, token string, body io.Reader) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, err
 	}
 	request.Header.Add("Accept", "application/json")
 	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return Response{}, err
+		return nil, err
 	}
 	defer r.Body.Close()
-	b, err := io.ReadAll(r.Body)
-	if err != nil {
-		return Response{}, err
-	}
-	fmt.Println(string(b))
-	response := Response{}
-	err = json.Unmarshal(b, &response)
-	if err != nil {
-		return Response{}, fmt.Errorf(string(b))
-	}
-	return response, nil
+	return io.ReadAll(r.Body)
 }

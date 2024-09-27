@@ -32,6 +32,8 @@ func doWork(job Job) (Job, error) {
 	}
 
 	job.StreamParams.Token = GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId, job.StreamParams.PluginId)
+	job.StreamParams.PersistentId = job.PersistentId
+	job.StreamParams.DVToken = job.DataverseKey
 	streams, err := stream.Streams(ctx, job.WritableNodes, job.Plugin, job.StreamParams)
 	if err != nil {
 		return job, err
@@ -164,6 +166,24 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			continue
 		}
 
+		if in.Plugin == "globus" {
+			if v.Action == tree.Update {
+				err = deleteFile(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
+				if err != nil {
+					return
+				}
+			}
+			delete(knownHashes, v.Id)
+			knownHashes[v.Id] = calculatedHashes{
+				LocalHashType:  types.LastModified,
+				LocalHashValue: v.Attributes.RemoteHash,
+				RemoteHashes:   map[string]string{types.LastModified: v.Attributes.RemoteHash},
+			}
+			config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
+			writtenKeys = append(writtenKeys, redisKey)
+			continue
+		}
+
 		fileStream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
@@ -184,14 +204,14 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		v.Attributes.DestinationFile.Filesize = size
 
 		//updated or new: always rehash
-		remoteHashVlaue := fmt.Sprintf("%x", remoteH)
+		remoteHashValue := fmt.Sprintf("%x", remoteH)
 		if remoteHashType == types.GitHash {
-			remoteHashVlaue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
+			remoteHashValue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
 		}
-		if v.Attributes.RemoteHash != remoteHashVlaue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
+		if v.Attributes.RemoteHash != remoteHashValue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
 			if remoteHashType == types.QuickXorHash { //some sharepoint hashes fail
-				logging.Logger.Println("WARNING: quickXorHash not equal, expected", v.Attributes.RemoteHash, "got", remoteHashVlaue)
-				remoteHashVlaue = v.Attributes.RemoteHash
+				logging.Logger.Println("WARNING: quickXorHash not equal, expected", v.Attributes.RemoteHash, "got", remoteHashValue)
+				remoteHashValue = v.Attributes.RemoteHash
 			} else {
 				err = fmt.Errorf("downloaded file hash not equal")
 				return
@@ -208,11 +228,11 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			}
 		}
 
-		if hashValue != remoteHashVlaue {
+		if hashValue != remoteHashValue {
 			knownHashes[v.Id] = calculatedHashes{
 				LocalHashType:  hashType,
 				LocalHashValue: hashValue,
-				RemoteHashes:   map[string]string{remoteHashType: remoteHashVlaue},
+				RemoteHashes:   map[string]string{remoteHashType: remoteHashValue},
 			}
 		}
 		config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)

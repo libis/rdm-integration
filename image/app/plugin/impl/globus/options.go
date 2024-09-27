@@ -1,4 +1,4 @@
-// Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
+// Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
 
 package globus
 
@@ -21,7 +21,6 @@ func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []ty
 	if folder == "" {
 		folder = "/"
 	}
-	fmt.Printf("params: %+v, option: %v, folder: %v, endpoint: %v\n", params, params.Option, folder, params.RepoName)
 	items, err := listItems(ctx, folder, params.Url+"/operation/endpoint/"+params.RepoName+"/ls", params.Token, false)
 	res = []types.SelectItem{}
 	if err != nil {

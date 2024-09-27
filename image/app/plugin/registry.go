@@ -84,7 +84,7 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Query:   globus.Query,
 		Options: globus.Options,
 		Search:  globus.Search,
-		Streams: nil,
+		Streams: globus.Streams,
 	},
 }
 
