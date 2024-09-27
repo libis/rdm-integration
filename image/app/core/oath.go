@@ -37,8 +37,8 @@ type OauthTokenResponse struct {
 	Error                 string `json:"error"`
 	Error_description     string `json:"error_description"`
 	Error_uri             string `json:"error_uri"`
-	ResourceServer string `json:"resource_server"`
-	State          string `json:"state"`
+	ResourceServer        string `json:"resource_server"`
+	State                 string `json:"state"`
 	Issued                time.Time
 	OtherTokens           []OauthTokenResponse `json:"other_tokens"`
 }
@@ -149,7 +149,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 	for _, t := range result.OtherTokens {
 		if t.ResourceServer == "transfer.api.globus.org" {
 			result = t
-			break;
+			break
 		}
 	}
 	result.Issued = time.Now()

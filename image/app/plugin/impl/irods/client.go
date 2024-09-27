@@ -73,7 +73,7 @@ type IrodsEnvironment struct {
 
 var serverMap = map[string]Server{
 	"native://ghum.irods.icts.kuleuven.be:1247": {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "native", Port: 1247},
-	"default":                                {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "native", Port: 1247},
+	"default": {Server: "ghum.irods.icts.kuleuven.be", AuthScheme: "native", Port: 1247},
 }
 
 func NewIrodsClient(server, zone, username, password string) (*IrodsClient, error) {
