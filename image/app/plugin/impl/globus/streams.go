@@ -66,8 +66,12 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 }
 
 
--> POST https://localhost:7000/api/v1/datasets/41/addGlobusFiles
+-> POST "Content-type:multipart/form-data" https://localhost:7000/api/v1/datasets/41/addGlobusFiles
 { "taskIdentifier": "80862112-7cd5-11ef-b6cd-6d7d1acfb36d","files":[{ "description": "", "directoryLabel": "", "restrict": "false","storageIdentifier":"globus://19233b19b57-d9056576dc22","fileName":"authentication.drawio" } ,{ "description": "", "directoryLabel": "", "restrict": "false","storageIdentifier":"globus://19233b19b57-f4c99a1f5c55","fileName":"authentication.svg" } ]}
+
+{"taskIdentifier":"3f530302-6c48-11ee-8428-378be0d9c521", \
+                  "files": [{"description":"My description.","directoryLabel":"data/subdir1","categories":["Data"], "restrict":"false", "storageIdentifier":"globusm://18b3972213f-f6b5c2221423", "fileName":"file1.txt", "mimeType":"text/plain", "checksum": {"@type": "MD5", "@value": "1234"}}, \
+                  {"description":"My description.","directoryLabel":"data/subdir1","categories":["Data"], "restrict":"false", "storageIdentifier":"globusm://18b39722140-50eb7d3c5ece", "fileName":"file2.txt", "mimeType":"text/plain", "checksum": {"@type": "MD5", "@value": "2345"}}]}
 
 {"status":"OK","data":{"message":"Async call to Globus Upload started "}}
 		*/
