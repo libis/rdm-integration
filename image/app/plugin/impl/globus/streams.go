@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
+	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
@@ -88,67 +89,72 @@ type Path struct {
 }
 
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
-	token := streamParams.Token
-	if token == "" {
-		return types.StreamsType{}, fmt.Errorf("streams: missing parameters: token")
+	token, repoName, option, pId, dvToken, user := streamParams.Token, streamParams.RepoName, streamParams.Option, streamParams.PersistentId, streamParams.DVToken, streamParams.User
+	if token == "" || repoName == "" || option == "" {
+		return types.StreamsType{}, fmt.Errorf("globus streams: missing parameters")
 	}
-
 	return types.StreamsType{Streams: nil, Cleanup: func() error {
-		destinationEndpoint, err := getDestinationEndpoint(ctx, streamParams.PersistentId, streamParams.DVToken, streamParams.User)
-		if err != nil {
-			return err
-		}
-		prinicpal, err := getPrincipal(ctx, token)
-		if err != nil {
-			return err
-		}
-		paths, err := RequestGlobusUploadPaths(ctx, streamParams.PersistentId, streamParams.DVToken, streamParams.User, prinicpal, len(in))
-		if err != nil {
-			return err
-		}
-		submissionId, err := getSubmissionId(ctx, token)
-		if err != nil {
-			return err
-		}
-		transferRequest := TransferRequest{
-			DataType:            "transfer",
-			SubmissionId:        submissionId,
-			NotifyOnSucceeded:   false,
-			NotifyOnFailed:      false,
-			SourceEndpoint:      streamParams.RepoName,
-			DestinationEndpoint: destinationEndpoint,
-		}
-		addGlobusFilesRequest := AddGlobusFilesRequest{}
-		index := 0
-		for k, v := range in {
-			transferRequest.Data = append(transferRequest.Data, TransferRequestData{
-				DataType:        "transfer_item",
-				SourcePath:      streamParams.Option + "/" + k,
-				DestinationPath: paths[index].Path,
-				Recursive:       false,
-			})
-			addGlobusFilesRequest.Files = append(addGlobusFilesRequest.Files, File{
-				Description: "",
-				DirectoryLabel: v.Path,
-				Categories: nil,
-				Restrict: false,
-				StorageIdentifier: paths[index].Id,
-				FileName: v.Name,
-				MimeType: "application/octet-stream",
-				Checksum: Checksum{
-					Type: v.Attributes.RemoteHashType,
-					Value: v.Attributes.RemoteHash,
-				},
-			})
-			index += 1
-		}
-		taskId, err := transfer(ctx, token, transferRequest)
-		if err != nil {
-			return err
-		}
-		addGlobusFilesRequest.TaskIdentifier = taskId
-		return addGlobusFiles(ctx, streamParams.PersistentId, streamParams.DVToken, streamParams.User, addGlobusFilesRequest)
+		err := doTransfer(ctx, token, repoName, option, pId, dvToken, user, in)
+		logging.Logger.Println("globus transfer failed: " + err.Error())
+		return err
 	}}, nil
+}
+
+func doTransfer(ctx context.Context, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) error {
+	destinationEndpoint, err := getDestinationEndpoint(ctx, pId, dvToken, user)
+	if err != nil {
+		return err
+	}
+	prinicpal, err := getPrincipal(ctx, token)
+	if err != nil {
+		return err
+	}
+	paths, err := RequestGlobusUploadPaths(ctx, pId, dvToken, user, prinicpal, len(in))
+	if err != nil {
+		return err
+	}
+	submissionId, err := getSubmissionId(ctx, token)
+	if err != nil {
+		return err
+	}
+	transferRequest := TransferRequest{
+		DataType:            "transfer",
+		SubmissionId:        submissionId,
+		NotifyOnSucceeded:   false,
+		NotifyOnFailed:      false,
+		SourceEndpoint:      repoName,
+		DestinationEndpoint: destinationEndpoint,
+	}
+	addGlobusFilesRequest := AddGlobusFilesRequest{}
+	index := 0
+	for k, v := range in {
+		transferRequest.Data = append(transferRequest.Data, TransferRequestData{
+			DataType:        "transfer_item",
+			SourcePath:      option + "/" + k,
+			DestinationPath: paths[index].Path,
+			Recursive:       false,
+		})
+		addGlobusFilesRequest.Files = append(addGlobusFilesRequest.Files, File{
+			Description: "",
+			DirectoryLabel: v.Path,
+			Categories: nil,
+			Restrict: false,
+			StorageIdentifier: paths[index].Id,
+			FileName: v.Name,
+			MimeType: "application/octet-stream",
+			Checksum: Checksum{
+				Type: v.Attributes.RemoteHashType,
+				Value: v.Attributes.RemoteHash,
+			},
+		})
+		index += 1
+	}
+	taskId, err := transfer(ctx, token, transferRequest)
+	if err != nil {
+		return err
+	}
+	addGlobusFilesRequest.TaskIdentifier = taskId
+	return addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
 }
 
 func getPrincipal(ctx context.Context, token string) (string, error) {
