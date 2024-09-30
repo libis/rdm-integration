@@ -173,7 +173,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 					return
 				}
 			}
-			delete(knownHashes, v.Id)
+			delete(out.WritableNodes, k)
 			knownHashes[v.Id] = calculatedHashes{
 				LocalHashType:  types.LastModified,
 				LocalHashValue: v.Attributes.RemoteHash,
