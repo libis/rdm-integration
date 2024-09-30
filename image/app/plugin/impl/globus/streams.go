@@ -96,7 +96,9 @@ func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams)
 	}
 	return types.StreamsType{Streams: nil, Cleanup: func() error {
 		err := doTransfer(ctx, sessionId, token, repoName, option, pId, dvToken, user, in)
-		logging.Logger.Println("globus transfer failed: " + err.Error())
+		if err != nil {
+			logging.Logger.Println("globus transfer failed: " + err.Error())
+		}
 		return err
 	}}, nil
 }
