@@ -11,4 +11,5 @@ type StreamParams struct {
 	Token        string `json:"token"`
 	DVToken      string `json:"dvToken"`
 	PersistentId string `json:"persistentId"`
+	SessionId    string `json:"sessionId"`
 }

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
+	coreTypes "integration/app/core/types"
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -88,24 +89,24 @@ type Path struct {
 	Path string
 }
 
-func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
-	token, repoName, option, pId, dvToken, user := streamParams.Token, streamParams.RepoName, streamParams.Option, streamParams.PersistentId, streamParams.DVToken, streamParams.User
+func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams) (types.StreamsType, error) {
+	sessionId, token, repoName, option, pId, dvToken, user := p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User
 	if token == "" || repoName == "" || option == "" {
 		return types.StreamsType{}, fmt.Errorf("globus streams: missing parameters")
 	}
 	return types.StreamsType{Streams: nil, Cleanup: func() error {
-		err := doTransfer(ctx, token, repoName, option, pId, dvToken, user, in)
+		err := doTransfer(ctx, sessionId, token, repoName, option, pId, dvToken, user, in)
 		logging.Logger.Println("globus transfer failed: " + err.Error())
 		return err
 	}}, nil
 }
 
-func doTransfer(ctx context.Context, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) error {
+func doTransfer(ctx context.Context, sessionId, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) error {
 	destinationEndpoint, err := getDestinationEndpoint(ctx, pId, dvToken, user)
 	if err != nil {
 		return err
 	}
-	prinicpal, err := getPrincipal(ctx, token)
+	prinicpal, err := getPrincipal(ctx, sessionId)
 	if err != nil {
 		return err
 	}
@@ -157,8 +158,12 @@ func doTransfer(ctx context.Context, token, repoName, option, pId, dvToken, user
 	return addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
 }
 
-func getPrincipal(ctx context.Context, token string) (string, error) {
-	b, err := DoGlobusRequest(ctx, "https://auth.globus.org/v2/oauth2/userinfo", "GET", token, nil)
+func getPrincipal(ctx context.Context, sessionId string) (string, error) {
+	token, ok := getTokenFromCache(ctx, sessionId)
+	if !ok {
+		return "", fmt.Errorf("globus error: token not in cache")
+	}
+	b, err := DoGlobusRequest(ctx, "https://auth.globus.org/v2/oauth2/userinfo", "GET", token.AccessToken, nil)
 	if err != nil {
 		return "", err
 	}
@@ -286,4 +291,15 @@ func requestBody(data []byte) (io.Reader, string) {
 	part.Write(data)
 	writer.Close()
 	return body, writer.FormDataContentType()
+}
+
+func getTokenFromCache(ctx context.Context, sessionId string) (coreTypes.OauthTokenResponse, bool) {
+	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", "globus", sessionId))
+	jsonString := cached.Val()
+	if jsonString == "" {
+		return coreTypes.OauthTokenResponse{}, false
+	}
+	res := coreTypes.OauthTokenResponse{}
+	json.Unmarshal([]byte(jsonString), &res)
+	return res, true
 }
