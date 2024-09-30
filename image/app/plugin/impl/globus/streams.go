@@ -44,22 +44,22 @@ type TransferRequestData struct {
 }
 
 type TransferResponse struct {
-	DataType string `json:"DATA_TYPE"`
-	Code string `json:"code"` // "Accepted",
-	Message string `json:"message"`
-	RequestId string `json:"request_id"`
-	Resource string `json:"resource"`
-	SubmissionId string `json:"submission_id"`
-	TaskId string `json:"task_id"`
-	TaskLink TaskLink `json:"task_link"`
+	DataType     string   `json:"DATA_TYPE"`
+	Code         string   `json:"code"` // "Accepted",
+	Message      string   `json:"message"`
+	RequestId    string   `json:"request_id"`
+	Resource     string   `json:"resource"`
+	SubmissionId string   `json:"submission_id"`
+	TaskId       string   `json:"task_id"`
+	TaskLink     TaskLink `json:"task_link"`
 }
 
 type TaskLink struct {
 	DataType string `json:"DATA_TYPE"`
-	Href string `json:"href"`
-	Rel string `json:"rel"`
+	Href     string `json:"href"`
+	Rel      string `json:"rel"`
 	Resource string `json:"resource"`
-	Title string `json:"title"`
+	Title    string `json:"title"`
 }
 
 type AddGlobusFilesRequest struct {
@@ -84,7 +84,7 @@ type Checksum struct {
 }
 
 type Path struct {
-	Id string
+	Id   string
 	Path string
 }
 
@@ -135,15 +135,15 @@ func doTransfer(ctx context.Context, token, repoName, option, pId, dvToken, user
 			Recursive:       false,
 		})
 		addGlobusFilesRequest.Files = append(addGlobusFilesRequest.Files, File{
-			Description: "",
-			DirectoryLabel: v.Path,
-			Categories: nil,
-			Restrict: false,
+			Description:       "",
+			DirectoryLabel:    v.Path,
+			Categories:        nil,
+			Restrict:          false,
 			StorageIdentifier: paths[index].Id,
-			FileName: v.Name,
-			MimeType: "application/octet-stream",
+			FileName:          v.Name,
+			MimeType:          "application/octet-stream",
 			Checksum: Checksum{
-				Type: v.Attributes.RemoteHashType,
+				Type:  v.Attributes.RemoteHashType,
 				Value: v.Attributes.RemoteHash,
 			},
 		})
