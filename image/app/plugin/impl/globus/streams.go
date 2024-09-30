@@ -10,6 +10,9 @@ import (
 	"integration/app/config"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"io"
+	"mime/multipart"
+	"net/http"
 
 	"github.com/libis/rdm-dataverse-go-api/api"
 )
@@ -22,6 +25,68 @@ type SubmissionId struct {
 	Value string `json:"value"`
 }
 
+type TransferRequest struct {
+	DataType            string                `json:"DATA_TYPE"`
+	Data                []TransferRequestData `json:"DATA"`
+	SubmissionId        string                `json:"submission_id"`
+	NotifyOnSucceeded   bool                  `json:"notify_on_succeeded"`
+	NotifyOnFailed      bool                  `json:"notify_on_failed"`
+	SourceEndpoint      string                `json:"source_endpoint"`
+	DestinationEndpoint string                `json:"destination_endpoint"`
+}
+
+type TransferRequestData struct {
+	DataType        string `json:"DATA_TYPE"`
+	SourcePath      string `json:"source_path"`
+	DestinationPath string `json:"destination_path"`
+	Recursive       bool   `json:"recursive"`
+}
+
+type TransferResponse struct {
+	DataType string `json:"DATA_TYPE"`
+	Code string `json:"code"` // "Accepted",
+	Message string `json:"message"`
+	RequestId string `json:"request_id"`
+	Resource string `json:"resource"`
+	SubmissionId string `json:"submission_id"`
+	TaskId string `json:"task_id"`
+	TaskLink TaskLink `json:"task_link"`
+}
+
+type TaskLink struct {
+	DataType string `json:"DATA_TYPE"`
+	Href string `json:"href"`
+	Rel string `json:"rel"`
+	Resource string `json:"resource"`
+	Title string `json:"title"`
+}
+
+type AddGlobusFilesRequest struct {
+	TaskIdentifier string `json:"taskIdentifier"`
+	Files          []File `json:"files"`
+}
+
+type File struct {
+	Description       string   `json:"description"`       // "My description."
+	DirectoryLabel    string   `json:"directoryLabel"`    // "data/subdir1"
+	Categories        []string `json:"categories"`        // ["Data"]
+	Restrict          bool     `json:"restrict"`          // "false"
+	StorageIdentifier string   `json:"storageIdentifier"` // "globusm://18b39722140-50eb7d3c5ece"
+	FileName          string   `json:"fileName"`          // "file2.txt"
+	MimeType          string   `json:"mimeType"`          // "text/plain"
+	Checksum          Checksum `json:"checksum"`          // {"@type": "MD5", "@value": "2345"}
+}
+
+type Checksum struct {
+	Type  string `json:"@type"`
+	Value string `json:"@value"`
+}
+
+type Path struct {
+	Id string
+	Path string
+}
+
 func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error) {
 	token := streamParams.Token
 	if token == "" {
@@ -29,11 +94,15 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	}
 
 	return types.StreamsType{Streams: nil, Cleanup: func() error {
-		info, err := getUserInfo(ctx, token)
+		destinationEndpoint, err := getDestinationEndpoint(ctx, streamParams.PersistentId, streamParams.DVToken, streamParams.User)
 		if err != nil {
 			return err
 		}
-		paths, err := RequestGlobusUploadPaths(ctx, streamParams.PersistentId, streamParams.DVToken, streamParams.User, info.Principal, len(in))
+		prinicpal, err := getPrincipal(ctx, token)
+		if err != nil {
+			return err
+		}
+		paths, err := RequestGlobusUploadPaths(ctx, streamParams.PersistentId, streamParams.DVToken, streamParams.User, prinicpal, len(in))
 		if err != nil {
 			return err
 		}
@@ -41,73 +110,125 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		if err != nil {
 			return err
 		}
-		//TODO: transfer
-		//TODO: addGlobusFiles
-		/* examples:
-		-> POST https://transfer.api.globusonline.org/v0.10/transfer
-		{"DATA_TYPE":"transfer","DATA":[{"DATA_TYPE":"transfer_item","source_path":"/~/Downloads/authentication.drawio","destination_path":"/10.5072/FK2/TO4LCH/19233b19b57-d9056576dc22","recursive":false},{"DATA_TYPE":"transfer_item","source_path":"/~/Downloads/authentication.svg","destination_path":"/10.5072/FK2/TO4LCH/19233b19b57-f4c99a1f5c55","recursive":false}],"submission_id":"80862113-7cd5-11ef-b6cd-6d7d1acfb36d","notify_on_succeeded":false,"notify_on_failed":false,"source_endpoint":"3ac22a16-70e8-11ef-b4ae-8fef73a45f39","destination_endpoint":"f242e39a-3204-4f6e-aa4c-25be857d731d"}
-
-
-		{
-		  "DATA_TYPE": "transfer_result",
-		  "code": "Accepted",
-		  "message": "The transfer has been accepted and a task has been created and queued for execution",
-		  "request_id": "SgNsoHlq2",
-		  "resource": "/transfer",
-		  "submission_id": "80862113-7cd5-11ef-b6cd-6d7d1acfb36d",
-		  "task_id": "80862112-7cd5-11ef-b6cd-6d7d1acfb36d",
-		  "task_link": {
-		    "DATA_TYPE": "link",
-		    "href": "task/80862112-7cd5-11ef-b6cd-6d7d1acfb36d?format=json",
-		    "rel": "related",
-		    "resource": "task",
-		    "title": "related task"
-		  }
+		transferRequest := TransferRequest{
+			DataType:            "transfer",
+			SubmissionId:        submissionId,
+			NotifyOnSucceeded:   false,
+			NotifyOnFailed:      false,
+			SourceEndpoint:      streamParams.RepoName,
+			DestinationEndpoint: destinationEndpoint,
 		}
-
-
-		-> POST "Content-type:multipart/form-data" https://localhost:7000/api/v1/datasets/41/addGlobusFiles
-		{ "taskIdentifier": "80862112-7cd5-11ef-b6cd-6d7d1acfb36d","files":[{ "description": "", "directoryLabel": "", "restrict": "false","storageIdentifier":"globus://19233b19b57-d9056576dc22","fileName":"authentication.drawio" } ,{ "description": "", "directoryLabel": "", "restrict": "false","storageIdentifier":"globus://19233b19b57-f4c99a1f5c55","fileName":"authentication.svg" } ]}
-
-		{"taskIdentifier":"3f530302-6c48-11ee-8428-378be0d9c521", \
-		                  "files": [{"description":"My description.","directoryLabel":"data/subdir1","categories":["Data"], "restrict":"false", "storageIdentifier":"globusm://18b3972213f-f6b5c2221423", "fileName":"file1.txt", "mimeType":"text/plain", "checksum": {"@type": "MD5", "@value": "1234"}}, \
-		                  {"description":"My description.","directoryLabel":"data/subdir1","categories":["Data"], "restrict":"false", "storageIdentifier":"globusm://18b39722140-50eb7d3c5ece", "fileName":"file2.txt", "mimeType":"text/plain", "checksum": {"@type": "MD5", "@value": "2345"}}]}
-
-		{"status":"OK","data":{"message":"Async call to Globus Upload started "}}
-		*/
-		fmt.Println(paths)
-		fmt.Println(submissionId.Value)
-		return nil
+		addGlobusFilesRequest := AddGlobusFilesRequest{}
+		index := 0
+		for k, v := range in {
+			transferRequest.Data = append(transferRequest.Data, TransferRequestData{
+				DataType:        "transfer_item",
+				SourcePath:      streamParams.Option + "/" + k,
+				DestinationPath: paths[index].Path,
+				Recursive:       false,
+			})
+			addGlobusFilesRequest.Files = append(addGlobusFilesRequest.Files, File{
+				Description: "",
+				DirectoryLabel: v.Path,
+				Categories: nil,
+				Restrict: false,
+				StorageIdentifier: paths[index].Id,
+				FileName: v.Name,
+				MimeType: "application/octet-stream",
+				Checksum: Checksum{
+					Type: v.Attributes.RemoteHashType,
+					Value: v.Attributes.RemoteHash,
+				},
+			})
+			index += 1
+		}
+		taskId, err := transfer(ctx, token, transferRequest)
+		if err != nil {
+			return err
+		}
+		addGlobusFilesRequest.TaskIdentifier = taskId
+		return addGlobusFiles(ctx, streamParams.PersistentId, streamParams.DVToken, streamParams.User, addGlobusFilesRequest)
 	}}, nil
 }
 
-func getUserInfo(ctx context.Context, token string) (UserInfo, error) {
+func getPrincipal(ctx context.Context, token string) (string, error) {
 	b, err := DoGlobusRequest(ctx, "https://auth.globus.org/v2/oauth2/userinfo", "GET", token, nil)
 	if err != nil {
-		return UserInfo{}, err
+		return "", err
 	}
 	response := UserInfo{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return UserInfo{}, fmt.Errorf("globus error: UserInfo could not be unmarshalled from %v", string(b))
+		return "", fmt.Errorf("globus error: UserInfo could not be unmarshalled from %v", string(b))
 	}
-	return response, nil
+	if response.Principal == "" {
+		return "", fmt.Errorf("globus error: principal not found in %v", string(b))
+	}
+	return response.Principal, nil
 }
 
-func getSubmissionId(ctx context.Context, token string) (SubmissionId, error) {
+func getSubmissionId(ctx context.Context, token string) (string, error) {
 	b, err := DoGlobusRequest(ctx, "https://transfer.api.globusonline.org/v0.10/submission_id", "GET", token, nil)
 	if err != nil {
-		return SubmissionId{}, err
+		return "", err
 	}
 	response := SubmissionId{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return SubmissionId{}, fmt.Errorf("globus error: SubmissionId could not be unmarshalled from %v", string(b))
+		return "", fmt.Errorf("globus error: SubmissionId could not be unmarshalled from %v", string(b))
 	}
-	return response, nil
+	if response.Value == "" {
+		return "", fmt.Errorf("globus error: submission id not found in %v", string(b))
+	}
+	return response.Value, nil
 }
 
-func RequestGlobusUploadPaths(ctx context.Context, persistentId, token, user, principal string, nbFiles int) (map[string]string, error) {
+func transfer(ctx context.Context, token string, transferRequest TransferRequest) (string, error) {
+	requestBytes, _ := json.Marshal(transferRequest)
+	b, err := DoGlobusRequest(ctx, "https://transfer.api.globusonline.org/v0.10/transfer", "POST", token, bytes.NewBuffer(requestBytes))
+	if err != nil {
+		return "", err
+	}
+	response := TransferResponse{}
+	err = json.Unmarshal(b, &response)
+	if err != nil {
+		return "", fmt.Errorf("globus error: transfer response could not be unmarshalled from %v", string(b))
+	}
+	if response.TaskId == "" {
+		return "", fmt.Errorf("globus error: task id not found in %v", string(b))
+	}
+	return response.TaskId, nil
+}
+
+func getDestinationEndpoint(ctx context.Context, persistentId, token, user string) (string, error) {
+	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusUploadParameters?persistentId=" + persistentId
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client.Token = token
+	req := client.NewRequest(path, "GET", nil, api.JsonContentHeader())
+	res := map[string]interface{}{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return "", err
+	}
+	if res["status"] != "OK" {
+		return "", fmt.Errorf("requesting Globus upload parameters failed: %s", res["message"])
+	}
+	data, ok := res["data"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
+	}
+	queryParameters, ok := data["queryParameters"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
+	}
+	destinationEndpoint, ok := queryParameters["endpoint"].(string)
+	if !ok || destinationEndpoint == "" {
+		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
+	}
+	return destinationEndpoint, nil
+}
+
+func RequestGlobusUploadPaths(ctx context.Context, persistentId, token, user, principal string, nbFiles int) ([]Path, error) {
 	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/requestGlobusUploadPaths?persistentId=" + persistentId
 	data, _ := json.Marshal(map[string]interface{}{"principal": principal, "numberOfFiles": nbFiles})
 	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
@@ -123,7 +244,40 @@ func RequestGlobusUploadPaths(ctx context.Context, persistentId, token, user, pr
 		return nil, err
 	}
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("requesting Globus upload paths failed: %s", res.Message)
+		return nil, fmt.Errorf("requesting Globus upload paths failed: %+v", res)
 	}
-	return res.Data, nil
+	pathsWithIds := []Path{}
+	for k, v := range res.Data {
+		pathsWithIds = append(pathsWithIds, Path{Id: k, Path: v})
+	}
+	return pathsWithIds, nil
+}
+
+func addGlobusFiles(ctx context.Context, persistentId, token, user string, request AddGlobusFilesRequest) error {
+	data, _ := json.Marshal(request)
+	body, formDataContentType := requestBody(data)
+	reqHeader := http.Header{}
+	reqHeader.Add("Content-Type", formDataContentType)
+	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/addGlobusFiles?persistentId=" + persistentId
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client.Token = token
+	req := client.NewRequest(path, "POST", body, reqHeader)
+	res := map[string]interface{}{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return err
+	}
+	if res["status"] != "OK" {
+		return fmt.Errorf("globus error: adding globus files failed: %+v", res)
+	}
+	return nil
+}
+
+func requestBody(data []byte) (io.Reader, string) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, _ := writer.CreateFormField("jsonData")
+	part.Write(data)
+	writer.Close()
+	return body, writer.FormDataContentType()
 }
