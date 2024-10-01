@@ -86,14 +86,15 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 }
 
 func getPartialResponse(ctx context.Context, url string, token string, limit, offset int) (Response, error) {
-	b, err := DoGlobusRequest(ctx, url+fmt.Sprintf("&limit=%v&offset=%v", limit, offset), "GET", token, nil)
+	fullUrl := fmt.Sprintf("%v&limit=%v&offset=%v", url, limit, offset)
+	b, err := DoGlobusRequest(ctx, fullUrl, "GET", token, nil)
 	if err != nil {
 		return Response{}, err
 	}
 	response := Response{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return Response{}, fmt.Errorf("globus error: Response could not be unmarshalled from %v", string(b))
+		return Response{}, fmt.Errorf("globus error: request: %v -> response could not be unmarshalled from %v", fullUrl, string(b))
 	}
 	return response, nil
 }
