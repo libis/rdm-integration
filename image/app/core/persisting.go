@@ -205,8 +205,10 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		//updated or new: always rehash
 		remoteHashValue := fmt.Sprintf("%x", remoteH)
-		if remoteHashType == types.GitHash {
-			remoteHashValue = v.Attributes.RemoteHash // gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
+		if remoteHashType == types.GitHash || remoteHashType == types.LastModified {
+			// gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
+			// we also cannot calculate the last modified in the file system...
+			remoteHashValue = v.Attributes.RemoteHash
 		}
 		if v.Attributes.RemoteHash != remoteHashValue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
 			if remoteHashType == types.QuickXorHash { //some sharepoint hashes fail
