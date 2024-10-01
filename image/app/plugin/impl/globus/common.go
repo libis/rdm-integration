@@ -9,6 +9,7 @@ import (
 	"integration/app/plugin/types"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 type Response struct {
@@ -41,8 +42,8 @@ type Entry struct {
 	Size     int64
 }
 
-func listItems(ctx context.Context, path, url, token string, recursive bool) ([]Entry, error) {
-	response, err := getResponse(ctx, url+"?path="+path, token)
+func listItems(ctx context.Context, path, theUrl, token string, recursive bool) ([]Entry, error) {
+	response, err := getResponse(ctx, theUrl+"?path="+url.QueryEscape(path), token)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,7 @@ func listItems(ctx context.Context, path, url, token string, recursive bool) ([]
 		isDir := v.Type == "dir"
 		id := path + v.Name + "/"
 		if recursive && isDir {
-			folderEntries, err := listItems(ctx, id, url, token, true)
+			folderEntries, err := listItems(ctx, id, theUrl, token, true)
 			if err != nil {
 				return nil, err
 			}
@@ -94,7 +95,7 @@ func getPartialResponse(ctx context.Context, url string, token string, limit, of
 	response := Response{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return Response{}, fmt.Errorf("globus error: request: %v -> response could not be unmarshalled from %v", fullUrl, string(b))
+		return Response{}, fmt.Errorf("globus error: response could not be unmarshalled from %v", string(b))
 	}
 	return response, nil
 }
