@@ -46,7 +46,7 @@ type TransferRequestData struct {
 
 type TransferResponse struct {
 	DataType     string   `json:"DATA_TYPE"`
-	Code         string   `json:"code"` // "Accepted",
+	Code         string   `json:"code"`
 	Message      string   `json:"message"`
 	RequestId    string   `json:"request_id"`
 	Resource     string   `json:"resource"`
@@ -69,14 +69,14 @@ type AddGlobusFilesRequest struct {
 }
 
 type File struct {
-	Description       string   `json:"description"`       // "My description."
-	DirectoryLabel    string   `json:"directoryLabel"`    // "data/subdir1"
-	Categories        []string `json:"categories"`        // ["Data"]
-	Restrict          bool     `json:"restrict"`          // "false"
-	StorageIdentifier string   `json:"storageIdentifier"` // "globusm://18b39722140-50eb7d3c5ece"
-	FileName          string   `json:"fileName"`          // "file2.txt"
-	MimeType          string   `json:"mimeType"`          // "text/plain"
-	Checksum          Checksum `json:"checksum"`          // {"@type": "MD5", "@value": "2345"}
+	Description       string   `json:"description"`
+	DirectoryLabel    string   `json:"directoryLabel"`
+	Categories        []string `json:"categories"`
+	Restrict          bool     `json:"restrict"`
+	StorageIdentifier string   `json:"storageIdentifier"`
+	FileName          string   `json:"fileName"`
+	MimeType          string   `json:"mimeType"`
+	Checksum          Checksum `json:"checksum"`
 }
 
 type Checksum struct {
@@ -207,8 +207,8 @@ func transfer(ctx context.Context, token string, transferRequest TransferRequest
 	if err != nil {
 		return "", fmt.Errorf("globus error: transfer response could not be unmarshalled from %v", string(b))
 	}
-	if response.TaskId == "" {
-		return "", fmt.Errorf("globus error: task id not found in %v", string(b))
+	if response.Code != "Accepted" || response.TaskId == "" {
+		return "", fmt.Errorf("globus error: transfer failed to start: %v", string(b))
 	}
 	return response.TaskId, nil
 }
