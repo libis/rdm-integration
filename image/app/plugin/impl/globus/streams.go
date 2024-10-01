@@ -90,6 +90,9 @@ type Path struct {
 }
 
 func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams) (types.StreamsType, error) {
+	if len(in) == 0 {
+		return types.StreamsType{}, nil
+	}
 	sessionId, token, repoName, option, pId, dvToken, user := p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User
 	if token == "" || repoName == "" || option == "" {
 		return types.StreamsType{}, fmt.Errorf("globus streams: missing parameters")

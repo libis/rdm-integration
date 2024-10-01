@@ -29,18 +29,6 @@ func doWork(job Job) (Job, error) {
 	if job.Plugin == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.User, job.PersistentId, job.WritableNodes, job)
 	}
-	streamParams := job.StreamParams
-	streamParams.Token = GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId, job.StreamParams.PluginId)
-	streamParams.PersistentId = job.PersistentId
-	streamParams.DVToken = job.DataverseKey
-	streamParams.SessionId = job.SessionId
-	streams, err := stream.Streams(ctx, job.WritableNodes, job.Plugin, streamParams)
-	if err != nil {
-		return job, err
-	}
-	if streams.Cleanup != nil {
-		defer streams.Cleanup()
-	}
 	knownHashes := getKnownHashes(ctx, job.PersistentId)
 	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
 	writableNodes, err := filterRedundant(ctx, job, knownHashes)
@@ -48,6 +36,24 @@ func doWork(job Job) (Job, error) {
 		return job, err
 	}
 	job.WritableNodes = writableNodes
+	streamNodes := map[string]tree.Node{}
+	for k, v := range writableNodes {
+		if v.Action != tree.Delete {
+			streamNodes[k] = v
+		}
+	}
+	streamParams := job.StreamParams
+	streamParams.Token = GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId, job.StreamParams.PluginId)
+	streamParams.PersistentId = job.PersistentId
+	streamParams.DVToken = job.DataverseKey
+	streamParams.SessionId = job.SessionId
+	streams, err := stream.Streams(ctx, streamNodes, job.Plugin, streamParams)
+	if err != nil {
+		return job, err
+	}
+	if streams.Cleanup != nil {
+		defer streams.Cleanup()
+	}
 	j, err := doPersistNodeMap(ctx, streams.Streams, job, knownHashes)
 	if err != nil {
 		return j, err
