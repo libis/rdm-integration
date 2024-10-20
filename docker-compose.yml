@@ -1,0 +1,193 @@
+# Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
+services:
+
+  integration:
+    container_name: "integration"
+    hostname: integration
+    build:
+      dockerfile: ./image/Dockerfile
+      args:
+        - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.6.0}
+        - NODE_VERSION=${NODE_VERSION:-22-alpine}
+        - FRONTEND_VERSION=${FRONTEND_VERSION:-1.0.0}
+        - NODE_ENV=${NODE_ENV:-production}
+        - BASE_HREF=${BASE_HREF:-/}
+        - CUSTOMIZATIONS=${CUSTOMIZATIONS:-./docker-volumes/integration/conf/customizations}
+        - USER_ID=${USER_ID:-1000}
+        - GROUP_ID=${GROUP_ID:-1000}
+    networks:
+      - dataverse
+    ports:
+      - "4180:4180/tcp"
+    environment:
+      BACKEND_CONFIG_FILE: "/config/backend_config.json"
+      FRONTEND_CONFIG_FILE: "/config/frontend_config.json"
+    env_file:
+      - ./docker-volumes/integration/aws/aws.env
+    volumes: 
+      - ./docker-volumes/integration/data:/dsdata
+      - ./docker-volumes/integration/conf:/config
+      - ./docker-volumes/dataverse/secrets:/run/secrets:ro
+      - ./docker-volumes/integration/conf/oauth2-proxy.cfg:/oauth2-proxy.cfg
+    restart: unless-stopped
+    entrypoint: app 100 --config /oauth2-proxy.cfg
+    depends_on:
+      - dataverse
+      - cache
+      - keycloak
+
+  cache:
+    image: redis:7.0-alpine
+    hostname: cache
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    networks:
+      - dataverse
+    command: redis-server --save 20 1 --loglevel warning
+    volumes: 
+      - ./docker-volumes/cache/data:/data
+    restart: unless-stopped
+
+  dataverse:
+    container_name: "dataverse"
+    hostname: dataverse
+    build:
+      dockerfile: ./dataverse/Dockerfile
+      args:
+        - PAYARA_VERSION=${PAYARA_VERSION:-6.2024.10}
+        - DATAVERSE_VERSION=${DATAVERSE_VERSION:-6.4}
+        - USER_ID=${USER_ID:-1000}
+        - GROUP_ID=${GROUP_ID:-1000}
+    restart: on-failure
+    user: payara
+    environment:
+      MP_CONFIG_PROFILE: prod
+      JVM_ARGS: -Ddataverse.files.storage-driver-id=LocalStack
+        -Ddataverse.files.localstack1.type=s3
+        -Ddataverse.files.localstack1.label=LocalStack
+        -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack:4566
+        -Ddataverse.files.localstack1.custom-endpoint-region=us-east-2
+        -Ddataverse.files.localstack1.bucket-name=mybucket
+        -Ddataverse.files.localstack1.path-style-access=true
+        -Ddataverse.files.localstack1.upload-redirect=true
+        -Ddataverse.files.localstack1.download-redirect=true
+        -Ddataverse.files.localstack1.access-key=default
+        -Ddataverse.files.localstack1.secret-key=default
+        -Ddataverse.pid.providers=fake
+        -Ddataverse.pid.default-provider=fake
+        -Ddataverse.pid.fake.type=FAKE
+        -Ddataverse.pid.fake.label=FakeDOIProvider
+        -Ddataverse.pid.fake.authority=10.5072
+        -Ddataverse.pid.fake.shoulder=FK2/
+        -Ddataverse.db.host=postgres
+        -Ddataverse.db.password=secret
+        -Ddataverse.db.user=dataverse
+        -Ddataverse.mail.system-email=dataverse@localhost
+        -Ddataverse.mail.mta.host=smtp
+        -Ddataverse.auth.oidc.enabled=1
+        -Ddataverse.auth.oidc.client-id=test
+        -Ddataverse.auth.oidc.client-secret=94XHrfNRwXsjqTqApRrwWmhDLDHpIYV8
+        -Ddataverse.auth.oidc.auth-server-url=http://keycloak.mydomain.com:8090/realms/test
+        -Ddataverse.spi.exporters.directory=/dv/exporters
+        -Ddataverse.oai.server.maxidentifiers=2
+        -Ddataverse.oai.server.maxrecords=2
+        -Ddataverse.solr.host=solr
+        -Ddataverse.fqdn=localhost:8080
+        -Ddataverse.siteUrl=http://localhost:8080
+    ports:
+      - "8080:8080" # HTTP (Dataverse Application)
+    networks:
+      - dataverse
+    depends_on:
+      - postgres
+      - solr
+    volumes:
+      - ./docker-volumes/dataverse/data:/dv
+    tmpfs:
+      - /dumps:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
+      - /tmp:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
+    mem_limit: 2147483648 # 2 GiB
+    mem_reservation: 1024m
+    privileged: false
+
+  postgres:
+    container_name: "postgres"
+    hostname: postgres
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=dataverse
+      - POSTGRES_PASSWORD=secret
+    networks:
+      - dataverse
+    volumes:
+      - ./docker-volumes/postgresql/data:/var/lib/postgresql/data
+
+  solr:
+    container_name: "solr"
+    hostname: "solr"
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    image: solr:9.3.0
+    restart: on-failure
+    networks:
+      - dataverse
+    volumes:
+      - ./docker-volumes/solr/data:/var/solr
+      - ./docker-volumes/solr/conf:/template
+
+  smtp:
+    container_name: "smtp"
+    hostname: "smtp"
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    image: maildev/maildev:2.0.5
+    restart: unless-stopped
+    ports:
+      - "1080:1080" # web ui
+    environment:
+      - MAILSMTP_PORT=25
+      - MAILMAIL_DIRECTORY=/mail
+    networks:
+      - dataverse
+    tmpfs:
+      - /mail:mode=770,size=128M,uid=1000,gid=1000
+
+  keycloak:
+    container_name: "keycloak"
+    image: 'quay.io/keycloak/keycloak:21.0'
+    hostname: keycloak
+    restart: unless-stopped
+    environment:
+      - KEYCLOAK_ADMIN=kcadmin
+      - KEYCLOAK_ADMIN_PASSWORD=kcpassword
+      - KEYCLOAK_LOGLEVEL=DEBUG
+      - KC_HOSTNAME_STRICT=false
+    networks:
+      dataverse:
+        aliases:
+          - keycloak.mydomain.com #create a DNS alias within the network (add the same alias to your /etc/hosts to get a working OIDC flow)
+    command: start-dev --import-realm --http-port=8090  # change port to 8090, so within the network and external the same port is used
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./docker-volumes/keycloak/conf/test-realm.json:/opt/keycloak/data/import/test-realm.json
+
+  localstack:
+    container_name: "localstack"
+    hostname: "localstack"
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    image: localstack/localstack:2.3.2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4566:4566"
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - HOSTNAME_EXTERNAL=localstack
+    networks:
+      - dataverse
+    volumes:
+      - ./docker-volumes/localstack/conf:/etc/localstack/init/ready.d
+      - ./docker-volumes/localstack/data:/localstack
+
+networks:
+  dataverse:
+    driver: bridge
