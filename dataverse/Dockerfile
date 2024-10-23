@@ -17,7 +17,7 @@ USER payara
 
 # deploy WAR file
 ARG DATAVERSE_VERSION=6.4
-ADD https://github.com/IQSS/dataverse/releases/download/v${DATAVERSE_VERSION}/dataverse-${DATAVERSE_VERSION}.war ${DEPLOY_DIR}
+ADD --chown=payara:payara https://github.com/IQSS/dataverse/releases/download/v${DATAVERSE_VERSION}/dataverse-${DATAVERSE_VERSION}.war ${DEPLOY_DIR}
 
 VOLUME ${DOMAIN_DIR}/docroot
 WORKDIR ${DOMAIN_DIR}/docroot
