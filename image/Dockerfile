@@ -2,7 +2,7 @@
 ARG OAUTH2_POXY_VERSION=v7.6.0
 ARG NODE_VERSION=22-alpine
 
-FROM node:${NODE_VERSION} As frontend-builder
+FROM node:${NODE_VERSION} AS frontend-builder
 
 # Download and extract frontend
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/app/rdm-integration-frontend-${FRONTEND_VERSION}/
 ARG CUSTOMIZATIONS=./conf/kul_customizations
 COPY ${CUSTOMIZATIONS} /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/
 
-FROM golang:alpine As backend-builder
+FROM golang:alpine AS backend-builder
 
 WORKDIR /usr/src/app
 
