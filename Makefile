@@ -36,8 +36,11 @@ init: ## initialize docker volumes before running the server locally
 	tar -xzf ${SMAPLE_DATA_VERSION}.tar.gz rdm-integration-sample-data-${SMAPLE_DATA_VERSION}/docker-volumes --strip-components=1
 	find ./docker-volumes -type f -name '.gitignore' -exec rm {} +
 
-run: ## Run the server locally
+up: ## Run the server locally
 	docker compose -f docker-compose.yml up -d --build
+
+down: ## Stop the server locally
+	docker compose -f docker-compose.yml down
 
 fmt: ## Format the go code
 	cd image && go fmt ./app/...
