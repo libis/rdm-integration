@@ -35,6 +35,7 @@ init: ## initialize docker volumes before running the server locally
 	mkdir -p docker-volumes/dataverse/data/docroot
 	mkdir -p docker-volumes/dataverse/data/temp
 	mkdir -p docker-volumes/dataverse/data/uploads
+	mkdir -p docker-volumes/dataverse/data/exporters
 	mkdir -p docker-volumes/dataverse/secrets/api
 	mkdir -p docker-volumes/dataverse/conf
 	mkdir -p docker-volumes/integration/aws
