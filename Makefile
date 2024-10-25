@@ -52,12 +52,11 @@ init: ## initialize docker volumes before running the server locally
 	echo -n AWS_SECRET_ACCESS_KEY=default >> docker-volumes/integration/aws/aws.env
 	cp -R conf/dataverse/* docker-volumes/dataverse/conf
 	cp -R conf/customizations docker-volumes/integration/conf/customizations
+	cp -R conf/solr/* docker-volumes/solr/conf
 	cp conf/backend_config.json docker-volumes/integration/conf/backend_config.json
 	cp conf/frontend_config.json docker-volumes/integration/conf/frontend_config.json
 	cp conf/example_oauth_secrets.json docker-volumes/integration/data/example_oauth_secrets.json
 	cp conf/oauth2-proxy.cfg docker-volumes/integration/conf/oauth2-proxy.cfg
-	cp conf/solr/schema.xml docker-volumes/solr/conf/schema.xml
-	cp conf/solr/solrconfig.xml docker-volumes/solr/conf/solrconfig.xml
 	cp conf/localstack/buckets.sh docker-volumes/localstack/conf/buckets.sh
 	cp conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json
 

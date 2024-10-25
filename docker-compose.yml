@@ -106,8 +106,10 @@ services:
       - ./docker-volumes/dataverse/conf:/conf
       - ./docker-volumes/dataverse/secrets:/run/secrets
       - ./dataverse/init_dv.sh:/opt/payara/scripts/init.d/init_dv.sh
-      - ./dataverse/setup.sh:/opt/payara/scripts/setup.sh
-      - ./dataverse/setup-tools:/opt/payara/scripts/setup-tools
+      - ./dataverse/setup.sh:/scripts/setup.sh
+      - ./dataverse/setup-tools:/scripts/setup-tools
+      - ./dataverse/update-fields.sh:/scripts/update-fields.sh
+      - ./docker-volumes/solr/data/data/collection1:/solr
       - ./docker-volumes/dataverse/conf/jhove/jhove.conf:/opt/payara/appserver/glassfish/domains/domain1/config/jhove.conf
       - ./docker-volumes/dataverse/conf/jhove/jhoveConfig.xsd:/opt/payara/appserver/glassfish/domains/domain1/config/jhoveConfig.xsd
     tmpfs:

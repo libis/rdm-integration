@@ -5,8 +5,8 @@ FROM payara/server-full:${PAYARA_VERSION}-jdk17
 # The first section requires root privileges
 USER root
 
-# Install curl
-RUN apt-get -y update; apt-get -y install curl jq
+# Install scripting tools
+RUN apt-get -y update; apt-get -y install curl jq ed bc sed gawk
 
 # Change application user and group id
 ARG USER_ID=1000

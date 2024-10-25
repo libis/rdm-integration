@@ -10,7 +10,7 @@ do sleep 1; done
 # Fail on any error
 set -euo pipefail
 
-. /opt/payara/scripts/setup-tools
+. /scripts/setup-tools
 
 ADMIN_PASSWORD=$(cat "/run/secrets/password")
 API_KEY=$(cat "/run/secrets/api/key")
@@ -72,6 +72,14 @@ superAdmin datafiles_loop 'admin/externalTools' external-tools
 # settings
 # avoid nullpointer https://github.com/IQSS/dataverse/pull/10915
 superAdmin settings_loop 'admin/settings' settings
+
+# solr
+curl -f -s "http://localhost:8080/api/admin/index/solr/schema?unblock-key=${API_KEY}" | /scripts/update-fields.sh /solr/schema.xml
+curl -f -sS "http://solr:8983/solr/admin/cores?action=RELOAD&core=collection1" >/dev/null
+
+# reindex
+superAdmin api DELETE "admin/index/timestamps"
+superAdmin api GET "admin/index/continue"
 
 # setup done
 touch /dv/initialized

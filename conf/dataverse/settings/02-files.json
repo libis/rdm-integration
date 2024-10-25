@@ -1,0 +1,9 @@
+{
+  "title": "Files settings",
+  "data": [
+    {
+      "name": ":UploadMethods",
+      "value": "native/http"
+    }
+  ]
+}
