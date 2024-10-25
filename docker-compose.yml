@@ -94,6 +94,10 @@ services:
         -Ddataverse.fqdn=localhost:8080
         -Ddataverse.siteUrl=http://localhost:8080
         -Ddataverse.feature.api-bearer-auth=true
+        -Ddataverse.files.localstack1.upload-out-of-band=true
+        -Ddataverse.api.allow-incomplete-metadata=true
+        -Ddataverse.ui.allow-review-for-incomplete=false
+        -Ddataverse.ui.show-validity-filter=true
     ports:
       - "8080:8080" # HTTP (Dataverse Application)
     networks:
