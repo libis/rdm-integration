@@ -31,12 +31,40 @@ push: ## Push Docker image (only in prod stage)
 	fi
 
 init: ## initialize docker volumes before running the server locally
-	rm ${SMAPLE_DATA_VERSION}.tar.gz || true
-	wget https://github.com/libis/rdm-integration-sample-data/archive/refs/tags/${SMAPLE_DATA_VERSION}.tar.gz
-	tar -xzf ${SMAPLE_DATA_VERSION}.tar.gz rdm-integration-sample-data-${SMAPLE_DATA_VERSION}/docker-volumes --strip-components=1
-	find ./docker-volumes -type f -name '.gitignore' -exec rm {} +
+	mkdir -p docker-volumes/cache/data
+	mkdir -p docker-volumes/dataverse/data/docroot
+	mkdir -p docker-volumes/dataverse/data/temp
+	mkdir -p docker-volumes/dataverse/data/uploads
+	mkdir -p docker-volumes/dataverse/secrets/api
+	mkdir -p docker-volumes/dataverse/conf
+	mkdir -p docker-volumes/integration/aws
+	mkdir -p docker-volumes/integration/conf
+	mkdir -p docker-volumes/integration/data
+	mkdir -p docker-volumes/solr/conf
+	mkdir -p docker-volumes/solr/data
+	mkdir -p docker-volumes/postgresql/data
+	mkdir -p docker-volumes/keycloak/conf
+	mkdir -p docker-volumes/localstack/conf
+	mkdir -p docker-volumes/localstack/data
+	echo -n 'secret-admin-password' > docker-volumes/dataverse/secrets/password
+	echo -n 'secret-unblock-key' > docker-volumes/dataverse/secrets/api/key
+	echo AWS_ACCESS_KEY_ID=default > docker-volumes/integration/aws/aws.env
+	echo -n AWS_SECRET_ACCESS_KEY=default >> docker-volumes/integration/aws/aws.env
+	cp -R conf/dataverse/* docker-volumes/dataverse/conf
+	cp -R conf/customizations docker-volumes/integration/conf/customizations
+	cp conf/backend_config.json docker-volumes/integration/conf/backend_config.json
+	cp conf/frontend_config.json docker-volumes/integration/conf/frontend_config.json
+	cp conf/example_oauth_secrets.json docker-volumes/integration/data/example_oauth_secrets.json
+	cp conf/oauth2-proxy.cfg docker-volumes/integration/conf/oauth2-proxy.cfg
+	cp conf/solr/schema.xml docker-volumes/solr/conf/schema.xml
+	cp conf/solr/solrconfig.xml docker-volumes/solr/conf/solrconfig.xml
+	cp conf/localstack/buckets.sh docker-volumes/localstack/conf/buckets.sh
+	cp conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json
 
-up: ## Run the server locally
+clean: ## delete docker volumes
+	rm -rf docker-volumes
+
+up: init ## Run the server locally
 	docker compose -f docker-compose.yml up -d --build
 
 down: ## Stop the server locally

@@ -102,6 +102,13 @@ services:
       - solr
     volumes:
       - ./docker-volumes/dataverse/data:/dv
+      - ./docker-volumes/dataverse/conf:/conf
+      - ./docker-volumes/dataverse/secrets:/run/secrets
+      - ./dataverse/init_dv.sh:/opt/payara/scripts/init.d/init_dv.sh
+      - ./dataverse/setup.sh:/opt/payara/scripts/setup.sh
+      - ./dataverse/setup-tools:/opt/payara/scripts/setup-tools
+      - ./docker-volumes/dataverse/conf/jhove/jhove.conf:/opt/payara/appserver/glassfish/domains/domain1/config/jhove.conf
+      - ./docker-volumes/dataverse/conf/jhove/jhoveConfig.xsd:/opt/payara/appserver/glassfish/domains/domain1/config/jhoveConfig.xsd
     tmpfs:
       - /dumps:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
       - /tmp:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
@@ -128,6 +135,10 @@ services:
     hostname: "solr"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     image: solr:9.3.0
+    command:
+      - "solr-precreate"
+      - "collection1"
+      - "/template"
     restart: on-failure
     networks:
       - dataverse

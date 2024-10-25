@@ -4,10 +4,10 @@
     "createNewDatasetEnabled": true,
     "datasetFieldEditable": false,
     "collectionFieldEditable": true,
-    "showDvTokenGetter": true,
-    "showDvToken": true,
+    "showDvTokenGetter": false,
+    "showDvToken": false,
     "redirect_uri": "http://localhost:7788/connect",
-    "storeDvToken": true,
+    "storeDvToken": false,
     "sendMails": true,
     "plugins": [
         {
@@ -37,40 +37,8 @@
             "repoNameFieldEditable": true
         },
         {
-            "id": "kulgitlab",
-            "name": "KU Leuven GitLab",
-            "plugin": "gitlab",
-            "pluginName": "GitLab",
-            "optionFieldName": "Branch",
-            "optionFieldPlaceholder": "Select branch",
-            "sourceUrlFieldValue": "https://gitlab.kuleuven.be",
-            "repoNameFieldName": "Repository",
-            "repoNameFieldPlaceholder": "Select repository",
-            "repoNameFieldHasSearch": true,
-            "tokenGetter": {
-                "URL": "https://gitlab.kuleuven.be/oauth/authorize",
-                "oauth_client_id": "08ca36b19888ed2df25fb4d4021b59b80b645699f3744cbcbfb0fbf55e370329"
-            }
-        },
-        {
-            "id": "gitlab.com",
-            "name": "gitlab.com",
-            "plugin": "gitlab",
-            "pluginName": "GitLab",
-            "optionFieldName": "Branch",
-            "optionFieldPlaceholder": "Select branch",
-            "sourceUrlFieldValue": "https://gitlab.com",
-            "repoNameFieldName": "Repository",
-            "repoNameFieldPlaceholder": "Select repository",
-            "repoNameFieldHasSearch": true,
-            "tokenGetter": {
-                "URL": "https://gitlab.com/oauth/authorize",
-                "oauth_client_id": "f6af278af4af0560f7810f6d2ad7b5820fad98d92cef83c4a38e2211d37815e5"
-            }
-        },
-        {
             "id": "gitlab",
-            "name": "Other GitLab",
+            "name": "GitLab",
             "plugin": "gitlab",
             "pluginName": "GitLab",
             "optionFieldName": "Branch",
@@ -92,22 +60,8 @@
             "repoNameFieldName": "Repository",
             "repoNameFieldPlaceholder": "Select repository",
             "repoNameFieldHasSearch": true,
-            "tokenGetter": {
-                "URL": "https://github.com/login/oauth/authorize",
-                "oauth_client_id": "Iv1.5a149cba699ac08e"
-            }
-        },
-        {
-            "id": "GBIOMED_redcap_preview",
-            "name": "GBIOMED Preview RedCap",
-            "plugin": "redcap",
-            "pluginName": "REDCap",
-            "optionFieldName": "Folder",
-            "optionFieldPlaceholder": "Select folder",
-            "optionFieldInteractive": true,
-            "tokenFieldName": "Project token",
-            "tokenFieldPlaceholder": "project token",
-            "sourceUrlFieldValue": "https://preview.redcap.gbiomed.kuleuven.be"
+            "tokenFieldName": "Token",
+            "tokenFieldPlaceholder": "Repository API token"
         },
         {
             "id": "redcap",
@@ -136,52 +90,11 @@
             "tokenName": "osfToken"
         },
         {
-            "id": "onedrive",
-            "name": "OneDrive",
-            "plugin": "onedrive",
-            "pluginName": "OneDrive and SharePoint online",
-            "sourceUrlFieldValue": "https://graph.microsoft.com/v1.0",
-            "optionFieldName": "Folder",
-            "optionFieldPlaceholder": "Select folder",
-            "optionFieldInteractive": true,
-            "tokenGetter": {
-                "URL": "https://login.microsoftonline.com/3973589b-9e40-4eb5-800e-b0b6383d1621/oauth2/authorize?scope=onedrive.read.all",
-                "oauth_client_id": "210f1c67-8571-484d-8a48-a4911505e0b1"
-            }
-        },
-        {
-            "id": "sharepoint",
-            "name": "SharePoint online",
-            "plugin": "onedrive",
-            "pluginName": "OneDrive and SharePoint online",
-            "sourceUrlFieldValue": "https://graph.microsoft.com/v1.0",
-            "optionFieldName": "Folder",
-            "optionFieldPlaceholder": "Select folder",
-            "optionFieldInteractive": true,
-            "repoNameFieldName": "Site",
-            "repoNameFieldPlaceholder": "Select site",
-            "repoNameFieldHasSearch": true,
-            "tokenGetter": {
-                "URL": "https://login.microsoftonline.com/3973589b-9e40-4eb5-800e-b0b6383d1621/oauth2/authorize?scope=onedrive.read.all",
-                "oauth_client_id": "210f1c67-8571-484d-8a48-a4911505e0b1"
-            }
-        },
-        {
             "id": "demoDataverse",
             "name": "Demo Dataverse",
             "plugin": "dataverse",
             "pluginName": "Dataverse",
             "sourceUrlFieldValue": "https://demo.dataverse.org",
-            "repoNameFieldName": "Dataset",
-            "repoNameFieldPlaceholder": "Select dataset",
-            "repoNameFieldHasSearch": true
-        },
-        {
-            "id": "pilotDataverse",
-            "name": "Pilot RDR",
-            "plugin": "dataverse",
-            "pluginName": "Pilot RDR",
-            "sourceUrlFieldValue": "https://www.rdm.libis.kuleuven.be",
             "repoNameFieldName": "Dataset",
             "repoNameFieldPlaceholder": "Select dataset",
             "repoNameFieldHasSearch": true
@@ -200,23 +113,6 @@
             "usernameFieldPlaceholder": "username",
             "tokenFieldName": "Password",
             "tokenFieldPlaceholder": "password"
-        },
-        {
-            "id": "globus",
-            "name": "Globus",
-            "plugin": "globus",
-            "pluginName": "Globus",
-            "sourceUrlFieldValue": "https://transfer.api.globusonline.org/v0.10",
-            "optionFieldName": "Folder",
-            "optionFieldPlaceholder": "Select folder",
-            "optionFieldInteractive": true,
-            "repoNameFieldName": "Endpoint",
-            "repoNameFieldPlaceholder": "Select endpoint",
-            "repoNameFieldHasSearch": true,
-            "tokenGetter": {
-                "URL": "https://auth.globus.org/v2/oauth2/authorize?scope=urn%3Aglobus%3Aauth%3Ascope%3Atransfer.api.globus.org%3Aall+openid+email+profile",
-                "oauth_client_id": "33992ba4-2475-47b6-bacb-d0b6b63967e1"
-            }
         }
     ]
 }

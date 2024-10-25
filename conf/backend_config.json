@@ -1,20 +1,18 @@
 {
-    "dataverseServer": "http://localhost:7008",
-    "redisHost": "localhost:6379",
+    "dataverseServer": "http://dataverse:8080",
+    "redisHost": "cache:6379",
     "options": {
-        "rootDataverseId": "rdr",
+        "rootDataverseId": "root",
         "myDataRoleIds": [6],
-        "defaultDriver": "s3",
-        "pathToApiKey": "../../rdm-deployment/data/.secrets/api/adminkey",
-        "pathToUnblockKey": "../../rdm-deployment/data/.secrets/api/key",
-        "pathToOauthSecrets": "../../rdm-deployment/data/datasync/oauth/secrets.json",
-        "maxFileSize": 21474836480,
-        "pathToDataversePluginsConfig": "../../rdm-deployment/data/datasync/pilot_rdr_secrets.json",
+        "defaultDriver": "LocalStack",
+        "pathToApiKey": "/run/secrets/api/adminkey",
+        "pathToUnblockKey": "/run/secrets/api/key",
+        "pathToOauthSecrets": "/dsdata/example_oath_secrets.json",
         "s3Config": {
-            "awsEndpoint": "https://rdmo.icts.kuleuven.be",
+            "awsEndpoint": "https://localstack:",
             "awsRegion": "us-east-1",
             "awsPathstyle": true,
-            "awsBucket": "dataverse-local"
+            "awsBucket": "mybucket"
         }
     }
 }

@@ -1,0 +1,14 @@
+{
+    "displayName": "RDM-integration upload",
+    "description": "Upload files with the RDM-integration tool",
+    "toolName": "rdmIntegrationUpload",
+    "scope": "dataset",
+    "types":["configure"],
+    "toolUrl": "http://localhost:4180/connect",
+    "httpMethod":"GET",
+    "toolParameters": {
+        "queryParameters":[
+          {"datasetPid":"{datasetPid}"}
+        ]
+      }
+  }
