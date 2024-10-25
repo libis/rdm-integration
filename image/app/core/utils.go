@@ -24,7 +24,6 @@ func GetUserFromHeader(h http.Header) string {
 		if len(res.Data.Identifier) > 1 {
 			return res.Data.Identifier[1:]
 		} else {
-			logging.Logger.Println(res)
 			return ""
 		}
 	}
