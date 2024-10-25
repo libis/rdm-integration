@@ -36,6 +36,9 @@ superAdmin datafiles_loop 'admin/datasetfield/load' metadatablocks '*.tsv' 'text
 # builtin roles
 superAdmin datafiles_loop 'admin/roles' roles
 
+# Add the groups to the system.
+superAdmin datafiles_loop 'admin/groups/ip' groups
+
 # root Dataverse collection
 file="$(data_file dv-root.json)"
 superAdmin datafile "dataverses" "$file"
