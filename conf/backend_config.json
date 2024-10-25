@@ -2,6 +2,7 @@
     "dataverseServer": "http://dataverse:8080",
     "redisHost": "cache:6379",
     "options": {
+        "dataverseExternalUrl": "http://localhost:8080",
         "rootDataverseId": "root",
         "myDataRoleIds": [6,7],
         "defaultDriver": "s3",
@@ -9,7 +10,7 @@
         "pathToUnblockKey": "/run/secrets/api/key",
         "pathToOauthSecrets": "/dsdata/example_oath_secrets.json",
         "s3Config": {
-            "awsEndpoint": "https://localstack:4566",
+            "awsEndpoint": "http://localstack:4566",
             "awsRegion": "us-east-1",
             "awsPathstyle": true,
             "awsBucket": "mybucket"
