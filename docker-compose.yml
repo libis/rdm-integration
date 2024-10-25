@@ -93,6 +93,7 @@ services:
         -Ddataverse.solr.host=solr
         -Ddataverse.fqdn=localhost:8080
         -Ddataverse.siteUrl=http://localhost:8080
+        -Ddataverse.feature.api-bearer-auth=true
     ports:
       - "8080:8080" # HTTP (Dataverse Application)
     networks:
