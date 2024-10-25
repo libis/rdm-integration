@@ -7,7 +7,7 @@ services:
     build:
       dockerfile: ./image/Dockerfile
       args:
-        - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.6.0}
+        - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.7.1}
         - NODE_VERSION=${NODE_VERSION:-22-alpine}
         - FRONTEND_VERSION=${FRONTEND_VERSION:-1.0.0}
         - NODE_ENV=${NODE_ENV:-production}
