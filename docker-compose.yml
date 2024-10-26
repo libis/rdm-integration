@@ -53,7 +53,7 @@ services:
     build:
       dockerfile: ./dataverse/Dockerfile
       args:
-        - PAYARA_VERSION=${PAYARA_VERSION:-6.2024.10}
+        - BASE_VERSION=${BASE_VERSION:-unstable}
         - DATAVERSE_VERSION=${DATAVERSE_VERSION:-6.4}
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
@@ -114,8 +114,6 @@ services:
       - ./dataverse/setup-tools:/scripts/setup-tools
       - ./dataverse/update-fields.sh:/scripts/update-fields.sh
       - ./docker-volumes/solr/data/data/collection1:/solr
-      - ./docker-volumes/dataverse/conf/jhove/jhove.conf:/opt/payara/appserver/glassfish/domains/domain1/config/jhove.conf
-      - ./docker-volumes/dataverse/conf/jhove/jhoveConfig.xsd:/opt/payara/appserver/glassfish/domains/domain1/config/jhoveConfig.xsd
     tmpfs:
       - /dumps:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
       - /tmp:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}

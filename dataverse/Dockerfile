@@ -1,6 +1,6 @@
 # Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
-ARG PAYARA_VERSION=6.2024.10
-FROM payara/server-full:${PAYARA_VERSION}-jdk17
+ARG BASE_VERSION=unstable
+FROM gdcc/base:${BASE_VERSION}
 
 # The first section requires root privileges
 USER root
