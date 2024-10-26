@@ -54,7 +54,7 @@ services:
       dockerfile: ./dataverse/Dockerfile
       args:
         - BASE_VERSION=${BASE_VERSION:-unstable}
-        - DATAVERSE_VERSION=${DATAVERSE_VERSION:-6.4}
+        - DATAVERSE_WAR_URL=${DATAVERSE_WAR_URL:-https://github.com/ErykKul/dataverse/releases/download/OIDC/dataverse-6.4.war}
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
     restart: on-failure
@@ -93,7 +93,6 @@ services:
         -Ddataverse.solr.host=solr
         -Ddataverse.fqdn=localhost:8080
         -Ddataverse.siteUrl=http://localhost:8080
-        -Ddataverse.feature.api-bearer-auth=true
         -Ddataverse.files.localstack1.upload-out-of-band=true
         -Ddataverse.api.allow-incomplete-metadata=true
         -Ddataverse.ui.allow-review-for-incomplete=false
