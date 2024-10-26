@@ -34,12 +34,10 @@ func (r hashingReader) Read(buf []byte) (n int, err error) {
 }
 
 func getStorage(storageIdentifier string) storage {
-	driver := ""
 	filename := ""
 	bucket := ""
 	first := strings.Split(storageIdentifier, "://")
 	if len(first) == 2 {
-		driver = first[0]
 		filename = first[1]
 		second := strings.Split(filename, ":")
 		if len(second) == 2 {
@@ -47,7 +45,7 @@ func getStorage(storageIdentifier string) storage {
 			filename = second[1]
 		}
 	}
-	return storage{driver, bucket, filename}
+	return storage{config.GetConfig().Options.DefaultDriver, bucket, filename}
 }
 
 func generateFileName() string {
@@ -62,7 +60,11 @@ func generateStorageIdentifier(fileName string) string {
 	if config.GetConfig().Options.DefaultDriver == "s3" {
 		b = config.GetConfig().Options.S3Config.AWSBucket + ":"
 	}
-	return fmt.Sprintf("%s://%s%s", config.GetConfig().Options.DefaultDriver, b, fileName)
+	storageId := config.GetConfig().Options.DefaultDriver
+	if config.GetConfig().Options.StorageId != "" {
+		storageId = config.GetConfig().Options.StorageId
+	}
+	return fmt.Sprintf("%s://%s%s", storageId, b, fileName)
 }
 
 func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {

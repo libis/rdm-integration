@@ -61,7 +61,7 @@ services:
     user: payara
     environment:
       MP_CONFIG_PROFILE: prod
-      JVM_ARGS: -Ddataverse.files.storage-driver-id=LocalStack
+      JVM_ARGS: -Ddataverse.files.storage-driver-id=localstack1
         -Ddataverse.files.localstack1.type=s3
         -Ddataverse.files.localstack1.label=LocalStack
         -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack:4566
