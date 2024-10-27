@@ -31,6 +31,8 @@ push: ## Push Docker image (only in prod stage)
 	fi
 
 init: ## initialize docker volumes before running the server locally
+	docker compose -f docker-compose.yml down || true
+	rm -rf docker-volumes
 	mkdir -p docker-volumes/cache/data
 	mkdir -p docker-volumes/dataverse/data/docroot
 	mkdir -p docker-volumes/dataverse/data/temp
@@ -60,12 +62,25 @@ init: ## initialize docker volumes before running the server locally
 	cp conf/oauth2-proxy.cfg docker-volumes/integration/conf/oauth2-proxy.cfg
 	cp conf/localstack/buckets.sh docker-volumes/localstack/conf/buckets.sh
 	cp conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json
+	docker compose -f docker-compose.yml up -d --build
+	@echo -n "Waiting for Dataverse initialized "
+	@while [ ! -f docker-volumes/dataverse/data/initialized ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
+	docker compose -f docker-compose.yml down
 
 clean: ## delete docker volumes
 	rm -rf docker-volumes
 
-up: init ## Run the server locally
+up: ## Run the server locally
+	if [ ! -f docker-volumes/dataverse/data/initialized ]; then \
+    	$(MAKE) init; \
+	fi
 	docker compose -f docker-compose.yml up -d --build
+	@echo -n "Waiting for Dataverse ready "
+	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
 
 down: ## Stop the server locally
 	docker compose -f docker-compose.yml down
