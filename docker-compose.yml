@@ -204,7 +204,7 @@ services:
           - localstack.mydomain.com #create a DNS alias within the network (add the same alias to your /etc/hosts to get a working s3 redirects flow)
     volumes:
       - ./docker-volumes/localstack/conf:/etc/localstack/init/ready.d
-      - ./docker-volumes/localstack/data:/localstack
+      - ./docker-volumes/localstack/data:/var/lib/localstack
 
 networks:
   dataverse:
