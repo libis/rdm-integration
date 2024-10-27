@@ -64,7 +64,7 @@ services:
       JVM_ARGS: -Ddataverse.files.storage-driver-id=localstack1
         -Ddataverse.files.localstack1.type=s3
         -Ddataverse.files.localstack1.label=LocalStack
-        -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack:4566
+        -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack.mydomain.com:4566
         -Ddataverse.files.localstack1.custom-endpoint-region=us-east-2
         -Ddataverse.files.localstack1.bucket-name=mybucket
         -Ddataverse.files.localstack1.path-style-access=true
@@ -196,9 +196,11 @@ services:
       - "127.0.0.1:4566:4566"
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - HOSTNAME_EXTERNAL=localstack
+      - HOSTNAME_EXTERNAL=localstack.mydomain.com
     networks:
-      - dataverse
+      dataverse:
+        aliases:
+          - localstack.mydomain.com #create a DNS alias within the network (add the same alias to your /etc/hosts to get a working s3 redirects flow)
     volumes:
       - ./docker-volumes/localstack/conf:/etc/localstack/init/ready.d
       - ./docker-volumes/localstack/data:/localstack
