@@ -70,7 +70,7 @@ superAdmin api PUT "licenses/default/2"
 superAdmin datafiles_loop 'admin/externalTools' external-tools
 
 # settings
-# avoid nullpointer https://github.com/IQSS/dataverse/pull/10915
+# native/http upload method
 superAdmin settings_loop 'admin/settings' settings
 
 # solr
