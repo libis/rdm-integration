@@ -49,10 +49,11 @@ init: ## initialize docker volumes before running the server locally
 	mkdir -p docker-volumes/keycloak/conf
 	mkdir -p docker-volumes/localstack/conf
 	mkdir -p docker-volumes/localstack/data
+	mkdir -p docker-volumes/minio/data/mybucket
 	echo -n 'secret-admin-password' > docker-volumes/dataverse/secrets/password
 	echo -n 'secret-unblock-key' > docker-volumes/dataverse/secrets/api/key
-	echo AWS_ACCESS_KEY_ID=default > docker-volumes/integration/aws/aws.env
-	echo -n AWS_SECRET_ACCESS_KEY=default >> docker-volumes/integration/aws/aws.env
+	echo AWS_ACCESS_KEY_ID=4cc355_k3y > docker-volumes/integration/aws/aws.env
+	echo -n AWS_SECRET_ACCESS_KEY=s3cr3t_4cc355_k3y >> docker-volumes/integration/aws/aws.env
 	cp -R conf/dataverse/* docker-volumes/dataverse/conf
 	cp -R conf/customizations docker-volumes/integration/conf/customizations
 	cp -R conf/solr/* docker-volumes/solr/conf
