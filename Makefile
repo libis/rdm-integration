@@ -1,7 +1,7 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
 STAGE ?= dev
-BASE_HREF ?= /integration/
+BUILD_BASE_HREF ?= /integration/
 
 include env.$(STAGE)
 include .env
@@ -19,7 +19,7 @@ build: fmt staticcheck ## Build Docker image
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
 		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
 		--build-arg FRONTEND_VERSION=$(FRONTEND_VERSION) --build-arg NODE_ENV=$(NODE_ENV) \
-		--build-arg BASE_HREF=$(BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
+		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
 		--tag "$(IMAGE_TAG)" ./image
 
 push: ## Push Docker image (only in prod stage)
