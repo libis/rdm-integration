@@ -19,7 +19,7 @@ Support for different repositories is implemented as plugins. More plugins will 
 
 ## Getting started
 
-Add the included Keyclok and S3 implementations to your `/etc/hosts` or equivalent configuration, for example:
+Add the included Keyclok (for OIDC flow) and S3 implementations (for upload and download redirects using S3 storage) to your `/etc/hosts` or equivalent configuration, for example:
 ```shell
 127.0.0.1    keycloak.mydomain.com
 127.0.0.1    localstack.mydomain.com
