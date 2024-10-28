@@ -6,7 +6,6 @@ This is an application for files synchronization from different source repositor
 
 ## Available plugins
 Support for different repositories is implemented as plugins. More plugins will be added in the feature. At this moment, the following plugins are provided with the latest version:
-- local storage (available only in the stand-alone version)
 - [GitHub](https://github.com/)
 - [GitLab](https://about.gitlab.com/)
 - [IRODS](https://irods.org/)
