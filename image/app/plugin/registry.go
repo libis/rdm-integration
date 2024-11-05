@@ -7,6 +7,7 @@ import (
 	"integration/app/plugin/impl/dataverse"
 	"integration/app/plugin/impl/github"
 	"integration/app/plugin/impl/gitlab"
+	"integration/app/plugin/impl/globus"
 	"integration/app/plugin/impl/irods"
 	"integration/app/plugin/impl/local"
 	"integration/app/plugin/impl/onedrive"
@@ -78,6 +79,12 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Options: sftp_plugin.Options,
 		Search:  nil,
 		Streams: sftp_plugin.Streams,
+	},
+	"globus": {
+		Query:   globus.Query,
+		Options: globus.Options,
+		Search:  globus.Search,
+		Streams: globus.Streams,
 	},
 }
 

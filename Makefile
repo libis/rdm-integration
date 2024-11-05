@@ -1,11 +1,10 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
 STAGE ?= dev
-BASE_HREF ?= /integration/
+BUILD_BASE_HREF ?= /integration/
 
 include env.$(STAGE)
 include .env
--include ../rdm-deployment/data/datasync/aws/aws.env
 export
 
 .SILENT:
@@ -15,14 +14,12 @@ SHELL = /bin/bash
 USER_ID ?= $(shell id -u)
 GROUP_ID ?= $(shell id -g)
 
-build: ## Build Docker image
-	echo "Building frontend ..."
-	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production" --base-href $(BASE_HREF)
-	echo "Building Docker image ..."
-	rm -rf image/app/frontend/dist
-	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist
+build: fmt staticcheck ## Build Docker image
 	docker build \
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
+		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
+		--build-arg FRONTEND_VERSION=$(FRONTEND_VERSION) --build-arg NODE_ENV=$(NODE_ENV) \
+		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
 		--tag "$(IMAGE_TAG)" ./image
 
 push: ## Push Docker image (only in prod stage)
@@ -33,15 +30,61 @@ push: ## Push Docker image (only in prod stage)
 		echo "Not in production stage. Pushing not allowed."; \
 	fi
 
-run: fmt ## Run the server locally
-	echo "Building frontend ..."
-	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration development
-	rm -rf image/app/frontend/dist
-	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist
-	echo "Starting redis ..."
-	docker stop redis || true && docker rm redis || true && docker run -p 6379:6379 --name redis -d redis
-	echo "Starting app ..."
-	cd image && go run ./app 100
+init: ## initialize docker volumes before running the server locally
+	docker compose -f docker-compose.yml down || true
+	rm -rf docker-volumes
+	mkdir -p docker-volumes/cache/data
+	mkdir -p docker-volumes/dataverse/data/docroot
+	mkdir -p docker-volumes/dataverse/data/temp
+	mkdir -p docker-volumes/dataverse/data/uploads
+	mkdir -p docker-volumes/dataverse/data/exporters
+	mkdir -p docker-volumes/dataverse/secrets/api
+	mkdir -p docker-volumes/dataverse/conf
+	mkdir -p docker-volumes/integration/aws
+	mkdir -p docker-volumes/integration/conf
+	mkdir -p docker-volumes/integration/data
+	mkdir -p docker-volumes/solr/conf
+	mkdir -p docker-volumes/solr/data
+	mkdir -p docker-volumes/postgresql/data
+	mkdir -p docker-volumes/keycloak/conf
+	mkdir -p docker-volumes/localstack/conf
+	mkdir -p docker-volumes/localstack/data
+	mkdir -p docker-volumes/minio/data/mybucket
+	echo -n 'secret-admin-password' > docker-volumes/dataverse/secrets/password
+	echo -n 'secret-unblock-key' > docker-volumes/dataverse/secrets/api/key
+	echo AWS_ACCESS_KEY_ID=4cc355_k3y > docker-volumes/integration/aws/aws.env
+	echo -n AWS_SECRET_ACCESS_KEY=s3cr3t_4cc355_k3y >> docker-volumes/integration/aws/aws.env
+	cp -R conf/dataverse/* docker-volumes/dataverse/conf
+	cp -R conf/customizations docker-volumes/integration/conf/customizations
+	cp -R conf/solr/* docker-volumes/solr/conf
+	cp conf/backend_config.json docker-volumes/integration/conf/backend_config.json
+	cp conf/frontend_config.json docker-volumes/integration/conf/frontend_config.json
+	cp conf/example_oauth_secrets.json docker-volumes/integration/data/example_oauth_secrets.json
+	cp conf/oauth2-proxy.cfg docker-volumes/integration/conf/oauth2-proxy.cfg
+	cp conf/localstack/buckets.sh docker-volumes/localstack/conf/buckets.sh
+	cp conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json
+	docker compose -f docker-compose.yml up -d --build
+	@echo -n "Waiting for Dataverse initialized "
+	@while [ ! -f docker-volumes/dataverse/data/initialized ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
+	docker compose -f docker-compose.yml down
+
+clean: ## delete docker volumes
+	rm -rf docker-volumes
+
+up: ## Run the server locally
+	if [ ! -f docker-volumes/dataverse/data/initialized ]; then \
+    	$(MAKE) init; \
+	fi
+	docker compose -f docker-compose.yml up -d --build
+	@echo -n "Waiting for Dataverse ready "
+	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
+
+down: ## Stop the server locally
+	docker compose -f docker-compose.yml down
 
 fmt: ## Format the go code
 	cd image && go fmt ./app/...
@@ -49,38 +92,6 @@ fmt: ## Format the go code
 staticcheck: ## staticcheck the go code
 	cd image && ~/go/bin/staticcheck ./app/...
 
-eslint: ## eslint the go code
-	cd ../rdm-integration-frontend && npx eslint src/app/** --fix
-
-frontend: ## build frontend
-	echo "Building frontend ..."
-	cd ../rdm-integration-frontend && rm -rf ./dist && ng build --configuration="production"
-	rm -rf image/app/frontend/dist
-	cp -r ../rdm-integration-frontend/dist image/app/frontend/dist
-
-executable: fmt frontend ## build executable for running locally, e.g. cd image && go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
-	cp -r conf/customizations/* image/app/frontend/dist/datasync/
-	cd image && go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o ../datasync.exe ./app/local/
-
-multiplatform_demo: fmt frontend ## build executable for multiple platforms
-	cp -r conf/customizations/* image/app/frontend/dist/datasync/
-	cd image && env GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_windows.exe ./app/local/
-	cd image && env GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_linux.bin ./app/local/
-	cd image && env GOOS=darwin GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_darwin_amd64.bin ./app/local/
-	cd image && env GOOS=darwin GOARCH=arm64 go build -ldflags '-s -w -X main.DataverseServer=https://demo.dataverse.org -X "main.DataverseServerName=Demo Dataverse" -X "main.RootDataverseId=demo"' -v -o demo_darwin_arm64.bin ./app/local/
-
-fix_optimization_error: ## angular needs newer version of terser to optimize typescript 4.4 or later (static initiallization blocks)
-	rm -rf ../rdm-integration-frontend/node_modules/@angular-devkit/build-angular/node_modules/terser
-	cp -r ../rdm-integration-frontend/node_modules/terser ../rdm-integration-frontend/node_modules/@angular-devkit/build-angular/node_modules/terser
-
-multiplatform_kul: fmt frontend ## build KUL executable for multiple platforms
-	cp -r conf/kul_customizations/* image/app/frontend/dist/datasync/
-	cd image && env GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_windows.exe ./app/local/
-	cd image && env GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_linux.bin ./app/local/
-	cd image && env GOOS=darwin GOARCH=amd64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_darwin_amd64.bin ./app/local/
-	cd image && env GOOS=darwin GOARCH=arm64 go build -ldflags '-s -w -X main.DataverseServer=https://rdr.kuleuven.be -X "main.DataverseServerName=KU Leuven RDR" -X "main.RootDataverseId=rdr"' -v -o kul_darwin_arm64.bin ./app/local/
-
 upgrade_dependencies: ## upgrade all go dependencies
 	cd image && go get -u ./app/...
 	cd image && go mod tidy
-	cd ../rdm-integration-frontend && npx npm-check-updates -u && npm install

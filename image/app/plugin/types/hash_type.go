@@ -13,4 +13,5 @@ const (
 	NotNeeded    = "not needed"
 	Written      = "written"
 	Deleted      = "deleted"
+	LastModified = "last_modified"
 )

@@ -147,6 +147,5 @@ func getPartialResponse(ctx context.Context, url string, token string) (Response
 	if response.Error.Message != "" {
 		return response, fmt.Errorf("%v: %v", response.Error.Code, response.Error.Message)
 	}
-	response.Next = ""
 	return response, nil
 }

@@ -3,6 +3,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"integration/app/config"
 	"integration/app/logging"
@@ -10,9 +11,22 @@ import (
 	"net/smtp"
 
 	"github.com/google/uuid"
+	"github.com/libis/rdm-dataverse-go-api/api"
 )
 
 func GetUserFromHeader(h http.Header) string {
+	token := getValueFromHeader(h, "X-Forwarded-Access-Token")
+	if token != "" {
+		client := api.NewClient(config.GetConfig().DataverseServer)
+		header := http.Header{"Authorization": []string{"Bearer " + token}}
+		res := api.User{}
+		api.Do(context.Background(), client.NewRequest("/api/v1/users/:me", "GET", nil, header), &res)
+		if len(res.Data.Identifier) > 1 {
+			return res.Data.Identifier[1:]
+		} else {
+			return ""
+		}
+	}
 	hn := "Ajp_uid"
 	if config.GetConfig().Options.UserHeaderName != "" {
 		hn = config.GetConfig().Options.UserHeaderName

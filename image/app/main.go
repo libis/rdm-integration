@@ -9,6 +9,7 @@ import (
 	"integration/app/server"
 	"integration/app/workers/spinner"
 	"os"
+	"os/exec"
 	"strconv"
 )
 
@@ -30,9 +31,22 @@ func main() {
 		destination.SetDataverseAsDestination()
 		logging.Logger.Println("number workers:", numberWorkers)
 		go server.Start()
-		spinner.SpinWorkers(numberWorkers, queue)
+		if len(os.Args) > 2 {
+			go spinner.SpinWorkers(numberWorkers, queue)
+			err := exec.Command("/bin/oauth2-proxy", os.Args[2:]...).Run()
+			fmt.Println(err)
+		} else {
+			spinner.SpinWorkers(numberWorkers, queue)
+		}
 	} else {
 		logging.Logger.Println("http server only")
 		server.Start()
+		if len(os.Args) > 2 {
+			go server.Start()
+			err := exec.Command("/bin/oauth2-proxy", os.Args[2:]...).Run()
+			fmt.Println(err)
+		} else {
+			server.Start()
+		}
 	}
 }

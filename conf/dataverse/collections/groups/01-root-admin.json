@@ -1,0 +1,5 @@
+{
+   "description":"Administrators group",
+   "displayName":"Administrators",
+   "aliasInOwner":"dataverseAdmin"
+}

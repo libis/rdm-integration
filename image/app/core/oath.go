@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
+	"integration/app/core/types"
 	"integration/app/logging"
 	"io"
 	"net/http"
@@ -16,64 +17,11 @@ import (
 	"time"
 )
 
-type OauthTokenRequest struct {
-	ClientId     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	Code         string `json:"code,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	RedirectUri  string `json:"redirect_uri"`
-	GrantType    string `json:"grant_type"`
-	Resource     string `json:"resource,omitempty"`
-}
-
-type OauthTokenResponse struct {
-	AccessToken           string `json:"access_token"`
-	JwtToken              string `json:"id_token"`
-	ExpiresIn             int    `json:"expires_in"`
-	RefreshToken          string `json:"refresh_token"`
-	RefreshTokenExpiresIn int    `json:"refresh_token_expires_in"`
-	Scope                 string `json:"scope"`
-	TokenType             string `json:"token_type"`
-	Error                 string `json:"error"`
-	Error_description     string `json:"error_description"`
-	Error_uri             string `json:"error_uri"`
-	Issued                time.Time
-}
-
-type OauthTokenResponseStrings struct {
-	AccessToken           string `json:"access_token"`
-	JwtToken              string `json:"id_token"`
-	ExpiresIn             string `json:"expires_in"`
-	RefreshToken          string `json:"refresh_token"`
-	RefreshTokenExpiresIn string `json:"refresh_token_expires_in"`
-	Scope                 string `json:"scope"`
-	TokenType             string `json:"token_type"`
-	Error                 string `json:"error"`
-	Error_description     string `json:"error_description"`
-	Error_uri             string `json:"error_uri"`
-}
-
-type TokenResponse struct {
-	SessionId string `json:"session_id"`
-}
-
-type ExchangeRequest struct {
-	DropPermissions bool   `json:"drop_permissions"`
-	IdToken         string `json:"id_token"`
-}
-
-type ExchangeResponse struct {
-	Message     string   `json:"message"`
-	Expiration  string   `json:"expiration"`
-	Permissions []string `json:"permissions"`
-	Token       string   `json:"token"`
-}
-
 var PluginConfig = map[string]config.RepoPlugin{}
 var RedirectUri string
 
-func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId string) (TokenResponse, error) {
-	res := TokenResponse{sessionId}
+func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId string) (types.TokenResponse, error) {
+	res := types.TokenResponse{SessionId: sessionId}
 	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
 	clientSecret, resource, postUrl, exchange, err := config.ClientSecret(clientId)
@@ -84,11 +32,8 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 	if code == "" && refreshToken != "" {
 		grantType = "refresh_token"
 	}
-	req := OauthTokenRequest{clientId, clientSecret, code, refreshToken, redirectUri, grantType, resource}
-	//data, _ := json.Marshal(req)
-	//body := bytes.NewBuffer(data)
+	req := types.OauthTokenRequest{ClientId: clientId, ClientSecret: clientSecret, Code: code, RefreshToken: refreshToken, RedirectUri: redirectUri, GrantType: grantType, Resource: resource}
 	request, _ := http.NewRequestWithContext(ctx, "POST", postUrl, encode(req))
-	//request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Add("Accept", "application/json")
 	r, err := http.DefaultClient.Do(request)
@@ -104,14 +49,14 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 	if err != nil {
 		return res, fmt.Errorf("getting token response failed: %v", err)
 	}
-	result := OauthTokenResponse{}
+	result := types.OauthTokenResponse{}
 	err = json.Unmarshal(b, &result)
 	if err != nil {
-		resultStrings := OauthTokenResponseStrings{}
+		resultStrings := types.OauthTokenResponseStrings{}
 		err = json.Unmarshal(b, &resultStrings)
 		exp, _ := strconv.Atoi(resultStrings.ExpiresIn)
 		exp2, _ := strconv.Atoi(resultStrings.RefreshTokenExpiresIn)
-		result = OauthTokenResponse{
+		result = types.OauthTokenResponse{
 			AccessToken:           resultStrings.AccessToken,
 			ExpiresIn:             exp,
 			RefreshToken:          resultStrings.RefreshToken,
@@ -131,7 +76,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 		}
 		exp, _ := strconv.Atoi(params.Get("expires_in"))
 		exp2, _ := strconv.Atoi(params.Get("refresh_token_expires_in"))
-		result = OauthTokenResponse{
+		result = types.OauthTokenResponse{
 			AccessToken:           params.Get("access_token"),
 			ExpiresIn:             exp,
 			RefreshToken:          params.Get("refresh_token"),
@@ -174,21 +119,27 @@ func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) s
 			return token
 		}
 	}
+	for _, t := range res.OtherTokens {
+		if t.ResourceServer == "transfer.api.globus.org" {
+			res = t
+			break
+		}
+	}
 	return res.AccessToken
 }
 
-func getTokenFromCache(ctx context.Context, pluginId, sessionId string) (OauthTokenResponse, bool) {
+func getTokenFromCache(ctx context.Context, pluginId, sessionId string) (types.OauthTokenResponse, bool) {
 	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", pluginId, sessionId))
 	jsonString := cached.Val()
 	if jsonString == "" {
-		return OauthTokenResponse{}, false
+		return types.OauthTokenResponse{}, false
 	}
-	res := OauthTokenResponse{}
+	res := types.OauthTokenResponse{}
 	json.Unmarshal([]byte(jsonString), &res)
 	return res, true
 }
 
-func encode(req OauthTokenRequest) *bytes.Buffer {
+func encode(req types.OauthTokenRequest) *bytes.Buffer {
 	codeOrRefreshToken := req.Code
 	codeOrRefreshTokenName := "code"
 	if req.Code == "" && req.RefreshToken != "" {
@@ -209,9 +160,9 @@ func encode(req OauthTokenRequest) *bytes.Buffer {
 	return bytes.NewBuffer([]byte(s))
 }
 
-func doExchange(ctx context.Context, in OauthTokenResponse, url string) (OauthTokenResponse, error) {
+func doExchange(ctx context.Context, in types.OauthTokenResponse, url string) (types.OauthTokenResponse, error) {
 	res := in
-	req := ExchangeRequest{true, in.JwtToken}
+	req := types.ExchangeRequest{DropPermissions: true, IdToken: in.JwtToken}
 	data, _ := json.Marshal(req)
 	body := bytes.NewBuffer(data)
 	request, _ := http.NewRequestWithContext(ctx, "POST", url, body)
@@ -230,7 +181,7 @@ func doExchange(ctx context.Context, in OauthTokenResponse, url string) (OauthTo
 	if err != nil {
 		return res, fmt.Errorf("exchanging token response failed: %v", err)
 	}
-	result := ExchangeResponse{}
+	result := types.ExchangeResponse{}
 	err = json.Unmarshal(b, &result)
 	res.AccessToken = result.Token
 	if result.Message != "" {

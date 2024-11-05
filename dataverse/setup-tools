@@ -1,0 +1,216 @@
+# based on https://github.com/libis/rdm-build/blob/pre-6/images/dataverse/bin/config
+# and https://github.com/libis/rdm-build/blob/pre-6/images/dataverse/dvinstall/setup-tools
+
+#######################################################
+# This file is a Bash function library that helps in
+# executing Dataverse API calls for data files in the
+# configuration folders
+#######################################################
+
+#######################################################
+# Environment variables to refer to custom installation
+#######################################################
+
+CONF_DIR="${CONF_DIR:-/conf}"
+DATAVERSE_URL="${DATAVERSE_URL:-http://localhost:8080}"
+ADMIN_PASSWORD=$(cat "/run/secrets/password")
+API_KEY=$(cat "/run/secrets/api/key")
+# Load Admin API key if present
+if [ -s "/run/secrets/api/adminkey" ]; then
+  export adminKey="$(cat "/run/secrets/api/adminkey")"
+fi
+
+# Generic Dataverse API call method implemented with curl
+#########################################################
+# Arguments:
+# $1    Method (GET/PUT/POST/...)
+# $2    api path
+# $@:3  other curl args
+# Any extra headers added to the URL_HEADERS array will be added to the curl command
+# If the API is locked by token, the token will be added automatically
+# The API call reply is stored in the REPLY variable
+api_call () {
+  local xtra_opts=()
+  for h in "${URL_HEADERS[@]}"; do
+    xtra_opts+=("-H" "$h")
+  done
+
+  local url="${DATAVERSE_URL}/api/${2}"
+  local X='?' && [[ "$2" =~ \? ]] && X='&'
+  [[ "${API_LOCAL:-x}" == "true" ]] || url="${url}${X}unblock-key=${API_KEY}"
+  [[ "${API_DEBUG:-x}" == "true" ]] && echo " -- DEBUG: API call: ${1} ${@:3} ${xtra_opts[@]} $url" || true
+  REPLY=$(curl -sS -X ${1} "${@:3}" "${xtra_opts[@]}" "$url")
+  [[ "${API_DEBUG:-x}" == "true" ]] && echo " -- DEBUG: $REPLY" || true
+}
+
+# Higher level Dataverse API call
+#################################
+# same args as generic API call
+# will also process the reply and check if successful
+api() {
+  api_call "$@"
+  local STATUS=$(jq -n "${REPLY}" | jq -r '.status' 2>/dev/null || echo 'OK')
+  [[ "${STATUS}" == "OK" ]] && return 0
+  local MESSAGE=$(jq -n "${REPLY}" | jq -r '.message' 2>/dev/null)
+  [[ "${MESSAGE}" == "null" ]] && MESSAGE="${REPLY}"
+  echo "      -> API call '${2}' failed: ${MESSAGE}"
+  return -1
+}
+
+# Retrieve the object name from the file name
+#############################################
+obj_name() {
+  echo $(basename $1) | sed -E -e 's#^[[:digit:]]+-##; s#\.\w+$##'
+}
+
+# Path to a subfolder in the custom install dir
+###############################################
+conf_dir() {
+  local dir=$1
+  echo "${CONF_DIR}/$dir"
+}
+
+
+# Path to a data file
+#####################
+data_file() {
+  local file=$1
+  [ -f "${CONF_DIR}/$file" ] && echo "${CONF_DIR}/$file"
+}
+
+# Create hierarchical URL
+#########################
+# using the given URL and file name, this function will replace the placeholders
+# '${/x}' with the respective parts in the object name part of the file name.
+# e.g. 'object/${/0}/child/${/1}/info' with file name '03-parent-daughter.json' will
+# result in a URL 'object/parent/child/daughter/info'
+# Please note that the index numbers start at 0 for the first element
+url_path() {
+  local url=$1
+  local file=$2
+  local obj="$(obj_name $file)"
+  local regexp='\$\{/[[:digit:]]+\}'
+  if [[ "$url" =~ $regexp ]]; then
+    IFS='-' read -r -a path <<< "$(obj_name $file)"
+    for index in "${!path[@]}"
+    do
+      url=$(echo $url | sed -E 's&\$\{/'"$index"'\}&'"${path[index]}"'&g')
+    done
+  fi
+  echo "$url"
+}
+
+# Process a single data file
+############################
+# $1    URL
+# $2    File path
+# $3    Content type - application/json by default
+# $@:4  Any additional curl arguments
+# The api call will perform a POST to the given URL
+datafile() {
+  local url=$1
+  local file=$2
+  local content=${3:-'application/json'}
+  local url="$(url_path "$url" "$file")"
+  echo "  ... $(obj_name $file)"
+  api POST "$url" --data-binary @$file -H "Content-type: $content" "${@:4}"
+}
+
+# Process all data files in a folder
+####################################
+# $1    URL
+# $2    Subfolder
+# $3    File wildcard - *.json by default
+# $4    Content type - application/json by default
+# $@:5  Any other curl arguments
+datafiles_loop() {
+  local url=$1
+  local dir=$2
+  local files=${3:-'*.json'}
+  local content=${4:-'application/json'}
+  for f in "$(conf_dir $dir)"/$files; do
+    datafile "$url" "$f" "$content" "${@:5}"
+  done
+}
+
+# Function to correctly parse tsv line
+# From: https://stackoverflow.com/a/4622512
+# This code prevents the collapsing delimiters problem with Bash read
+read_tdf_line() {
+  local default_ifs=$' \t\n'
+  local n line element at_end old_ifs
+  old_ifs="${IFS:-${default_ifs}}"
+  IFS=$'\n'
+
+  if ! read -r line ; then
+    return 1
+  fi
+  at_end=0
+  while read -r element; do
+    if (( $# > 1 )); then
+      printf -v "$1" '%s' "$element"
+      shift
+    else
+      if (( at_end )) ; then
+        # replicate read behavior of assigning all excess content
+        # to the last variable given on the command line
+        printf -v "$1" '%s\t%s' "${!1}" "$element"
+      else
+        printf -v "$1" '%s' "$element"
+        at_end=1
+      fi
+    fi
+  done < <(tr '\t' '\n' <<<"$line")
+
+  # if other arguments exist on the end of the line after all
+  # input has been eaten, they need to be blanked
+  if ! (( at_end )) ; then
+    while (( $# )) ; do
+      printf -v "$1" '%s' ''
+      shift
+    done
+  fi
+
+  # reset IFS to its original value (or the default, if it was
+  # formerly unset)
+  IFS="$old_ifs"
+}
+
+# Process all settings files in a folder
+########################################
+# $1    URL
+# $2    Subfolder
+# The settings files have JSON content with a specific content and 
+# this function will parse the content and perform the API actions
+settings_loop() {
+  local url=$1
+  local dir=$2
+  local files='*.json'
+  for f in "$(conf_dir $dir)"/$files; do
+    local title=$(jq -r '.title' $f)
+    if [ "$title" != "" ]
+    then
+      echo "  ... $(obj_name $f)"
+      jq -r '.data[]|[.name, .value, .file]|@tsv' $f | while read_tdf_line name value file
+      do
+        if [ "$file" != "" ]
+        then
+          api PUT "$url/$name" --upload-file "$(dirname $f)/$file"
+        elif [ "$value" != "" ]
+        then
+          api PUT "$url/$name" -d "$value"
+        else
+          api DELETE "$url/$name"
+        fi
+      done
+    fi
+  done
+}
+
+# Perform the API action as super administrator
+###############################################
+superAdmin() {
+  URL_HEADERS=("X-Dataverse-key: ${adminKey}")
+  "$@"
+  URL_HEADERS=()
+}

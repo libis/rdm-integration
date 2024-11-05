@@ -4,77 +4,69 @@
 
 This is an application for files synchronization from different source repositories into a [Dataverse](https://dataverse.org) installation. This application uses background processes for the synchronization of the files. The background processes are also used for hashing of the Dataverse files when the source repository uses different hash type than the Dataverse installation. These hashes are needed for the comparison of the files, allowing easier versioning of the files between the dataset versions (only the files that effectively have changed would be replaced and added to the overview of changes between different dataset versions). The frontend application does not need to be running when the synchronization is running on the server (users can close their browsers once that the synchronization has been set up), and multiple synchronizations for different users can run simultaneously, each on its own goroutine, scheduled as a "job" in the background. The number of simultaneously running jobs is adjustable, and the jobs are scheduled in "First In First Out" order.
 
-This application can also be used as a stand-alone tool for uploading and synchronizing files from local storage to the Dataverse installation. Only the stand-alone tool allows synchronizing files from your local file system to a Dataverse installation.
-
 ## Available plugins
 Support for different repositories is implemented as plugins. More plugins will be added in the feature. At this moment, the following plugins are provided with the latest version:
-- local storage (available only in the stand-alone version)
 - [GitHub](https://github.com/)
 - [GitLab](https://about.gitlab.com/)
 - [IRODS](https://irods.org/)
+- [Dataverse](https://dataverse.org/) (use other Dataverse as source to import the data)
+- [Mircrosoft OneDrive](https://www.microsoft.com/en/microsoft-365/onedrive/online-cloud-storage)
+- [Microsoft SharePoint Online](https://www.microsoft.com/en/microsoft-365/sharepoint/collaboration)
+- [OSF](https://osf.io/)
+- [SFTP](https://en.wikipedia.org/wiki/SSH_File_Transfer_Protocol)
+- [REDCap](https://projectredcap.org/)
+- [Globus](https://www.globus.org/) (this plugin is not yet released)
 
 ## Getting started
-Download the binary built for your system (Windows, Linux or Darwin/macOS) from the latest release and execute it by double-clicking on it or by running it in command-line. By default, the application will connect to the [Demo Dataverse](https://demo.dataverse.org). If you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` parameters set to the Dataverse installation of your choice, e.g., on Windows system:
-```
-demo_windows.exe -server=https://demo.dataverse.org
+
+Add the included Keyclok (for OIDC flow) and S3 implementations (for upload and download redirects using S3 storage) to your `/etc/hosts` or equivalent configuration, for example:
+```shell
+127.0.0.1    keycloak.mydomain.com
+127.0.0.1    localstack.mydomain.com
+127.0.0.1    minio.mydomain.com
 ```
 
-For more details, see the section about running the application.
+You can start the demo with the following command:
+
+```shell
+make up
+```
+
+Wait until everything is initialized and started (follow the status in the terminal output). Then you can start testing, for example, go to the main page of the newly created Dataverse: [http://localhost:8080](http://localhost:8080), and click on the `Log In` button. Choose the `OpenID Connect` option at the button. On the `Log In` page, click on the `Log In with OpenID Connect`. Log-in with admin/admin credentials:
+![image](https://github.com/user-attachments/assets/f44acb6c-f3f5-40b3-8a59-f32c591de084)
+
+Complete the new user form by choosing a username and by agreeing to the terms:
+![image](https://github.com/user-attachments/assets/9b850bf2-c977-48cb-909a-1a93866e623e)
+
+After creating that new account, go to the `API Token` menu option:
+
+![image](https://github.com/user-attachments/assets/99a5d51a-b65d-4833-a048-fb2087100cf5)
+
+Create a new token and go back to the main page to create a new dataset:
+![image](https://github.com/user-attachments/assets/2eef1e50-859e-4d76-aec5-d4049a7c00cb)
+
+Fill out the form and click on `Save Dataset`. In the new dataset choose `RDM-integration upload` option from `Edit Dataset` menu:
+![image](https://github.com/user-attachments/assets/d1fb48b9-045b-4ee3-b691-9cea3256f0b1)
+
+Agree to the popups from the localhost, you will be redirected to log in:
+![image](https://github.com/user-attachments/assets/b7f9d046-7d14-4b40-8443-62f6cbe0428f)
+
+After logging in, you can test different plugins and scenarios. You can also go directly to the RDM-integration tool [http://localhost:4180](http://localhost:4180) to initiate different use-cases, e.g., creating new empty dataset with the `Create new dataset` button:
+![image](https://github.com/user-attachments/assets/f1eda2d9-146c-46da-a617-5edc09d32072)
+
 
 ## Prerequisites
-For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. You will need to have the latest [Go](https://go.dev/) installed for compiling the code. If you wish to build the application's container, you will need to have the [Docker](https://www.docker.com) installed. For running and building the applications from source using the make commands, you will need to have [make](https://www.gnu.org/software/make/) installed. Finally, the state of the application (calculated hashes, scheduled jobs, etc.) is maintained by a [Redis](https://redis.io/) data store. When running this application on the server, you will need either access to an external Redis server, or one run by you locally. The stand-alone tool does not require any Redis server (or any other tool or library installed on your system), and can be simply run by executing a binary built for your operating system.
+For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. You will need to have the latest [Go](https://go.dev/) installed for compiling the code. If you wish to build the application's container, you will need to have the [Docker](https://www.docker.com) installed. Finally, the state of the application (calculated hashes, scheduled jobs, etc.) is maintained by a [Redis](https://redis.io/) data store. When running this application on the server, you will need either access to an external Redis server, or one run by you locally. The stand-alone tool does not require any Redis server (or any other tool or library installed on your system), and can be simply run by executing a binary built for your operating system.
 
 ## Dependencies
-This application can be used by accessing the API directly (from cron jobs, etc.), or with a frontend providing GUI for the end users. The frontend ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)) needs to be checked out separately prior to building this application. Besides the frontend dependency, the build process use the following libraries and their dependencies (``go build`` command resolves them from ``go.mod`` and ``go.sum`` files, and they do not need to be installed separately):
+This application can be used by accessing the API directly (from cron jobs, etc.), or with a frontend providing GUI for the end users. The frontend source code can be found here: ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Besides the frontend dependency, the build process use the following libraries and their dependencies (``go build`` command resolves them from ``go.mod`` and ``go.sum`` files, and they do not need to be installed separately):
 - [AWS SDK for Go v2](https://github.com/aws/aws-sdk-go-v2)
 - [Redis client for Go](https://github.com/go-redis/redis)
 - [go-github](https://github.com/google/go-github)
 - [uuid](https://github.com/google/uuid)
 - [OAuth2 for Go](https://golang.org/x/oauth2)
 
-## Running the application
-The most straight forward way of running the application is to use the in the release provided binaries. Note that these binaries are only meant to be used by the end users and should not be used on a server. If you wish to build your own binaries or build this application for running on a server, see the section on running and building from source.
-
-By default, the tool connects to the [Demo Dataverse](https://demo.dataverse.org). If you wish to change the default configuration, you can execute the binary with ``-h`` argument. This will list the possible configuration options. For example, if you wish to connect to a different Dataverse installation, run it in command-line with the ``server`` and ``serverName`` (free to choose display name of the server as show in the UI, e.g. ``My Dataverse``) parameters set to the Dataverse installation of your choice, e.g., you can run the executable with the following options: ``-server=https://your.dataverse.installation -serverName="Dataverse Installation"``. On Windows system, the full command looks like this (first change to the directory where the file is downloaded):
-```
-demo_windows.exe -server=https://your.dataverse.installation -serverName="Dataverse Installation"
-```
-
-You can also build your own binaries with different default values for the command-line arguments. See the next section for more detail (in the part about ``-X`` flags).
-
-### Running and building from source
-In order to run the application locally, checkout in the same folder: this repository ([rdm-integration](https://github.com/libis/rdm-integration)), and the frontend repository ([rdm-integration-frontend](https://github.com/libis/rdm-integration-frontend)). Then go to ``/rdm-integration`` directory (i.e., the directory where this repository is checked out) and run ``make run``. This script will also start a docker container containing the Redis data store, which is used the by the running application for storing the application state. Notice that if you do not run standard Libis RDM (Dataverse) locally, you will need to configure the backend to connect to your Dataverse installation server. See the "Backend configuration" section for more details.
-
-You can also use the make commands to build the docker image (``make build -e BASE_HREF='/'``). The resulting container can be used as a web server hosting the API and the frontend, or as a container running the workers executing the jobs requested by the frontend. For the purpose of scalability, both types of intended usage can have multiple containers running behind a load balancer. The default run command starts a container performing both tasks: a web server and a process controlling 100 workers:
-```
-docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app 100
-```
-
-After starting the docker container with the command above, verify that the web server is running by going to [http://localhost:7788](http://localhost:7788). If you wish to have a different number of simultaneously running workers, change ``100`` to the desired number. If you want the resulting container to function only as a web server, execute this command:
-```
-docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 app
-```
-
-When running the web server separately from the workers, you will need at least one container running the workers, started with the following command:
-```
-docker run -v $PWD/conf:/conf --env-file ./env.demo -p 7788:7788 rdm/integration:1.0 workers 100
-```
-
-Building binaries with local file system plugin, just as the binaries included in the release (meant only for running by the end users and not on a server) is also done with the make command: ``make executable``. You may want to adjust that script by setting the variables to make the application connect to your Dataverse installation. By default, the built application connects to the [Demo Dataverse](https://demo.dataverse.org). In order to change that, you must adapt the build command the following way (you can also run this command in the [image](image) directory, without the script):
-```
-go build -ldflags "-X main.DataverseServer=https://demo.dataverse.org -X main.RootDataverseId=demo -X main.DefaultHash=MD5" -v -o datasync.exe ./app/local/
-```
-
-These are the ``-X`` flags that you can use at the build time to set the default values for the command line arguments (as listed by the ``datasync.exe -h`` command):
-- DataverseServer (sets the default value for the ``server`` argument): URL of the Dataverse installation that the built application will connect to by default
-- DataverseServerName (sets the default value for the ``serverName`` argument): display name of the Dataverse installation, e.g., "Demo Dataverse". This name is used only in the UI and is free to choose.
-- RootDataverseId (sets the default value for the ``dvID`` argument): ID of the root Dataverse collection of the Dataverse installation, e.g., "demo"
-- DefaultHash (sets the default value for the ``hash`` argument): most Dataverse installation use "MD5" as hashing algorithm: this flag can be omitted in most cases.
-- MyDataRoleIds (sets the default value for the ``roleIDs`` argument): this application uses the ``retrieve`` "my data" API call. However, this API requires the Role ID (primary key of the role table where the particular role is stored on the database), which can be tricky to find. Only the datasets where the user has that particular role are returned by the server. If your Dataverse installation does not fill the dropdown for the dataset choice, then this flag should be adjusted. Otherwise, you can omit this flag. The default setting is ``6,7`` representing the ``contributor`` and ``curator`` roles on most installations.
-
-You can also build the binaries for multiple architectures at once with the ``make multiplatform_demo`` command. Adapt the build commands in that script similarly as described for the ``make executable`` command.
-
-### Backend configuration
+## Backend configuration
 The backend configuration is loaded by the application from a file specified by the path stored in the ``BACKEND_CONFIG_FILE`` environment variable. In order to set a value for that variable, you will need to export that variable to the OS running the application, e.g.:
 ```
 export BACKEND_CONFIG_FILE=../conf/backend_config.json
@@ -151,7 +143,7 @@ The s3 driver is then configured in the backend configuration file, for example:
 
 Notice that the driver configuration is optional. When it is not set, no direct uploading is in use and simply the Dataverse API is called for storing the files. However, this can result in unnecessary usage of resources (network, CPU, etc.) and might slow down the Dataverse installation.
 
-### Frontend configuration
+## Frontend configuration
 There are two types of possible customizations to the frontend. The first type is the customization done by the replacement of the HTML files, e.g., the [footer.html](conf/customizations/assets/html/footer.html) and the [header.html](conf/customizations/assets/html/header.html). The files that are going to be replaced are placed in the [conf/customizations](conf/customizations/) directory, that can also contain the files referenced by the custom HTML files. By default, only the ``make executable`` and ``make multiplatform_demo`` commands effectively replace these files while building. In order to add customizations into your make script, add the following line to the script: ``cp -r conf/customizations/* image/app/frontend/dist/datasync/``.
 
 The second type is the configuration with a configuration file. The default configuration file (used when the configuration file is not specified in the ``FRONTEND_CONFIG_FILE`` environment variable) can be found in [default_frontend_config.json](image/app/frontend/default_frontend_config.json). In order to use a custom configuration file, set the ``FRONTEND_CONFIG_FILE`` environment variable accordingly. An example of the configuration file, also used by the make scripts and the docker commands, can be found in [frontend_config.json](conf/frontend_config.json).

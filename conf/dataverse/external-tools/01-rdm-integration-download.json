@@ -1,0 +1,15 @@
+{
+  "displayName": "RDM-integration download",
+  "description": "Download files from the RDM-integration tool",
+  "toolName": "rdmIntegrationDownload",
+  "scope": "dataset",
+  "types":["explore"],
+  "toolUrl": "http://localhost:4180/download",
+  "httpMethod":"GET",
+  "toolParameters": {
+      "queryParameters":[
+        {"datasetPid":"{datasetPid}"},
+        {"datasetversion":"{datasetVersion}"}
+      ]
+    }
+}

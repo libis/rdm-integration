@@ -29,15 +29,6 @@ func doWork(job Job) (Job, error) {
 	if job.Plugin == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.User, job.PersistentId, job.WritableNodes, job)
 	}
-
-	job.StreamParams.Token = GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId, job.StreamParams.PluginId)
-	streams, err := stream.Streams(ctx, job.WritableNodes, job.Plugin, job.StreamParams)
-	if err != nil {
-		return job, err
-	}
-	if streams.Cleanup != nil {
-		defer streams.Cleanup()
-	}
 	knownHashes := getKnownHashes(ctx, job.PersistentId)
 	//filter not valid actions (when someone had browser open for a very long time and other job started and finished)
 	writableNodes, err := filterRedundant(ctx, job, knownHashes)
@@ -45,6 +36,24 @@ func doWork(job Job) (Job, error) {
 		return job, err
 	}
 	job.WritableNodes = writableNodes
+	streamNodes := map[string]tree.Node{}
+	for k, v := range writableNodes {
+		if v.Action != tree.Delete {
+			streamNodes[k] = v
+		}
+	}
+	streamParams := job.StreamParams
+	streamParams.Token = GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId, job.StreamParams.PluginId)
+	streamParams.PersistentId = job.PersistentId
+	streamParams.DVToken = job.DataverseKey
+	streamParams.SessionId = job.SessionId
+	streams, err := stream.Streams(ctx, streamNodes, job.Plugin, streamParams)
+	if err != nil {
+		return job, err
+	}
+	if streams.Cleanup != nil {
+		defer streams.Cleanup()
+	}
 	j, err := doPersistNodeMap(ctx, streams.Streams, job, knownHashes)
 	if err != nil {
 		return j, err
@@ -163,6 +172,24 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			continue
 		}
 
+		if in.Plugin == "globus" {
+			if v.Action == tree.Update {
+				err = deleteFile(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
+				if err != nil {
+					return
+				}
+			}
+			delete(out.WritableNodes, k)
+			knownHashes[v.Id] = calculatedHashes{
+				LocalHashType:  types.LastModified,
+				LocalHashValue: v.Attributes.RemoteHash,
+				RemoteHashes:   map[string]string{types.LastModified: v.Attributes.RemoteHash},
+			}
+			config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
+			writtenKeys = append(writtenKeys, redisKey)
+			continue
+		}
+
 		fileStream := streams[k]
 		fileName := generateFileName()
 		storageIdentifier := generateStorageIdentifier(fileName)
@@ -184,8 +211,10 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		//updated or new: always rehash
 		remoteHashValue := fmt.Sprintf("%x", remoteH)
-		if remoteHashType == types.GitHash {
-			remoteHashValue = v.Attributes.RemoteHash // gitlab does not provide file size... If we do not know the file size before calculating the hash, we can't calculate the git hash
+		if remoteHashType == types.GitHash || remoteHashType == types.LastModified {
+			// gitlab does not provide filesize... If we do not know the filesize before calculating the hash, we can't calculate the git hash
+			// we also cannot calculate the last modified in the file system...
+			remoteHashValue = v.Attributes.RemoteHash
 		}
 		if v.Attributes.RemoteHash != remoteHashValue && v.Attributes.RemoteHash != types.NotNeeded { // not all local file system hashes are calculated on beforehand (types.NotNeeded)
 			if remoteHashType == types.QuickXorHash { //some sharepoint hashes fail
