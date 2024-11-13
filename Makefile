@@ -83,6 +83,11 @@ up: ## Run the server locally
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo	' OK.'
 
+dev_frontend_up: ## Run the development frontend version locally
+	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz --prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ HEAD
+	$(MAKE) up FRONTEND_TAR_GZ=$(FRONTEND_VERSION).tar.gz
+	rm $(FRONTEND_VERSION).tar.gz
+
 down: ## Stop the server locally
 	docker compose -f docker-compose.yml down
 

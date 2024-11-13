@@ -16,3 +16,4 @@
 # vendor/
 
 docker-volumes
+*.tar.gz
