@@ -18,9 +18,14 @@ var fs http.Handler = http.FileServer(http.FS(content))
 func init() {}
 
 func Frontend(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/compute") || strings.HasPrefix(r.URL.Path, "compute") || strings.HasPrefix(r.URL.Path, "/connect") || strings.HasPrefix(r.URL.Path, "connect") || r.URL.Path == "" {
-		r.URL.Path = "/"
+	if strings.HasPrefix(r.URL.Path, "/connect") || strings.HasPrefix(r.URL.Path, "/connect/") || r.URL.Path == "" {
+		url := "/#/connect"
+		if r.URL.ForceQuery || r.URL.RawQuery != "" {
+			url += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, url, http.StatusSeeOther)
+	} else {
+		r.URL.Path = "/dist/datasync" + r.URL.Path
+		fs.ServeHTTP(w, r)
 	}
-	r.URL.Path = "/dist/datasync" + r.URL.Path
-	fs.ServeHTTP(w, r)
 }
