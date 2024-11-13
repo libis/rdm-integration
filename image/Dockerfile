@@ -7,8 +7,9 @@ FROM node:${NODE_VERSION} AS frontend-builder
 # Download and extract frontend
 WORKDIR /app
 ARG FRONTEND_VERSION=1.0.1
-ADD https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION}.tar.gz /app/
-RUN tar -xzf ${FRONTEND_VERSION}.tar.gz
+ARG FRONTEND_TAR_GZ=https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION}.tar.gz
+ADD ${FRONTEND_TAR_GZ} /app/
+RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
 
 # Install packages
 WORKDIR /app/rdm-integration-frontend-${FRONTEND_VERSION}
