@@ -83,10 +83,15 @@ up: ## Run the server locally
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo	' OK.'
 
-dev_frontend_up: ## Run the development frontend version locally
+dev_up: ## Run the development frontend version locally
+	echo "Building integration frontend..."
 	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz --prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ HEAD
-	$(MAKE) up FRONTEND_TAR_GZ=$(FRONTEND_VERSION).tar.gz
+	echo "Building dataverse..."
+	cd ../dataverse && mvn -DskipTests=true clean package
+	cp ../dataverse/target/dataverse-$(DATAVERSE_VERSION).war dataverse-$(DATAVERSE_VERSION).war
+	$(MAKE) up FRONTEND_TAR_GZ=$(FRONTEND_VERSION).tar.gz DATAVERSE_WAR_URL=dataverse-$(DATAVERSE_VERSION).war
 	rm $(FRONTEND_VERSION).tar.gz
+	rm dataverse-$(DATAVERSE_VERSION).war
 
 down: ## Stop the server locally
 	docker compose -f docker-compose.yml down
