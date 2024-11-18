@@ -24,9 +24,6 @@ func main() {
 			panic(fmt.Errorf("failed to parse number of workers from %v: %v", numberWorkers, err))
 		}
 	}
-	if len(os.Args) > 2 {
-		queue = os.Args[2]
-	}
 	if numberWorkers > 0 {
 		destination.SetDataverseAsDestination()
 		logging.Logger.Println("number workers:", numberWorkers)
