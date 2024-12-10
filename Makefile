@@ -30,6 +30,11 @@ push: ## Push Docker image (only in prod stage)
 		echo "Not in production stage. Pushing not allowed."; \
 	fi
 
+solr_latest_config: ## update solr config files with latest version from github
+	wget https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/schema.xml -O conf/solr/schema.xml
+	wget https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/solrconfig.xml -O conf/solr/solrconfig.xml
+	wget https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/update-fields.sh -O dataverse/update-fields.sh
+
 init: ## initialize docker volumes before running the server locally
 	docker compose -f docker-compose.yml down || true
 	rm -rf docker-volumes
