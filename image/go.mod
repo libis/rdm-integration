@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.28.6
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.43
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.71.0
-	github.com/cyverse/go-irodsclient v0.15.6
+	github.com/cyverse/go-irodsclient v0.14.6
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/libis/rdm-dataverse-go-api v1.0.7
@@ -18,7 +18,9 @@ require (
 
 require (
 	github.com/kr/fs v0.1.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/stretchr/testify v1.8.3 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (

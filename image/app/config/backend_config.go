@@ -35,7 +35,7 @@ type OptionalConfig struct {
 	PathToRedisPassword          string        `json:"pathToRedisPassword,omitempty"`  // by default no password for Redis is set, if you need to authenticate, store here the path to the file containing the redis password
 	RedisDB                      int           `json:"redisDB,omitempty"`              // by default DB 0 is used, if you need to use other DB, specify it here
 	DefaultDriver                string        `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
-	StorageId                    string     `json:"storageId,omitempty"`            // storage identifier in Dataverse
+	StorageId                    string        `json:"storageId,omitempty"`            // storage identifier in Dataverse
 	PathToFilesDir               string        `json:"pathToFilesDir,omitempty"`       // path to the folder where dataverse files are stored (only needed when using "file" driver)
 	S3Config                     S3Config      `json:"s3Config,omitempty"`             // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
 	PathToOauthSecrets           string        `json:"pathToOauthSecrets,omitempty"`   // path to file containing the oath client ids and secrets
