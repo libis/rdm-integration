@@ -142,7 +142,7 @@ func getPartialResponse(ctx context.Context, url string, token string) (Response
 	response := Response{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return Response{}, fmt.Errorf(string(b))
+		return Response{}, fmt.Errorf("%s", string(b))
 	}
 	if response.Error.Message != "" {
 		return response, fmt.Errorf("%v: %v", response.Error.Code, response.Error.Message)

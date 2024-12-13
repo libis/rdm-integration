@@ -88,7 +88,7 @@ func getPage(ctx context.Context, url, token string) ([]Data, string, error) {
 	res := PageResponse{}
 	err = json.Unmarshal(b, &res)
 	if err != nil {
-		return nil, "", fmt.Errorf(string(b))
+		return nil, "", fmt.Errorf("%s", string(b))
 	}
 	return res.Data, res.Links.Next, nil
 }
@@ -101,7 +101,7 @@ func getData(ctx context.Context, url, token string) (Data, error) {
 	res := DataResponse{}
 	err = json.Unmarshal(b, &res)
 	if err != nil {
-		return Data{}, fmt.Errorf(string(b))
+		return Data{}, fmt.Errorf("%s", string(b))
 	}
 	return res.Data, nil
 }
