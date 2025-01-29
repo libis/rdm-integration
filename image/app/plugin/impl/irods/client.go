@@ -84,7 +84,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	var saltSize = 8
 	var hashRounds = 8
 	var algorithm = "AES-256-CBC"
-	var negotiationPolicy = types.CSNegotiationRequire("CS_NEG_REQUIRE")
+	var negotiationPolicy = types.CSNegotiationPolicyRequestSSL
 
 	var err error
 	if strings.Contains(server, "kuleuven") {
@@ -99,7 +99,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		}
 		username, password = info.Username, info.Password
 		algorithm, keySize, saltSize, hashRounds = info.EncryptionAlgorithm, info.EncryptionKeySize, info.EncryptionSaltSize, info.EncryptionNumHashRounds
-		negotiationPolicy = types.CSNegotiationRequire(info.ClientServerPolicy)
+		negotiationPolicy = types.GetCSNegotiationPolicyRequest(info.ClientServerPolicy)
 	}
 	method := types.GetAuthScheme(strings.ToLower(s.AuthScheme))
 	account, err := types.CreateIRODSAccount(s.Server, s.Port, username, zone, method, password, "")
@@ -109,9 +109,13 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	account.CSNegotiationPolicy = negotiationPolicy
 	account.ClientServerNegotiation = true
 
-	account.SSLConfiguration, err = types.CreateIRODSSSLConfig("/etc/ssl/certs/ca-certificates.crt", "", keySize, algorithm, saltSize, hashRounds)
-	if err != nil {
-		return nil, err
+	account.SSLConfiguration = &types.IRODSSSLConfig{
+		CACertificateFile:       "/etc/ssl/certs/ca-certificates.crt",
+		CACertificatePath:       "",
+		EncryptionKeySize:       keySize,
+		EncryptionAlgorithm:     algorithm,
+		EncryptionSaltSize:      saltSize,
+		EncryptionNumHashRounds: hashRounds,
 	}
 
 	if account.AuthenticationScheme == types.AuthSchemePAM {
@@ -120,7 +124,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 
 		conn := connection.NewIRODSConnection(account, time.Minute, "libis-obtain-native-pass")
 		conn.Connect()
-		nativePass := conn.GetAccount().PamToken
+		nativePass := conn.GetAccount().PAMToken
 		conn.Disconnect()
 
 		// Future connections use native protocol
@@ -128,7 +132,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		account.AuthenticationScheme = types.AuthSchemeNative
 	}
 
-	sessionConfig := session.NewIRODSSessionConfigWithDefault(ClientProgramName)
+	sessionConfig := session.NewIRODSSessionConfig(ClientProgramName)
 	sessionConfig.ConnectionLifespan = connectionLifespan
 	sessionConfig.OperationTimeout = connectionLifespan
 	i.Session, err = session.NewIRODSSession(account, sessionConfig)
@@ -136,9 +140,9 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		return nil, err
 	}
 
-	fsConfig := fs.NewFileSystemConfig(ClientProgramName, fs.FileSystemConnectionErrorTimeoutDefault, fs.FileSystemConnectionInitNumberDefault, connectionLifespan,
-		connectionLifespan, fs.FileSystemTimeoutDefault, fs.FileSystemConnectionMaxDefault, fs.FileSystemTCPBufferSizeDefault,
-		fs.FileSystemTimeoutDefault, fs.FileSystemTimeoutDefault, []fs.MetadataCacheTimeoutSetting{}, true, true)
+	fsConfig := fs.NewFileSystemConfig(ClientProgramName)
+	fsConfig.IOConnection.Lifespan = types.Duration(connectionLifespan)
+	fsConfig.IOConnection.OperationTimeout = types.Duration(connectionLifespan)
 	i.FileSystem, err = fs.NewFileSystem(account, fsConfig)
 	if err != nil {
 		i.Session.Release()
