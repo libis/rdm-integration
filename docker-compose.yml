@@ -31,7 +31,7 @@ services:
       - ./docker-volumes/dataverse/secrets:/run/secrets:ro
       - ./docker-volumes/integration/conf/oauth2-proxy.cfg:/oauth2-proxy.cfg
     restart: unless-stopped
-    entrypoint: app 100 --config /oauth2-proxy.cfg
+    entrypoint: app 100 oidc --config /oauth2-proxy.cfg
     depends_on:
       - dataverse
       - cache

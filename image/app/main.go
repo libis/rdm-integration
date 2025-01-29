@@ -18,7 +18,18 @@ func main() {
 	numberWorkers := 0
 	queue := "ALL"
 	var err error
-	if len(os.Args) > 1 {
+	oidcArgIdx := -1
+	oidcArgs := []string{}
+	for i := 0; i < len(os.Args); i++ {
+		if os.Args[i] == "oidc" {
+			oidcArgIdx = i
+			if len(os.Args) > oidcArgIdx {
+				oidcArgs = os.Args[oidcArgIdx+1:]
+			}
+			break
+		}
+	}
+	if len(os.Args) > 1 && (oidcArgIdx < 0 || oidcArgIdx > 1) {
 		numberWorkers, err = strconv.Atoi(os.Args[1])
 		if err != nil {
 			panic(fmt.Errorf("failed to parse number of workers from %v: %v", numberWorkers, err))
@@ -28,19 +39,18 @@ func main() {
 		destination.SetDataverseAsDestination()
 		logging.Logger.Println("number workers:", numberWorkers)
 		go server.Start()
-		if len(os.Args) > 2 {
+		if oidcArgIdx > 0 {
 			go spinner.SpinWorkers(numberWorkers, queue)
-			err := exec.Command("/bin/oauth2-proxy", os.Args[2:]...).Run()
+			err := exec.Command("/bin/oauth2-proxy", oidcArgs...).Run()
 			fmt.Println(err)
 		} else {
 			spinner.SpinWorkers(numberWorkers, queue)
 		}
 	} else {
 		logging.Logger.Println("http server only")
-		server.Start()
-		if len(os.Args) > 2 {
+		if oidcArgIdx > 0 {
 			go server.Start()
-			err := exec.Command("/bin/oauth2-proxy", os.Args[2:]...).Run()
+			err := exec.Command("/bin/oauth2-proxy", oidcArgs...).Run()
 			fmt.Println(err)
 		} else {
 			server.Start()
