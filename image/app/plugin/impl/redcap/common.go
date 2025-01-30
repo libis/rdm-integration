@@ -63,7 +63,7 @@ func listEntries(ctx context.Context, folderId int64, path, url, token string, r
 	response := []RedCapResponseEntry{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return nil, fmt.Errorf(string(b))
+		return nil, fmt.Errorf("%s", string(b))
 	}
 	res := []Entry{}
 	sep := "/"

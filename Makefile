@@ -20,7 +20,7 @@ build: fmt staticcheck ## Build Docker image
 		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
 		--build-arg FRONTEND_VERSION=$(FRONTEND_VERSION) --build-arg NODE_ENV=$(NODE_ENV) \
 		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
-		--tag "$(IMAGE_TAG)" ./image
+		--tag "$(IMAGE_TAG)" --file image/Dockerfile .
 
 push: ## Push Docker image (only in prod stage)
 	if [ "$(STAGE)" = "prod" ]; then \
