@@ -19,7 +19,7 @@ RUN chown -R -h payara:payara ${HOME_DIR} &>/dev/null || true
 USER payara
 
 # deploy WAR file
-ARG DATAVERSE_WAR_URL=https://github.com/ErykKul/dataverse/releases/download/OIDC/dataverse-6.5.war
+ARG DATAVERSE_WAR_URL=https://github.com/IQSS/dataverse/releases/download/v6.5/dataverse-6.5.war
 ADD --chown=payara:payara ${DATAVERSE_WAR_URL} ${DEPLOY_DIR}
 
 VOLUME ${DOMAIN_DIR}/docroot

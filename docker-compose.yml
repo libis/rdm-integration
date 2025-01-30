@@ -9,8 +9,8 @@ services:
       args:
         - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.7.1}
         - NODE_VERSION=${NODE_VERSION:-22-alpine}
-        - FRONTEND_VERSION=${FRONTEND_VERSION:-1.0.2}
-        - FRONTEND_TAR_GZ=${FRONTEND_TAR_GZ:-https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION:-1.0.2}.tar.gz}
+        - FRONTEND_VERSION=${FRONTEND_VERSION:-1.0.3}
+        - FRONTEND_TAR_GZ=${FRONTEND_TAR_GZ:-https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION:-1.0.3}.tar.gz}
         - NODE_ENV=${NODE_ENV:-production}
         - BASE_HREF=${BASE_HREF:-/}
         - CUSTOMIZATIONS=${CUSTOMIZATIONS:-./docker-volumes/integration/conf/customizations}
@@ -19,7 +19,8 @@ services:
     networks:
       - dataverse
     ports:
-      - "4180:4180/tcp"
+      #- "4180:4180/tcp"
+      - "4180:7788/tcp"
     environment:
       BACKEND_CONFIG_FILE: "/config/backend_config.json"
       FRONTEND_CONFIG_FILE: "/config/frontend_config.json"
@@ -31,7 +32,8 @@ services:
       - ./docker-volumes/dataverse/secrets:/run/secrets:ro
       - ./docker-volumes/integration/conf/oauth2-proxy.cfg:/oauth2-proxy.cfg
     restart: unless-stopped
-    entrypoint: app 100 oidc --config /oauth2-proxy.cfg
+    #entrypoint: app 100 oidc --config /oauth2-proxy.cfg
+    entrypoint: app 100
     depends_on:
       - dataverse
       - cache
@@ -55,7 +57,7 @@ services:
       dockerfile: ./dataverse/Dockerfile
       args:
         - BASE_VERSION=${BASE_VERSION:-6.5-noble}
-        - DATAVERSE_WAR_URL=${DATAVERSE_WAR_URL:-https://github.com/ErykKul/dataverse/releases/download/OIDC/dataverse-6.5.war}
+        - DATAVERSE_WAR_URL=${DATAVERSE_WAR_URL:-https://github.com/IQSS/dataverse/releases/download/v6.5/dataverse-6.5.war}
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
     restart: unless-stopped

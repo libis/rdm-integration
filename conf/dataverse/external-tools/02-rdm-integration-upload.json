@@ -8,7 +8,8 @@
     "httpMethod":"GET",
     "toolParameters": {
         "queryParameters":[
-          {"datasetPid":"{datasetPid}"}
+          {"datasetPid":"{datasetPid}"},
+          {"apiToken":"{apiToken}"}
         ]
       }
   }

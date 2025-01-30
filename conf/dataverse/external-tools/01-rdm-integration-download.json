@@ -9,7 +9,8 @@
   "toolParameters": {
       "queryParameters":[
         {"datasetPid":"{datasetPid}"},
-        {"datasetversion":"{datasetVersion}"}
+        {"datasetversion":"{datasetVersion}"},
+        {"apiToken":"{apiToken}"}
       ]
     }
 }
