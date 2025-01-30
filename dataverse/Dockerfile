@@ -1,5 +1,5 @@
 # Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
-ARG BASE_VERSION=unstable
+ARG BASE_VERSION=6.5-noble
 FROM gdcc/base:${BASE_VERSION}
 
 # The first section requires root privileges
@@ -19,7 +19,7 @@ RUN chown -R -h payara:payara ${HOME_DIR} &>/dev/null || true
 USER payara
 
 # deploy WAR file
-ARG DATAVERSE_WAR_URL=https://github.com/ErykKul/dataverse/releases/download/OIDC/dataverse-6.4.war
+ARG DATAVERSE_WAR_URL=https://github.com/ErykKul/dataverse/releases/download/OIDC/dataverse-6.5.war
 ADD --chown=payara:payara ${DATAVERSE_WAR_URL} ${DEPLOY_DIR}
 
 VOLUME ${DOMAIN_DIR}/docroot

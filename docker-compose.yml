@@ -54,15 +54,26 @@ services:
     build:
       dockerfile: ./dataverse/Dockerfile
       args:
-        - BASE_VERSION=${BASE_VERSION:-unstable}
-        - DATAVERSE_WAR_URL=${DATAVERSE_WAR_URL:-https://github.com/ErykKul/dataverse/releases/download/OIDC/dataverse-6.4.war}
+        - BASE_VERSION=${BASE_VERSION:-6.5-noble}
+        - DATAVERSE_WAR_URL=${DATAVERSE_WAR_URL:-https://github.com/ErykKul/dataverse/releases/download/OIDC/dataverse-6.5.war}
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
-    restart: on-failure
+    restart: unless-stopped
     user: payara
     environment:
+      ENABLE_JDWP: 0
+      API_DEBUG: "false"
       MP_CONFIG_PROFILE: prod
-      JVM_ARGS: -Ddataverse.files.storage-driver-id=minio1
+      JVM_ARGS: -Ddataverse.timerServer=true
+        -Xmx24g
+        -Xms4g
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:MaxMetaspaceSize=2g
+        -XX:MetaspaceSize=256m
+        -XX:+UseG1GC
+        -XX:+UseStringDeduplication
+        -XX:+DisableExplicitGC
+        -Ddataverse.files.storage-driver-id=minio1
         -Ddataverse.files.localstack1.type=s3
         -Ddataverse.files.localstack1.label=LocalStack
         -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack.mydomain.com:4566
@@ -128,8 +139,6 @@ services:
     tmpfs:
       - /dumps:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
       - /tmp:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
-    mem_limit: 2147483648 # 2 GiB
-    mem_reservation: 1024m
     privileged: false
 
   postgres:
