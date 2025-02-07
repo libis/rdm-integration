@@ -19,7 +19,7 @@ func init() {}
 
 func Frontend(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/connect") || strings.HasPrefix(r.URL.Path, "/connect/") || r.URL.Path == "" {
-		url := "/#/connect"
+		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/connect")
 		if r.URL.ForceQuery || r.URL.RawQuery != "" {
 			url += "?" + r.URL.RawQuery
 		}
