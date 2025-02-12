@@ -100,6 +100,7 @@ func newS3Client(ctx context.Context) (*s3.Client, error) {
 	return s3.NewFromConfig(awsConfig, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(config.GetConfig().Options.S3Config.AWSEndpoint)
 		o.UsePathStyle = config.GetConfig().Options.S3Config.AWSPathstyle
+		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired // This turns off the aws-chunked content type, which is not supported by the OpenStack implementation. Also, we have an integrity check at publish call in Dataverse code, skipping checksum while uploading should be fine.
 	}), nil
 }
 
