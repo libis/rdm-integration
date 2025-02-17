@@ -30,6 +30,7 @@ func Start() {
 	// common
 	srvMux.HandleFunc("/api/common/oauthtoken", common.GetOauthToken)
 	srvMux.HandleFunc("/api/common/newdataset", common.NewDataset)
+	srvMux.HandleFunc("/api/common/datasetversion", common.GetDatasetVersion)
 	srvMux.HandleFunc("/api/common/compare", common.Compare)
 	srvMux.HandleFunc("/api/common/cached", common.GetCachedResponse)
 	srvMux.HandleFunc("/api/common/store", common.Store)

@@ -12,6 +12,7 @@ func SetDataverseAsDestination() {
 		IsDirectUpload:        dataverse.IsDirectUpload,
 		CheckPermission:       dataverse.CheckPermission,
 		CreateNewRepo:         dataverse.CreateNewDataset,
+		GetDatasetVersion:     dataverse.GetDatasetVersion,
 		GetRepoUrl:            dataverse.GetDatasetUrl,
 		WriteOverWire:         dataverse.ApiAddReplaceFile,
 		SaveAfterDirectUpload: dataverse.SaveAfterDirectUpload,

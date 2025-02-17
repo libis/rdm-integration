@@ -238,3 +238,23 @@ func GetUserEmail(ctx context.Context, token, user string) (string, error) {
 	}
 	return u.Data.Email, nil
 }
+
+type DatasetVersionResponse struct {
+	Status string                       `json:"status"`
+	Data   DatasetVersionResponseData `json:"data"`
+}
+
+type DatasetVersionResponseData struct {
+	DatasetPersistentId string `json:"datasetPersistentId"`
+}
+
+func GetDatasetVersion(ctx context.Context, datasetDbId, token, userName string) (string, error) {
+	if datasetDbId == "" {
+		return "", fmt.Errorf("dataset DB ID was not specified: unable to get latest version")
+	}
+	res := DatasetVersionResponse{}
+	path := "/api/v1/datasets/" + datasetDbId + "/versions/:latest?excludeFiles=true"
+	req := GetRequest(path, "GET", userName, token, nil, api.JsonContentHeader())
+	err := api.Do(ctx, req, &res)
+	return res.Data.DatasetPersistentId, err
+}
