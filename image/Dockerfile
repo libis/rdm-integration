@@ -6,7 +6,7 @@ FROM node:${NODE_VERSION} AS frontend-builder
 
 # Download and extract frontend
 WORKDIR /app
-ARG FRONTEND_VERSION=1.0.3
+ARG FRONTEND_VERSION=1.0.4
 ARG FRONTEND_TAR_GZ=https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION}.tar.gz
 ADD ${FRONTEND_TAR_GZ} /app/
 RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
@@ -33,7 +33,7 @@ COPY ./image/go.mod ./image/go.sum ./
 RUN go mod download && go mod verify
 
 COPY ./image .
-ARG FRONTEND_VERSION=1.0.3
+ARG FRONTEND_VERSION=1.0.4
 COPY --from=frontend-builder /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist ./app/frontend/dist
 RUN go build -ldflags "-s -w" -v -o /usr/local/bin/app ./app
 RUN go build -ldflags "-s -w" -v -o /usr/local/bin/workers ./app/workers
