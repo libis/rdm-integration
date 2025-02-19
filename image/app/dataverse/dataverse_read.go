@@ -240,7 +240,7 @@ func GetUserEmail(ctx context.Context, token, user string) (string, error) {
 }
 
 type DatasetVersionResponse struct {
-	Status string                       `json:"status"`
+	Status string                     `json:"status"`
 	Data   DatasetVersionResponseData `json:"data"`
 }
 

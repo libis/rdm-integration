@@ -11,7 +11,7 @@ import (
 )
 
 type DatasetVersionRequest struct {
-	DatasetDbId   string `json:"datasetDbId"`
+	DatasetDbId  string `json:"datasetDbId"`
 	DataverseKey string `json:"dataverseKey"`
 }
 
