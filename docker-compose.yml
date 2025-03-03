@@ -137,7 +137,7 @@ services:
       - ./dataverse/setup.sh:/scripts/setup.sh
       - ./dataverse/setup-tools:/scripts/setup-tools
       - ./dataverse/update-fields.sh:/scripts/update-fields.sh
-      - ./docker-volumes/solr/data/data/collection1:/solr
+      - ./docker-volumes/solr:/solr
     tmpfs:
       - /dumps:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
       - /tmp:mode=770,size=2052M,uid=${USER_ID:-1000},gid=${GROUP_ID:-1000}
@@ -161,7 +161,7 @@ services:
     container_name: "solr"
     hostname: "solr"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: solr:9.3.0
+    image: solr:9.8.0
     command:
       - "solr-precreate"
       - "collection1"

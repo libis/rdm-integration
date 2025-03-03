@@ -74,7 +74,7 @@ superAdmin datafiles_loop 'admin/externalTools' external-tools
 superAdmin settings_loop 'admin/settings' settings
 
 # solr
-curl -f -s "http://localhost:8080/api/admin/index/solr/schema?unblock-key=${API_KEY}" | /scripts/update-fields.sh /solr/schema.xml
+curl -f -s "http://localhost:8080/api/admin/index/solr/schema?unblock-key=${API_KEY}" | /scripts/update-fields.sh /solr/data/data/collection1/schema.xml
 curl -f -sS "http://solr:8983/solr/admin/cores?action=RELOAD&core=collection1" >/dev/null
 
 # reindex
