@@ -90,7 +90,7 @@ up: ## Run the server locally
 
 dev_up: ## Run the development frontend version locally
 	echo "Building integration frontend..."
-	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz --prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ HEAD
+	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz --prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ $$(git stash create)
 	echo "Building dataverse..."
 	cd ../dataverse && mvn -DskipTests=true clean package
 	cp ../dataverse/target/dataverse-$(DATAVERSE_VERSION).war dataverse-$(DATAVERSE_VERSION).war
