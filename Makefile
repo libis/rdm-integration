@@ -90,7 +90,9 @@ up: ## Run the server locally
 
 dev_up: ## Run the development frontend version locally
 	echo "Building integration frontend..."
-	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz --prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ $$(git stash create)
+	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz \
+		--prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ \
+		$$(if [[ $$(git stash create) ]]; then git stash create; else git rev-parse HEAD; fi)
 	echo "Building dataverse..."
 	cd ../dataverse && mvn -DskipTests=true clean package
 	cp ../dataverse/target/dataverse-$(DATAVERSE_VERSION).war dataverse-$(DATAVERSE_VERSION).war
@@ -110,3 +112,4 @@ staticcheck: ## staticcheck the go code
 upgrade_dependencies: ## upgrade all go dependencies
 	cd image && go get -u ./app/...
 	cd image && go mod tidy
+ 
