@@ -308,3 +308,79 @@ func getTokenFromCache(ctx context.Context, sessionId string) (coreTypes.OauthTo
 	json.Unmarshal([]byte(jsonString), &res)
 	return res, true
 }
+
+func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node) (string, error) {
+	if len(in) == 0 {
+		return "", nil
+	}
+	sessionId, token, repoName, option, pId, dvToken, user := p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User
+	if token == "" || repoName == "" || option == "" {
+		return "", fmt.Errorf("globus streams: missing parameters")
+	}
+	destinationEndpoint, err := getDestinationEndpoint(ctx, pId, dvToken, user)
+	if err != nil {
+		return "", err
+	}
+	prinicpal, err := getPrincipal(ctx, sessionId)
+	if err != nil {
+		return "", err
+	}
+	paths, err := RequestGlobusDownloadParameters(ctx, pId, dvToken, user, prinicpal, len(in))
+	if err != nil {
+		return "", err
+	}
+	submissionId, err := getSubmissionId(ctx, token)
+	if err != nil {
+		return "", err
+	}
+	transferRequest := TransferRequest{
+		DataType:            "transfer",
+		SubmissionId:        submissionId,
+		NotifyOnSucceeded:   false,
+		NotifyOnFailed:      false,
+		SourceEndpoint:      destinationEndpoint,
+		DestinationEndpoint: repoName,
+	}
+	for k := range in {
+		sourcePath, ok := paths[k]
+		if !ok {
+			return "", fmt.Errorf("globus download path for %v unknown", k)
+		}
+		transferRequest.Data = append(transferRequest.Data, TransferRequestData{
+			DataType:        "transfer_item",
+			SourcePath:      sourcePath,
+			DestinationPath: option + "/" + k,
+			Recursive:       false,
+		})
+	}
+	return transfer(ctx, token, transferRequest)
+}
+
+func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, user, principal string, nbFiles int) (map[string]string, error) {
+	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusDownloadParameters?persistentId=" + persistentId
+	data, _ := json.Marshal(map[string]interface{}{"principal": principal, "numberOfFiles": nbFiles})
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client.Token = token
+	req := client.NewRequest(path, "POST", bytes.NewReader(data), api.JsonContentHeader())
+	type Response struct {
+		api.DvResponse
+		Data map[string]interface{}
+	}
+	res := Response{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return nil, err
+	}
+	if res.Status != "OK" {
+		return nil, fmt.Errorf("requesting Globus download paths failed: %+v", res)
+	}
+	logging.Logger.Printf("\nGlobus download parameters response:\n\n%+v\n\n", res.Data)
+	params := map[string]string{}
+	for k, v := range res.Data {
+		str, ok := v.(string)
+		if ok {
+			params[k] = str
+		}
+	}
+	return params, nil
+}
