@@ -10,7 +10,7 @@ import (
 
 func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %+v", params)
+		return nil, fmt.Errorf("search: missing parameters: expected url, token, got: %+v", params)
 	}
 	url := params.Url + "/endpoint_search?filter_fulltext=" + params.RepoName
 	endpoints, err := getPartialResponse(ctx, url, params.Token, 10, 0)

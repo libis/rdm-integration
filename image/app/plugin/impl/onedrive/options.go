@@ -12,7 +12,7 @@ import (
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected url, token, got: %+v", params)
+		return nil, fmt.Errorf("options: missing parameters: expected url, token, got: %+v", params)
 	}
 	if params.Option != "" {
 		return listFolderGraphItems(ctx, params)

@@ -11,7 +11,7 @@ import (
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("streams: missing parameters: expected url, token")
+		return nil, fmt.Errorf("options: missing parameters: expected url, token")
 	}
 	if params.Option == "" {
 		return []types.SelectItem{{Label: "/", Value: "0"}}, nil
