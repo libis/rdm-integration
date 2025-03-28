@@ -24,6 +24,12 @@ func Frontend(w http.ResponseWriter, r *http.Request) {
 			url += "?" + r.URL.RawQuery
 		}
 		http.Redirect(w, r, url, http.StatusSeeOther)
+	} else if strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/download/") {
+		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/download")
+		if r.URL.ForceQuery || r.URL.RawQuery != "" {
+			url += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, url, http.StatusSeeOther)
 	} else {
 		r.URL.Path = "/dist/datasync" + r.URL.Path
 		fs.ServeHTTP(w, r)
