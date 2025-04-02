@@ -46,6 +46,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		req.StreamParams.User = user
 	}
 	req.StreamParams.SessionId = core.GetSessionId(r.Header)
+	req.StreamParams.PersistentId = req.PersistentId
 	res := ""
 	res, err = globus.Download(r.Context(), req.StreamParams, selected)
 	if err != nil {
