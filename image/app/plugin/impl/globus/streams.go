@@ -361,7 +361,7 @@ func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, u
 	data, _ := json.Marshal(map[string]interface{}{"principal": principal, "numberOfFiles": nbFiles})
 	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
 	client.Token = token
-	req := client.NewRequest(path, "POST", bytes.NewReader(data), api.JsonContentHeader())
+	req := client.NewRequest(path, "GET", bytes.NewReader(data), api.JsonContentHeader())
 	type Response struct {
 		api.DvResponse
 		Data map[string]interface{}
