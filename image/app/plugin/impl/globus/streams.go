@@ -325,7 +325,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	if err != nil {
 		return "", err
 	}
-	paths, err := RequestGlobusDownloadParameters(ctx, pId, dvToken, user, prinicpal, len(in))
+	paths, err := RequestGlobusDownloadParameters(ctx, pId, dvToken, user, prinicpal)
 	if err != nil {
 		return "", err
 	}
@@ -356,27 +356,23 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	return transfer(ctx, token, transferRequest)
 }
 
-func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, user, principal string, nbFiles int) (map[string]string, error) {
+func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, user, principal string) (map[string]string, error) {
 	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusDownloadParameters?persistentId=" + persistentId
-	data, _ := json.Marshal(map[string]interface{}{"principal": principal, "numberOfFiles": nbFiles})
 	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
 	client.Token = token
-	req := client.NewRequest(path, "GET", bytes.NewReader(data), api.JsonContentHeader())
-	type Response struct {
-		api.DvResponse
-		Data map[string]interface{}
-	}
-	res := Response{}
+	req := client.NewRequest(path, "GET", nil, api.JsonContentHeader())
+	res := map[string]interface{}{}
 	err := api.Do(ctx, req, &res)
 	if err != nil {
 		return nil, err
 	}
-	if res.Status != "OK" {
+	data, ok := res["data"].(map[string]interface{})
+	if !ok {
 		return nil, fmt.Errorf("requesting Globus download paths failed: %+v", res)
 	}
-	logging.Logger.Printf("\nGlobus download parameters response:\n\n%+v\n\n", res.Data)
+	logging.Logger.Printf("\nGlobus download parameters response:\n\n%+v\n\n", res)
 	params := map[string]string{}
-	for k, v := range res.Data {
+	for k, v := range data {
 		str, ok := v.(string)
 		if ok {
 			params[k] = str
