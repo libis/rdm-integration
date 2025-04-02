@@ -315,7 +315,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	}
 	sessionId, token, repoName, option, pId, dvToken, user := p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User
 	if token == "" || repoName == "" || option == "" {
-		return "", fmt.Errorf("globus streams: missing parameters")
+		return "", fmt.Errorf("globus download: missing parameters")
 	}
 	destinationEndpoint, err := getDestinationEndpoint(ctx, pId, dvToken, user)
 	if err != nil {
