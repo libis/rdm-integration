@@ -313,11 +313,11 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	if len(in) == 0 {
 		return "", nil
 	}
-	sessionId, token, repoName, option, pId, dvToken, user := p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User
+	sessionId, token, repoName, option, pId, dvToken, user, downloadId := p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User, p.DownloadId
 	if token == "" || repoName == "" || option == "" {
 		return "", fmt.Errorf("globus download: missing parameters")
 	}
-	destinationEndpoint, err := getDestinationEndpoint(ctx, pId, dvToken, user)
+	sourceEndpoint, err := RequestGlobusDownloadParameters(ctx, pId, dvToken, user, downloadId)
 	if err != nil {
 		return "", err
 	}
@@ -325,7 +325,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	if err != nil {
 		return "", err
 	}
-	paths, err := RequestGlobusDownloadParameters(ctx, pId, dvToken, user, prinicpal)
+	paths, err := RequestGlobusDownloadPaths(ctx, pId, dvToken, user, prinicpal, downloadId)
 	if err != nil {
 		return "", err
 	}
@@ -338,7 +338,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 		SubmissionId:        submissionId,
 		NotifyOnSucceeded:   false,
 		NotifyOnFailed:      false,
-		SourceEndpoint:      destinationEndpoint,
+		SourceEndpoint:      sourceEndpoint,
 		DestinationEndpoint: repoName,
 	}
 	for k := range in {
@@ -356,23 +356,49 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	return transfer(ctx, token, transferRequest)
 }
 
-func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, user, principal string) (map[string]string, error) {
-	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusDownloadParameters?persistentId=" + persistentId
+func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, user, downloadId string) (string, error) {
+	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusDownloadParameters?persistentId=" + persistentId + "&downloadId" + downloadId
 	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
 	client.Token = token
 	req := client.NewRequest(path, "GET", nil, api.JsonContentHeader())
 	res := map[string]interface{}{}
 	err := api.Do(ctx, req, &res)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	data, ok := res["data"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
+	}
+	queryParameters, ok := data["queryParameters"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
+	}
+	sourceEndpoint, ok := queryParameters["endpoint"].(string)
+	if !ok || sourceEndpoint == "" {
+		return "", fmt.Errorf("globus error: source endpoint id not found in %+v", res)
+	}
+	return sourceEndpoint, nil
+}
+
+func RequestGlobusDownloadPaths(ctx context.Context, persistentId, token, user, principal, downloadId string) (map[string]string, error) {
+	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/requestGlobusDownload?persistentId=" + persistentId + "&downloadId" + downloadId
+	data, _ := json.Marshal(map[string]interface{}{"principal": principal})
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client.Token = token
+	req := client.NewRequest(path, "POST", bytes.NewReader(data), api.JsonContentHeader())
+	res := map[string]interface{}{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return nil, err
+	}
+	receivedData, ok := res["data"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("requesting Globus download paths failed: %+v", res)
 	}
 	logging.Logger.Printf("\nGlobus download parameters response:\n\n%+v\n\n", res)
 	params := map[string]string{}
-	for k, v := range data {
+	for k, v := range receivedData {
 		str, ok := v.(string)
 		if ok {
 			params[k] = str
