@@ -15,6 +15,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/libis/rdm-dataverse-go-api/api"
 )
@@ -350,10 +351,17 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 		if !ok {
 			return "", fmt.Errorf("globus download path for %v unknown", k)
 		}
+		firstSlashAfterEndpointAddr := strings.Index(sourcePath, "/")
+		bucketSeparatorIndex := strings.Index(sourcePath, ":")
+		lastSlashBeforeBucketNameIndex := strings.LastIndex(sourcePath[:bucketSeparatorIndex], "/")
+		if firstSlashAfterEndpointAddr < 0 || bucketSeparatorIndex < 0 || lastSlashBeforeBucketNameIndex < 0 {
+			return "",  fmt.Errorf("unexpected path format: %v", sourcePath)
+		}
+		sourcePath = sourcePath[firstSlashAfterEndpointAddr+1:lastSlashBeforeBucketNameIndex+1] + sourcePath[bucketSeparatorIndex+1:]
 		transferRequest.Data = append(transferRequest.Data, TransferRequestData{
 			DataType:        "transfer_item",
 			SourcePath:      sourcePath,
-			DestinationPath: option + "/" + k,
+			DestinationPath: option + k,
 			Recursive:       false,
 		})
 	}
@@ -400,7 +408,7 @@ func requestGlobusDownload(ctx context.Context, persistentId, token, user, princ
 	if !ok {
 		return nil, fmt.Errorf("requesting Globus download paths failed: %+v", res)
 	}
-	logging.Logger.Printf("\nGlobus download parameters response:\n\n%+v\n\n", res)
+	logging.Logger.Printf("\nGlobus download response:\n\n%+v\n\n", res)
 	params := map[string]string{}
 	for k, v := range receivedData {
 		str, ok := v.(string)
