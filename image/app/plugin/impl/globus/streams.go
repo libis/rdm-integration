@@ -360,6 +360,31 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	return transfer(ctx, token, transferRequest)
 }
 
+func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, user, downloadId string) (string, error) {
+	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusDownloadParameters?persistentId=" + persistentId + "&downloadId" + downloadId
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client.Token = token
+	req := client.NewRequest(path, "GET", nil, api.JsonContentHeader())
+	res := map[string]interface{}{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return "", err
+	}
+	data, ok := res["data"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
+	}
+	queryParameters, ok := data["queryParameters"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
+	}
+	sourceEndpoint, ok := queryParameters["endpoint"].(string)
+	if !ok || sourceEndpoint == "" {
+		return "", fmt.Errorf("globus error: source endpoint id not found in %+v", res)
+	}
+	return sourceEndpoint, nil
+}
+
 func requestGlobusDownload(ctx context.Context, persistentId, token, user, principal string, fileIds []int64) (map[string]string, error) {
 	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/requestGlobusDownload?persistentId=" + persistentId
 	data, _ := json.Marshal(map[string]interface{}{"principal": principal, "fileIds": fileIds})
