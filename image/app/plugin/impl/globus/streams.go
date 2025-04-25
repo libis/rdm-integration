@@ -355,7 +355,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 		bucketSeparatorIndex := strings.Index(sourcePath, ":")
 		lastSlashBeforeBucketNameIndex := strings.LastIndex(sourcePath[:bucketSeparatorIndex], "/")
 		if firstSlashAfterEndpointAddr < 0 || bucketSeparatorIndex < 0 || lastSlashBeforeBucketNameIndex < 0 {
-			return "",  fmt.Errorf("unexpected path format: %v", sourcePath)
+			return "", fmt.Errorf("unexpected path format: %v", sourcePath)
 		}
 		sourcePath = sourcePath[firstSlashAfterEndpointAddr+1:lastSlashBeforeBucketNameIndex+1] + sourcePath[bucketSeparatorIndex+1:]
 		transferRequest.Data = append(transferRequest.Data, TransferRequestData{
