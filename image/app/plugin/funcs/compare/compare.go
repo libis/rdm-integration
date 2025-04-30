@@ -9,6 +9,7 @@ import (
 	"integration/app/common"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/logging"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -64,21 +65,29 @@ func doCompare(req types.CompareRequest, key, user string) {
 	cachedRes := common.CachedResponse{
 		Key: key,
 	}
+	if strings.HasSuffix(req.PersistentId, types.NewDataset) {
+		logging.Logger.Println("new dataset")
+	}
 	//check permission
-	err := core.Destination.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
-	if err != nil {
-		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(cachedRes)
-		return
+	if !strings.HasSuffix(req.PersistentId, types.NewDataset) {
+		err := core.Destination.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
+		if err != nil {
+			cachedRes.ErrorMessage = err.Error()
+			common.CacheResponse(cachedRes)
+			logging.Logger.Println("no permission")
+			return
+		}
 	}
 
 	//query dataverse
 	nm := map[string]tree.Node{}
+	var err error
 	if !strings.HasSuffix(req.PersistentId, types.NewDataset) {
 		nm, err = core.Destination.Query(ctx, req.PersistentId, req.DataverseKey, user)
 		if err != nil {
 			cachedRes.ErrorMessage = err.Error()
 			common.CacheResponse(cachedRes)
+			logging.Logger.Println("query failed")
 			return
 		}
 	}
@@ -93,6 +102,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)
+		logging.Logger.Println("plugin query failed")
 		return
 	}
 	rejected := []string{}
@@ -116,5 +126,6 @@ func doCompare(req types.CompareRequest, key, user string) {
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
 	cachedRes.Response.Rejected = rejected
+	logging.Logger.Println("compared")
 	common.CacheResponse(cachedRes)
 }

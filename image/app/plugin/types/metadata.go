@@ -1,6 +1,6 @@
 package types
 
-const NewDataset = "New Datawset"
+const NewDataset = "New Dataset"
 
 type Metadata map[string]interface{}
 
