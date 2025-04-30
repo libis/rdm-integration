@@ -74,7 +74,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 
 	//query dataverse
 	nm := map[string]tree.Node{}
-	if req.PersistentId != types.NewDataset {
+	if !strings.HasSuffix(req.PersistentId, types.NewDataset) {
 		nm, err = core.Destination.Query(ctx, req.PersistentId, req.DataverseKey, user)
 		if err != nil {
 			cachedRes.ErrorMessage = err.Error()
