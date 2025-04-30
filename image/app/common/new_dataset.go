@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/core"
+	"integration/app/plugin/types"
 	"io"
 	"net/http"
 )
 
 type NewDatasetRequest struct {
-	Collection   string `json:"collection"`
-	DataverseKey string `json:"dataverseKey"`
+	Collection   string         `json:"collection"`
+	DataverseKey string         `json:"dataverseKey"`
+	Metadata     types.Metadata `json:"metadata"`
 }
 
 type NewDatasetResponse struct {
@@ -36,7 +38,7 @@ func NewDataset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := core.GetUserFromHeader(r.Header)
-	pid, err := core.Destination.CreateNewRepo(r.Context(), req.Collection, req.DataverseKey, user)
+	pid, err := core.Destination.CreateNewRepo(r.Context(), req.Collection, req.DataverseKey, user, req.Metadata)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

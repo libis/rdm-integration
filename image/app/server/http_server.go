@@ -41,6 +41,7 @@ func Start() {
 	srvMux.HandleFunc("/api/common/cachedcompute", common.GetCachedComputeResponse)
 	srvMux.HandleFunc("/api/common/downloadable", common.GetDownloadableFiles)
 	srvMux.HandleFunc("/api/common/download", common.Download)
+	srvMux.HandleFunc("/api/common/metadata", common.GetMetadata)
 
 	// frontend config
 	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)

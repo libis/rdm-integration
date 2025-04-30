@@ -15,7 +15,7 @@ var Destination DestinationPlugin
 type DestinationPlugin struct {
 	IsDirectUpload        func() bool
 	CheckPermission       func(ctx context.Context, token, user, persistentId string) error
-	CreateNewRepo         func(ctx context.Context, collection, token, userName string) (string, error)
+	CreateNewRepo         func(ctx context.Context, collection, token, userName string, metadata types.Metadata) (string, error)
 	GetDatasetVersion     func(ctx context.Context, datasetDbId, token, userName string) (string, error)
 	GetRepoUrl            func(pid string, draft bool) string
 	WriteOverWire         func(ctx context.Context, dbId int64, nodeMapId, token, user, persistentId string, wg *sync.WaitGroup, async_err *ErrorHolder) (io.WriteCloser, error)

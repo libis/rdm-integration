@@ -7,18 +7,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/libis/rdm-dataverse-go-api/api"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/libis/rdm-dataverse-go-api/api"
 )
 
-func CreateNewDataset(ctx context.Context, collection, token, userName string) (string, error) {
+func CreateNewDataset(ctx context.Context, collection, token, userName string, metadata types.Metadata) (string, error) {
 	if collection == "" {
 		collection = config.GetConfig().Options.RootDataverseId
 	}
@@ -29,7 +31,16 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string) (
 	if err != nil {
 		return "", err
 	}
-	body := api.CreateDatasetRequestBody(user)
+	var body io.Reader = nil
+	if len(metadata) == 0 {
+		body = api.CreateDatasetRequestBody(user)
+	} else {
+		data, err := json.Marshal(metadata)
+		if err != nil {
+			return "", err
+		}
+		body = bytes.NewReader(data)
+	}
 	res := api.CreateNewDatasetResponse{}
 	path := "/api/v1/dataverses/" + collection + "/datasets?doNotValidate=true"
 	req := GetRequest(path, "POST", userName, token, body, api.JsonContentHeader())

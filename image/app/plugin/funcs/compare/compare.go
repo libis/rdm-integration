@@ -73,11 +73,14 @@ func doCompare(req types.CompareRequest, key, user string) {
 	}
 
 	//query dataverse
-	nm, err := core.Destination.Query(ctx, req.PersistentId, req.DataverseKey, user)
-	if err != nil {
-		cachedRes.ErrorMessage = err.Error()
-		common.CacheResponse(cachedRes)
-		return
+	nm := map[string]tree.Node{}
+	if req.PersistentId != types.NewDataset {
+		nm, err = core.Destination.Query(ctx, req.PersistentId, req.DataverseKey, user)
+		if err != nil {
+			cachedRes.ErrorMessage = err.Error()
+			common.CacheResponse(cachedRes)
+			return
+		}
 	}
 
 	//query repository
@@ -109,16 +112,6 @@ func doCompare(req types.CompareRequest, key, user string) {
 
 	//compare and write response
 	res := core.Compare(ctx, nm, req.PersistentId, req.DataverseKey, user, true)
-
-	//copy metadata if the source is a Dataverse installation and destination is a newly created dataset
-	if req.Plugin == "dataverse" && req.NewlyCreated {
-		err = copyMetaData(req, user)
-		if err != nil {
-			cachedRes.ErrorMessage = err.Error()
-			common.CacheResponse(cachedRes)
-			return
-		}
-	}
 
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
