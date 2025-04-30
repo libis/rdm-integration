@@ -12,4 +12,5 @@ type StreamParams struct {
 	DVToken      string `json:"dvToken"`
 	PersistentId string `json:"persistentId"`
 	SessionId    string `json:"sessionId"`
+	DownloadId   string `json:"downloadId"`
 }
