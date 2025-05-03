@@ -80,7 +80,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	err = metadata.Execute(writer, md)
+	err = metadataTemplate.Execute(writer, md)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	return res, nil
 }
 
-var metadata, _ = template.New("metadata").Parse(`
+var metadataTemplate = template.Must(template.New("metadata").Parse(`
 {
     "datasetVersion": {
         "metadataBlocks": {
@@ -269,4 +269,4 @@ var metadata, _ = template.New("metadata").Parse(`
         }
     }
 }
-`)
+`))
