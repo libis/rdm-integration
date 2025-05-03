@@ -77,7 +77,20 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 
 	//TODO
 	// citation.cff --> (2) codemeta.json --> (3) ro-crate.json --> (4) inherente system metadata (via de source API)
-
+	/*
+		md := MetadataStruct{
+			Title:                   "some title",
+			AlternativeTitle:        []string{"title1", "title2"},
+			AlternativeURL:          []string{"url1", "url2"},
+			OtherId:                 []OtherId{{OtherIdAgency: "cia", OtherIdValue: "007"}, {OtherIdAgency: "mi6", OtherIdValue: "007"}},
+			DsDescription:           []string{"text", "tekst"},
+			Keyword:                 []string{"key", "word"},
+			ContributorName:         []string{"jos", "jef"},
+			RelatedMaterialCitation: []string{"jos did it", "jef did it"},
+			GrantNumber:             []GrantNumber{{GrantNumberValue: "007", GrantNumberAgency: "mi6"}},
+			Author:                  []Author{{AuthorName: "bond, james bond"}},
+		}
+	*/
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 	err = metadataTemplate.Execute(writer, md)
