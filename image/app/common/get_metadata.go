@@ -10,8 +10,11 @@ import (
 	"fmt"
 	"integration/app/core"
 	"integration/app/dataverse"
+	"integration/app/logging"
+	"integration/app/plugin"
 	dv "integration/app/plugin/impl/dataverse"
 	"integration/app/plugin/types"
+	"integration/app/tree"
 	"io"
 	"net/http"
 	"text/template"
@@ -36,7 +39,8 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := core.GetUserFromHeader(r.Header)
-	metadata, err := getMetadata(r.Context(), req, user)
+	sessionId := core.GetSessionId(r.Header)
+	metadata, err := getMetadata(r.Context(), req, user, sessionId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - matadata retrieval failed"))
@@ -52,7 +56,7 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataRequest, user string) (types.Metadata, error) {
+func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataRequest, user, sessionId string) (types.Metadata, error) {
 	if getMetadataRequest.Plugin == "dataverse" {
 		from := "/api/v1/datasets/:persistentId/versions/:latest?persistentId=" + getMetadataRequest.RepoName
 		fromClient := dv.NewClient(getMetadataRequest.PluginId, getMetadataRequest.Url, user, getMetadataRequest.Token)
@@ -75,6 +79,12 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	}
 	md := types.MetadataStruct{Author: []types.Author{{AuthorName: fmt.Sprintf("%v, %v", userObj.Data.LastName, userObj.Data.FirstName)}}}
 
+	nodemap := map[string]tree.Node{}
+	for _, v := range getMetadataRequest.CompareResult.Data {
+		nodemap[v.Id] = v
+	}
+	p := plugin.GetPlugin(getMetadataRequest.PluginId)
+
 	//TODO
 	// citation.cff --> (2) codemeta.json --> (3) ro-crate.json --> (4) inherente system metadata (via de source API)
 	/*
@@ -91,6 +101,20 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 			Author:                  []Author{{AuthorName: "bond, james bond"}},
 		}
 	*/
+
+	streamParams := getMetadataRequest.StreamParams
+	streamParams.User = user
+	streamParams.SessionId = sessionId
+	streamParams.Token = core.GetTokenFromCache(ctx, getMetadataRequest.StreamParams.Token, sessionId, getMetadataRequest.StreamParams.PluginId)
+	citationCff, ok := nodemap["citation.cff"]
+	if ok {
+		moreMd, err := getMdFromCitatinCff(ctx, citationCff, p, streamParams)
+		if err != nil {
+			return nil, err
+		}
+		md = mergeMetadata(moreMd, md)
+	}
+
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 	err = metadataTemplate.Execute(writer, md)
@@ -104,6 +128,60 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		return nil, err
 	}
 	return res, nil
+}
+
+func mergeMetadata(from, to types.MetadataStruct) types.MetadataStruct {
+	if from.Title != "" {
+		to.Title = from.Title
+	}
+	if len(from.AlternativeTitle) > 0 {
+		to.AlternativeTitle = append(to.AlternativeTitle, from.AlternativeTitle...)
+	}
+	if len(from.AlternativeURL) > 0 {
+		to.AlternativeURL = append(to.AlternativeURL, from.AlternativeURL...)
+	}
+	if len(from.OtherId) > 0 {
+		to.OtherId = append(to.OtherId, from.OtherId...)
+	}
+	if len(from.DsDescription) > 0 {
+		to.DsDescription = append(to.DsDescription, from.DsDescription...)
+	}
+	if len(from.Keyword) > 0 {
+		to.Keyword = append(to.Keyword, from.Keyword...)
+	}
+	if len(from.ContributorName) > 0 {
+		to.ContributorName = append(to.ContributorName, from.ContributorName...)
+	}
+	if len(from.RelatedMaterialCitation) > 0 {
+		to.RelatedMaterialCitation = append(to.RelatedMaterialCitation, from.RelatedMaterialCitation...)
+	}
+	if len(from.GrantNumber) > 0 {
+		to.GrantNumber = append(to.GrantNumber, from.GrantNumber...)
+	}
+	if len(from.Author) > 0 {
+		to.Author = append(to.Author, from.Author...)
+	}
+	return to
+}
+
+func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
+	s, err := p.Streams(ctx, map[string]tree.Node{node.Id: node}, params)
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
+	defer s.Cleanup()
+	stream := s.Streams[node.Id]
+	defer stream.Close()
+	r, err := stream.Open()
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
+	logging.Logger.Println(string(b))
+	return types.MetadataStruct{}, nil
 }
 
 var metadataTemplate = template.Must(template.New("metadata").Parse(`
