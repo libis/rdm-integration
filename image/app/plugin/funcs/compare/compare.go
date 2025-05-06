@@ -65,9 +65,6 @@ func doCompare(req types.CompareRequest, key, user string) {
 	cachedRes := common.CachedResponse{
 		Key: key,
 	}
-	if strings.HasSuffix(req.PersistentId, types.NewDataset) {
-		logging.Logger.Println("new dataset")
-	}
 	//check permission
 	if !strings.HasSuffix(req.PersistentId, types.NewDataset) {
 		err := core.Destination.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
@@ -126,6 +123,5 @@ func doCompare(req types.CompareRequest, key, user string) {
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
 	cachedRes.Response.Rejected = rejected
-	logging.Logger.Println("compared")
 	common.CacheResponse(cachedRes)
 }

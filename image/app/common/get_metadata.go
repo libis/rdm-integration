@@ -103,10 +103,10 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	*/
 
 	streamParams := types.StreamParams{}
-    streamParams.PluginId = getMetadataRequest.PluginId
-    streamParams.RepoName = getMetadataRequest.RepoName
-    streamParams.Url = getMetadataRequest.Url
-    streamParams.Option = getMetadataRequest.Option
+	streamParams.PluginId = getMetadataRequest.PluginId
+	streamParams.RepoName = getMetadataRequest.RepoName
+	streamParams.Url = getMetadataRequest.Url
+	streamParams.Option = getMetadataRequest.Option
 	streamParams.User = user
 	streamParams.Token = core.GetTokenFromCache(ctx, getMetadataRequest.Token, sessionId, getMetadataRequest.PluginId)
 	streamParams.DVToken = getMetadataRequest.DVToken
@@ -171,23 +171,40 @@ func mergeMetadata(from, to types.MetadataStruct) types.MetadataStruct {
 }
 
 func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
+    b, err := getFileFromRepo(ctx, node, p, params)
+    if err != nil {
+        return types.MetadataStruct{}, err
+    }
+    logging.Logger.Panicln(string(b))
+	return types.MetadataStruct{}, nil
+}
+
+func getFileFromRepo(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) ([]byte, error) {
+    node.Action = tree.Copy
 	s, err := p.Streams(ctx, map[string]tree.Node{node.Id: node}, params)
 	if err != nil {
-		return types.MetadataStruct{}, err
+		return nil, err
 	}
-	defer s.Cleanup()
+	if s.Cleanup != nil {
+		defer s.Cleanup()
+	}
 	stream := s.Streams[node.Id]
-	defer stream.Close()
-	r, err := stream.Open()
-	if err != nil {
-		return types.MetadataStruct{}, err
+	if stream.Close != nil {
+		defer stream.Close()
 	}
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return types.MetadataStruct{}, err
-	}
-	logging.Logger.Println(string(b))
-	return types.MetadataStruct{}, nil
+	if stream.Open != nil {
+		r, err := stream.Open()
+		if err != nil {
+			return nil, err
+		}
+		b, err := io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+		return b, nil
+	} else {
+        return nil, fmt.Errorf("getting CITATION.cff failed")
+    }
 }
 
 var metadataTemplate = template.Must(template.New("metadata").Parse(`
