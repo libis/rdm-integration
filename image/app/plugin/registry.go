@@ -23,6 +23,7 @@ type Plugin struct {
 	Options func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
 	Search  func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
 	Streams func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error)
+	Metadata func(ctx context.Context, streamParams types.StreamParams) (types.MetadataStruct, error)
 }
 
 var pluginMap map[string]Plugin = map[string]Plugin{

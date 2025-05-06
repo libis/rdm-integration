@@ -85,23 +85,6 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	}
 	p := plugin.GetPlugin(getMetadataRequest.PluginId)
 
-	//TODO
-	// citation.cff --> (2) codemeta.json --> (3) ro-crate.json --> (4) inherente system metadata (via de source API)
-	/*
-		md := MetadataStruct{
-			Title:                   "some title",
-			AlternativeTitle:        []string{"title1", "title2"},
-			AlternativeURL:          []string{"url1", "url2"},
-			OtherId:                 []OtherId{{OtherIdAgency: "cia", OtherIdValue: "007"}, {OtherIdAgency: "mi6", OtherIdValue: "007"}},
-			DsDescription:           []string{"text", "tekst"},
-			Keyword:                 []string{"key", "word"},
-			ContributorName:         []string{"jos", "jef"},
-			RelatedMaterialCitation: []string{"jos did it", "jef did it"},
-			GrantNumber:             []GrantNumber{{GrantNumberValue: "007", GrantNumberAgency: "mi6"}},
-			Author:                  []Author{{AuthorName: "bond, james bond"}},
-		}
-	*/
-
 	streamParams := types.StreamParams{}
 	streamParams.PluginId = getMetadataRequest.PluginId
 	streamParams.RepoName = getMetadataRequest.RepoName
@@ -111,6 +94,33 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	streamParams.Token = core.GetTokenFromCache(ctx, getMetadataRequest.Token, sessionId, getMetadataRequest.PluginId)
 	streamParams.DVToken = getMetadataRequest.DVToken
 	streamParams.SessionId = sessionId
+
+	if p.Metadata != nil {
+        //TODO
+		moreMd, err := p.Metadata(ctx, streamParams)
+		if err != nil {
+			return nil, err
+		}
+		md = mergeMetadata(moreMd, md)
+	}
+
+    roCrate, ok := nodemap["ro-crate.json"]
+	if ok {
+		moreMd, err := getMdFromROCrate(ctx, roCrate, p, streamParams)
+		if err != nil {
+			return nil, err
+		}
+		md = mergeMetadata(moreMd, md)
+	}
+
+    codemeta, ok := nodemap["codemeta.json"]
+	if ok {
+		moreMd, err := getMdFromCodemeta(ctx, codemeta, p, streamParams)
+		if err != nil {
+			return nil, err
+		}
+		md = mergeMetadata(moreMd, md)
+	}
 
 	citationCff, ok := nodemap["CITATION.cff"]
 	if ok {
@@ -170,11 +180,46 @@ func mergeMetadata(from, to types.MetadataStruct) types.MetadataStruct {
 	return to
 }
 
+func getMdFromROCrate(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
+    b, err := getFileFromRepo(ctx, node, p, params)
+    if err != nil {
+        return types.MetadataStruct{}, err
+    }
+    //TODO
+    	/*
+		md := MetadataStruct{
+			Title:                   "some title",
+			AlternativeTitle:        []string{"title1", "title2"},
+			AlternativeURL:          []string{"url1", "url2"},
+			OtherId:                 []OtherId{{OtherIdAgency: "cia", OtherIdValue: "007"}, {OtherIdAgency: "mi6", OtherIdValue: "007"}},
+			DsDescription:           []string{"text", "tekst"},
+			Keyword:                 []string{"key", "word"},
+			ContributorName:         []string{"jos", "jef"},
+			RelatedMaterialCitation: []string{"jos did it", "jef did it"},
+			GrantNumber:             []GrantNumber{{GrantNumberValue: "007", GrantNumberAgency: "mi6"}},
+			Author:                  []Author{{AuthorName: "bond, james bond"}},
+		}
+	*/
+    logging.Logger.Println(string(b))
+	return types.MetadataStruct{}, nil
+}
+
+func getMdFromCodemeta(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
+    b, err := getFileFromRepo(ctx, node, p, params)
+    if err != nil {
+        return types.MetadataStruct{}, err
+    }
+    //TODO
+    logging.Logger.Println(string(b))
+	return types.MetadataStruct{}, nil
+}
+
 func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
     b, err := getFileFromRepo(ctx, node, p, params)
     if err != nil {
         return types.MetadataStruct{}, err
     }
+    //TODO
     logging.Logger.Println(string(b))
 	return types.MetadataStruct{}, nil
 }
