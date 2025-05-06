@@ -112,7 +112,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	streamParams.DVToken = getMetadataRequest.DVToken
 	streamParams.SessionId = sessionId
 
-	citationCff, ok := nodemap["citation.cff"]
+	citationCff, ok := nodemap["CITATION.cff"]
 	if ok {
 		moreMd, err := getMdFromCitatinCff(ctx, citationCff, p, streamParams)
 		if err != nil {

@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "This software is purely for demonstration purposes only in the context of FAIR research software."
+authors:
+  - family-names: Philips
+    given-names: Johan
+    orcid: https://orcid.org/0000-0003-0937-7798
+title: "Software FAIRification"
+version: 1.1.0
+doi: 10.5281/zenodo.7315930
+date-released: 2022-11-12
