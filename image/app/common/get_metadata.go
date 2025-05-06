@@ -175,7 +175,7 @@ func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, p
     if err != nil {
         return types.MetadataStruct{}, err
     }
-    logging.Logger.Panicln(string(b))
+    logging.Logger.Println(string(b))
 	return types.MetadataStruct{}, nil
 }
 
