@@ -203,7 +203,7 @@ func getFileFromRepo(ctx context.Context, node tree.Node, p plugin.Plugin, param
 		}
 		return b, nil
 	} else {
-        return nil, fmt.Errorf("getting CITATION.cff failed")
+        return nil, fmt.Errorf("getting %v from repo failed", node.Id)
     }
 }
 
