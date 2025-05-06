@@ -102,10 +102,16 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		}
 	*/
 
-	streamParams := getMetadataRequest.StreamParams
+	streamParams := types.StreamParams{}
+    streamParams.PluginId = getMetadataRequest.PluginId
+    streamParams.RepoName = getMetadataRequest.RepoName
+    streamParams.Url = getMetadataRequest.Url
+    streamParams.Option = getMetadataRequest.Option
 	streamParams.User = user
+	streamParams.Token = core.GetTokenFromCache(ctx, getMetadataRequest.Token, sessionId, getMetadataRequest.PluginId)
+	streamParams.DVToken = getMetadataRequest.DVToken
 	streamParams.SessionId = sessionId
-	streamParams.Token = core.GetTokenFromCache(ctx, getMetadataRequest.StreamParams.Token, sessionId, getMetadataRequest.StreamParams.PluginId)
+
 	citationCff, ok := nodemap["citation.cff"]
 	if ok {
 		moreMd, err := getMdFromCitatinCff(ctx, citationCff, p, streamParams)

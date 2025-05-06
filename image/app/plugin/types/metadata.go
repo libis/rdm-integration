@@ -43,8 +43,8 @@ type GetMetadataRequest struct {
 	Option        string          `json:"option"`
 	User          string          `json:"user"`
 	Token         string          `json:"token"`
+	DVToken       string          `json:"dvToken"`
 	CompareResult CompareResponse `json:"compareResult"`
-	StreamParams  StreamParams    `json:"streamParams"`
 }
 
 type CompareResponse struct {
