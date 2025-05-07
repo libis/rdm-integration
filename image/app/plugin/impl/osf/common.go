@@ -29,13 +29,15 @@ type Data struct {
 }
 
 type Attributes struct {
-	Title             string `json:"title"`
-	Extra             Extra  `json:"extra"`
-	Kind              string `json:"kind"`
-	Name              string `json:"name"`
-	Materialized_path string `json:"materialized_path"`
-	Guid              string `json:"guid"`
-	Size              int64  `json:"size"`
+	Title             string   `json:"title"`
+	Description       string   `json:"description"`
+	Tags              []string `json:"tags"`
+	Extra             Extra    `json:"extra"`
+	Kind              string   `json:"kind"`
+	Name              string   `json:"name"`
+	Materialized_path string   `json:"materialized_path"`
+	Guid              string   `json:"guid"`
+	Size              int64    `json:"size"`
 }
 
 type Extra struct {

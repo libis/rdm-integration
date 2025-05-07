@@ -53,10 +53,11 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Streams: redcap.Streams,
 	},
 	"osf": {
-		Query:   osf.Query,
-		Options: nil,
-		Search:  osf.Search,
-		Streams: osf.Streams,
+		Query:    osf.Query,
+		Options:  nil,
+		Search:   osf.Search,
+		Streams:  osf.Streams,
+		Metadata: osf.Metadata,
 	},
 	"onedrive": {
 		Query:   onedrive.Query,
