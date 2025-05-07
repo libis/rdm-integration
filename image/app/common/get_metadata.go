@@ -17,6 +17,7 @@ import (
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"strings"
 	"text/template"
 
 	"github.com/libis/rdm-dataverse-go-api/api"
@@ -200,14 +201,105 @@ func getMdFromCodemeta(ctx context.Context, node tree.Node, p plugin.Plugin, par
 	return types.MetadataStruct{}, nil
 }
 
+type author struct {
+	GivenNames  string
+	FamilyNames string
+	Affiliation string
+	Orcid       string
+}
+
 func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
+	res := types.MetadataStruct{}
 	b, err := getFileFromRepo(ctx, node, p, params)
 	if err != nil {
-		return types.MetadataStruct{}, err
+		return res, err
 	}
-	//TODO
-	logging.Logger.Println(string(b))
-	return types.MetadataStruct{}, nil
+	scanner := bufio.NewScanner(strings.NewReader(string(b)))
+	keywords := false
+	authors := false
+	authorIndex := -1
+	foundAuthors := []author{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "  ") {
+			if strings.HasPrefix(line, "  - ") {
+				if authors {
+					authorIndex = authorIndex + 1
+					foundAuthors = append(foundAuthors, author{})
+					s := strings.Split(line, ": ")
+					if len(s) > 0 {
+						foundAuthors[authorIndex] = setAuthorField(s[0][len("  - "):], joinAndUnescape(s[1:]), foundAuthors[authorIndex])
+					}
+				} else if keywords {
+					res.Keyword = append(res.Keyword, joinAndUnescape([]string{line[len("  - "):]}))
+				}
+			} else {
+				if authors {
+					s := strings.Split(line, ": ")
+					if len(s) > 0 {
+						foundAuthors[authorIndex] = setAuthorField(s[0][len("    "):], joinAndUnescape(s[1:]), foundAuthors[authorIndex])
+					}
+				}
+			}
+		} else {
+			s := strings.Split(line, ": ")
+			switch s[0] {
+			case "title":
+				res.Title = joinAndUnescape(s[1:])
+				keywords = false
+				authors = false
+			case "abstract":
+				res.DsDescription = []string{joinAndUnescape(s[1:])}
+				keywords = false
+				authors = false
+			case "keywords:":
+				keywords = true
+				authors = false
+			case "authors:":
+				authors = true
+				keywords = false
+			default:
+				keywords = false
+				authors = false
+			}
+		}
+	}
+	for _, a := range foundAuthors {
+		if a.FamilyNames != "" {
+			res.Author = append(res.Author, types.Author{
+				AuthorName: fmt.Sprintf("%s, %s", a.FamilyNames, a.GivenNames),
+				AuthorAffiliation: a.Affiliation,
+				AuthorIdentifier: a.Orcid,
+			})
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return res, err
+	}
+	return res, nil
+}
+
+func setAuthorField(field, value string, in author) author {
+	switch field {
+	case "given-names":
+		in.GivenNames = value
+	case "family-names":
+		in.FamilyNames = value
+	case "affiliation":
+		in.Affiliation = value
+	case "orcid":
+		in.Orcid = value
+	}
+	return in
+}
+
+func joinAndUnescape(s []string) string {
+	res := strings.Join(s, ": ")
+	if strings.HasPrefix(res, "'") && strings.HasSuffix(res, "'") {
+		res = res[1 : len(res)-1]
+	}
+	res = strings.ReplaceAll(res, "''", "'")
+	return res
 }
 
 func getFileFromRepo(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) ([]byte, error) {
