@@ -19,19 +19,20 @@ import (
 )
 
 type Plugin struct {
-	Query   func(ctx context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error)
-	Options func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
-	Search  func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
-	Streams func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error)
+	Query    func(ctx context.Context, req types.CompareRequest, dvNodes map[string]tree.Node) (map[string]tree.Node, error)
+	Options  func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
+	Search   func(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error)
+	Streams  func(ctx context.Context, in map[string]tree.Node, streamParams types.StreamParams) (types.StreamsType, error)
 	Metadata func(ctx context.Context, streamParams types.StreamParams) (types.MetadataStruct, error)
 }
 
 var pluginMap map[string]Plugin = map[string]Plugin{
 	"github": {
-		Query:   github.Query,
-		Options: github.Options,
-		Search:  github.Search,
-		Streams: github.Streams,
+		Query:    github.Query,
+		Options:  github.Options,
+		Search:   github.Search,
+		Streams:  github.Streams,
+		Metadata: github.Metadata,
 	},
 	"gitlab": {
 		Query:   gitlab.Query,

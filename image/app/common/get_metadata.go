@@ -96,7 +96,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	streamParams.SessionId = sessionId
 
 	if p.Metadata != nil {
-        //TODO
+		//TODO
 		moreMd, err := p.Metadata(ctx, streamParams)
 		if err != nil {
 			return nil, err
@@ -104,7 +104,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		md = mergeMetadata(moreMd, md)
 	}
 
-    roCrate, ok := nodemap["ro-crate.json"]
+	roCrate, ok := nodemap["ro-crate.json"]
 	if ok {
 		moreMd, err := getMdFromROCrate(ctx, roCrate, p, streamParams)
 		if err != nil {
@@ -113,7 +113,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		md = mergeMetadata(moreMd, md)
 	}
 
-    codemeta, ok := nodemap["codemeta.json"]
+	codemeta, ok := nodemap["codemeta.json"]
 	if ok {
 		moreMd, err := getMdFromCodemeta(ctx, codemeta, p, streamParams)
 		if err != nil {
@@ -181,51 +181,37 @@ func mergeMetadata(from, to types.MetadataStruct) types.MetadataStruct {
 }
 
 func getMdFromROCrate(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
-    b, err := getFileFromRepo(ctx, node, p, params)
-    if err != nil {
-        return types.MetadataStruct{}, err
-    }
-    //TODO
-    	/*
-		md := MetadataStruct{
-			Title:                   "some title",
-			AlternativeTitle:        []string{"title1", "title2"},
-			AlternativeURL:          []string{"url1", "url2"},
-			OtherId:                 []OtherId{{OtherIdAgency: "cia", OtherIdValue: "007"}, {OtherIdAgency: "mi6", OtherIdValue: "007"}},
-			DsDescription:           []string{"text", "tekst"},
-			Keyword:                 []string{"key", "word"},
-			ContributorName:         []string{"jos", "jef"},
-			RelatedMaterialCitation: []string{"jos did it", "jef did it"},
-			GrantNumber:             []GrantNumber{{GrantNumberValue: "007", GrantNumberAgency: "mi6"}},
-			Author:                  []Author{{AuthorName: "bond, james bond"}},
-		}
-	*/
-    logging.Logger.Println(string(b))
+	b, err := getFileFromRepo(ctx, node, p, params)
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
+	//TODO
+	logging.Logger.Println(string(b))
 	return types.MetadataStruct{}, nil
 }
 
 func getMdFromCodemeta(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
-    b, err := getFileFromRepo(ctx, node, p, params)
-    if err != nil {
-        return types.MetadataStruct{}, err
-    }
-    //TODO
-    logging.Logger.Println(string(b))
+	b, err := getFileFromRepo(ctx, node, p, params)
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
+	//TODO
+	logging.Logger.Println(string(b))
 	return types.MetadataStruct{}, nil
 }
 
 func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
-    b, err := getFileFromRepo(ctx, node, p, params)
-    if err != nil {
-        return types.MetadataStruct{}, err
-    }
-    //TODO
-    logging.Logger.Println(string(b))
+	b, err := getFileFromRepo(ctx, node, p, params)
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
+	//TODO
+	logging.Logger.Println(string(b))
 	return types.MetadataStruct{}, nil
 }
 
 func getFileFromRepo(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) ([]byte, error) {
-    node.Action = tree.Copy
+	node.Action = tree.Copy
 	s, err := p.Streams(ctx, map[string]tree.Node{node.Id: node}, params)
 	if err != nil {
 		return nil, err
@@ -248,8 +234,8 @@ func getFileFromRepo(ctx context.Context, node tree.Node, p plugin.Plugin, param
 		}
 		return b, nil
 	} else {
-        return nil, fmt.Errorf("getting %v from repo failed", node.Id)
-    }
+		return nil, fmt.Errorf("getting %v from repo failed", node.Id)
+	}
 }
 
 var metadataTemplate = template.Must(template.New("metadata").Parse(`
