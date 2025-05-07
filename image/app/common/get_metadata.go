@@ -267,9 +267,9 @@ func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, p
 	for _, a := range foundAuthors {
 		if a.FamilyNames != "" {
 			res.Author = append(res.Author, types.Author{
-				AuthorName: fmt.Sprintf("%s, %s", a.FamilyNames, a.GivenNames),
+				AuthorName:        fmt.Sprintf("%s, %s", a.FamilyNames, a.GivenNames),
 				AuthorAffiliation: a.Affiliation,
-				AuthorIdentifier: a.Orcid,
+				AuthorIdentifier:  a.Orcid,
 			})
 		}
 	}
