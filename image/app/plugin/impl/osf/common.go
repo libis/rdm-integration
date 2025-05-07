@@ -26,6 +26,34 @@ type Data struct {
 	Attributes    Attributes    `json:"attributes"`
 	Relationships Relationships `json:"relationships"`
 	Links         Links         `json:"links"`
+	Embeds        Embeds        `json:"embeds"`
+}
+
+type Embeds struct {
+	Users Users `json:"users"`
+}
+
+type Users struct {
+	Data UserData `json:"data"`
+}
+
+type UserData struct {
+	Attributes UserAttributes `json:"attributes"`
+}
+
+type UserAttributes struct {
+	GivenName  string       `json:"given_name"`
+	FamilyName string       `json:"family_name"`
+	Social     Social       `json:"social"`
+	Employment []Employment `json:"employment"`
+}
+
+type Social struct {
+	Orcid string `json:"orcid"`
+}
+
+type Employment struct {
+	Institution string `json:"institution"`
 }
 
 type Attributes struct {
@@ -50,8 +78,9 @@ type Hashes struct {
 }
 
 type Relationships struct {
-	LinkedNodes Linked `json:"linked_nodes"`
-	Files       Linked `json:"files"`
+	LinkedNodes  Linked `json:"linked_nodes"`
+	Files        Linked `json:"files"`
+	Contributors Linked `json:"contributors"`
 }
 
 type Linked struct {
