@@ -83,7 +83,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	for _, v := range getMetadataRequest.CompareResult.Data {
 		nodemap[v.Id] = v
 	}
-	p := plugin.GetPlugin(getMetadataRequest.PluginId)
+	p := plugin.GetPlugin(getMetadataRequest.Plugin)
 
 	streamParams := types.StreamParams{}
 	streamParams.PluginId = getMetadataRequest.PluginId

@@ -35,10 +35,11 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Metadata: github.Metadata,
 	},
 	"gitlab": {
-		Query:   gitlab.Query,
-		Options: gitlab.Options,
-		Search:  gitlab.Search,
-		Streams: gitlab.Streams,
+		Query:    gitlab.Query,
+		Options:  gitlab.Options,
+		Search:   gitlab.Search,
+		Streams:  gitlab.Streams,
+		Metadata: gitlab.Metadata,
 	},
 	"irods": {
 		Query:   irods.Query,

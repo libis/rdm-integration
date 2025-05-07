@@ -43,7 +43,7 @@ func Metadata(ctx context.Context, streamParams types.StreamParams) (types.Metad
 		Title:            *res.Name,
 		AlternativeTitle: []string{*res.FullName},
 		AlternativeURL:   []string{*res.HTMLURL},
-		OtherId:          []types.OtherId{{OtherIdAgency: "Git", OtherIdValue: *res.GitURL}, {OtherIdAgency: "GitHub", OtherIdValue: "https://api.github.com/repositories/" + fmt.Sprint(*res.ID)}},
+		OtherId:          []types.OtherId{{OtherIdAgency: "Git", OtherIdValue: fmt.Sprintf("urn:git:%s:%s:branch:%s", streamParams.Url, streamParams.RepoName, streamParams.Option)}, {OtherIdAgency: "GitHub", OtherIdValue: fmt.Sprintf("urn:github:%s:project:%v:branch:%s", streamParams.Url, *res.ID, streamParams.Option)}},
 		DsDescription:    description,
 		Keyword:          res.Topics,
 	}, nil
