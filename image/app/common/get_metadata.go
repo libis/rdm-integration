@@ -44,7 +44,7 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	metadata, err := getMetadata(r.Context(), req, user, sessionId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - matadata retrieval failed"))
+		w.Write([]byte("500 - matadata retrieval failed: " + err.Error()))
 		return
 	}
 
@@ -97,7 +97,6 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	streamParams.SessionId = sessionId
 
 	if p.Metadata != nil {
-		//TODO
 		moreMd, err := p.Metadata(ctx, streamParams)
 		if err != nil {
 			return nil, err
@@ -298,7 +297,11 @@ func joinAndUnescape(s []string) string {
 	if strings.HasPrefix(res, "'") && strings.HasSuffix(res, "'") {
 		res = res[1 : len(res)-1]
 	}
+	if strings.HasPrefix(res, "\"") && strings.HasSuffix(res, "\"") {
+		res = res[1 : len(res)-1]
+	}
 	res = strings.ReplaceAll(res, "''", "'")
+	res = strings.ReplaceAll(res, "\"\"", "\"")
 	return res
 }
 
