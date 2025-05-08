@@ -42,6 +42,7 @@ func Start() {
 	srvMux.HandleFunc("/api/common/downloadable", common.GetDownloadableFiles)
 	srvMux.HandleFunc("/api/common/download", common.Download)
 	srvMux.HandleFunc("/api/common/metadata", common.GetMetadata)
+	srvMux.HandleFunc("/api/common/useremail", common.GetUserEmail)
 
 	// frontend config
 	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)
