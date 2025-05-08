@@ -242,9 +242,55 @@ func getMdFromCodemeta(ctx context.Context, node tree.Node, p plugin.Plugin, par
 	if err != nil {
 		return types.MetadataStruct{}, err
 	}
-	//TODO
-	logging.Logger.Println(string(b))
-	return types.MetadataStruct{}, nil
+	codemeta := map[string]interface{}{}
+	err = json.Unmarshal(b, &codemeta)
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
+	res := types.MetadataStruct{}
+	res.Title, _ = codemeta["name"].(string)
+	authors, _ := codemeta["author"].([]interface{})
+	for _, a := range authors {
+		a, _ := a.(map[string]interface{})
+		givenName, _ := a["givenName"].(string)
+		familyName, _ := a["familyName"].(string)
+		affiliation, _ := a["affiliation"].(map[string]interface{})
+		affiliationName, _ := affiliation["name"].(string)
+		identifier, _ := a["id"].(string)
+		if !strings.Contains(identifier, "orcid") {
+			identifier = ""
+		}
+		if familyName != "" {
+			res.Author = append(res.Author, types.Author{
+				AuthorName:        fmt.Sprintf("%s, %s", familyName, givenName),
+				AuthorAffiliation: affiliationName,
+				AuthorIdentifier:  identifier,
+			})
+		}
+	}
+	contributors, _ := codemeta["contributor"].([]interface{})
+	for _, a := range contributors {
+		a, _ := a.(map[string]interface{})
+		givenName, _ := a["givenName"].(string)
+		familyName, _ := a["familyName"].(string)
+		if familyName != "" {
+			res.ContributorName = append(res.ContributorName, fmt.Sprintf("%s, %s", familyName, givenName))
+		}
+	}
+	description, _ := codemeta["description"].(string)
+	res.DsDescription = []string{description}
+	keywords, _ := codemeta["keywords"].([]interface{})
+	for _, k := range keywords {
+		keyword, _ := k.(string)
+		res.Keyword = append(res.Keyword, keyword)
+	}
+	funder, ok := codemeta["funder"].(map[string]interface{})
+	funding, _ := codemeta["funding"].(string)
+	if ok {
+		funderName, _ := funder["name"].(string)
+		res.GrantNumber = append(res.GrantNumber, types.GrantNumber{GrantNumberAgency: funderName, GrantNumberValue: funding})
+	}
+	return res, nil
 }
 
 type author struct {
