@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"integration/app/core"
 	"io"
 	"net/http"
@@ -21,6 +22,11 @@ func GetUserEmail(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("404 - user not found"))
 		return
 	}
-
-	w.Write([]byte(to))
+	res, err := json.Marshal(to)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - making response failed"))
+		return
+	}
+	w.Write(res)
 }
