@@ -58,6 +58,7 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 		logging.Logger.Println("metadata response marshal error", err)
 		return
 	}
+	logging.Logger.Println("metadata response", string(b))
 	w.Write(b)
 }
 
