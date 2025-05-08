@@ -30,12 +30,14 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - bad request"))
+		logging.Logger.Println("metadata request read error", err)
 		return
 	}
 	err = json.Unmarshal(b, &req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - bad request"))
+		logging.Logger.Println("metadata request unmarshal error", err)
 		return
 	}
 
@@ -45,6 +47,7 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - matadata retrieval failed: " + err.Error()))
+		logging.Logger.Println("metadata request get metadata error", err)
 		return
 	}
 
@@ -52,6 +55,7 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		logging.Logger.Println("metadata response marshal error", err)
 		return
 	}
 	w.Write(b)
