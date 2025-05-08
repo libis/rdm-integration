@@ -78,7 +78,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	if err != nil {
 		return nil, err
 	}
-	md := types.MetadataStruct{Author: []types.Author{{AuthorName: fmt.Sprintf("%v, %v", userObj.Data.LastName, userObj.Data.FirstName)}}}
+	md := types.MetadataStruct{Author: []types.Author{{AuthorName: jsonEscape(fmt.Sprintf("%v, %v", userObj.Data.LastName, userObj.Data.FirstName))}}}
 
 	nodemap := map[string]tree.Node{}
 	for _, v := range getMetadataRequest.CompareResult.Data {
@@ -148,36 +148,78 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 
 func mergeMetadata(from, to types.MetadataStruct) types.MetadataStruct {
 	if from.Title != "" {
-		to.Title = from.Title
+		to.Title = jsonEscape(from.Title)
 	}
-	if len(from.AlternativeTitle) > 0 {
-		to.AlternativeTitle = append(to.AlternativeTitle, from.AlternativeTitle...)
+	altTitle := jsonEscapeSlice(from.AlternativeTitle)
+	if len(altTitle) > 0 {
+		to.AlternativeTitle = altTitle
 	}
-	if len(from.AlternativeURL) > 0 {
-		to.AlternativeURL = append(to.AlternativeURL, from.AlternativeURL...)
+	altUrl := jsonEscapeSlice(from.AlternativeURL)
+	if len(altUrl) > 0 {
+		to.AlternativeURL = altUrl
 	}
-	if len(from.OtherId) > 0 {
-		to.OtherId = append(to.OtherId, from.OtherId...)
+	otherIds := []types.OtherId{}
+	for _, oi := range from.OtherId {
+		if oi.OtherIdAgency != "" && oi.OtherIdValue != "" {
+			otherIds = append(otherIds, types.OtherId{OtherIdAgency: jsonEscape(oi.OtherIdAgency), OtherIdValue: jsonEscape(oi.OtherIdValue)})
+		}
 	}
-	if len(from.DsDescription) > 0 {
-		to.DsDescription = append(to.DsDescription, from.DsDescription...)
+	if len(otherIds) > 0 {
+		to.OtherId = otherIds
 	}
-	if len(from.Keyword) > 0 {
-		to.Keyword = append(to.Keyword, from.Keyword...)
+	descriptions := jsonEscapeSlice(from.DsDescription)
+	if len(descriptions) > 0 {
+		to.DsDescription = descriptions
 	}
-	if len(from.ContributorName) > 0 {
-		to.ContributorName = append(to.ContributorName, from.ContributorName...)
+	keywords := jsonEscapeSlice(from.Keyword)
+	if len(keywords) > 0 {
+		to.Keyword = keywords
 	}
-	if len(from.RelatedMaterialCitation) > 0 {
-		to.RelatedMaterialCitation = append(to.RelatedMaterialCitation, from.RelatedMaterialCitation...)
+	contributors := jsonEscapeSlice(from.ContributorName)
+	if len(contributors) > 0 {
+		to.ContributorName = contributors
 	}
-	if len(from.GrantNumber) > 0 {
-		to.GrantNumber = append(to.GrantNumber, from.GrantNumber...)
+	citations := jsonEscapeSlice(from.RelatedMaterialCitation)
+	if len(citations) > 0 {
+		to.RelatedMaterialCitation = citations
 	}
-	if len(from.Author) > 0 {
-		to.Author = append(to.Author, from.Author...)
+	grantNumbers := []types.GrantNumber{}
+	for _, gn := range from.GrantNumber {
+		if gn.GrantNumberAgency != "" && gn.GrantNumberValue != "" {
+			grantNumbers = append(grantNumbers, types.GrantNumber{GrantNumberAgency: jsonEscape(gn.GrantNumberAgency), GrantNumberValue: jsonEscape(gn.GrantNumberValue)})
+		}
+	}
+	if len(grantNumbers) > 0 {
+		to.GrantNumber = grantNumbers
+	}
+	authors := []types.Author{}
+	for _, a := range from.Author {
+		if a.AuthorName != "" {
+			authors = append(authors, types.Author{AuthorName: jsonEscape(a.AuthorName), AuthorAffiliation: jsonEscape(a.AuthorAffiliation), AuthorIdentifier: jsonEscape(a.AuthorIdentifier)})
+		}
+	}
+	if len(authors) > 0 {
+		to.Author = authors
 	}
 	return to
+}
+
+func jsonEscapeSlice(in []string) []string {
+	escaped := []string{}
+	for _, v := range in {
+		if v != "" {
+			escaped = append(escaped, jsonEscape(v))
+		}
+	}
+	return escaped
+}
+
+func jsonEscape(in string) string {
+	b, err := json.Marshal(in)
+	if err != nil {
+		panic(err)
+	}
+	return string(b[1 : len(b)-1])
 }
 
 func getMdFromROCrate(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
