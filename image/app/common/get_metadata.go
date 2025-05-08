@@ -282,7 +282,7 @@ func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, p
 						foundAuthors[authorIndex] = setAuthorField(s[0][len("    "):], joinAndUnescape(s[1:]), foundAuthors[authorIndex])
 					}
 				} else if multiline {
-					res.DsDescription[0] = res.DsDescription[0] + "\\\\n" + joinAndUnescape([]string{line[len("  "):]})
+					res.DsDescription[0] = res.DsDescription[0] + "\n" + joinAndUnescape([]string{line[len("  "):]})
 				}
 			}
 		} else {
