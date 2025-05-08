@@ -258,6 +258,7 @@ func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, p
 	scanner := bufio.NewScanner(strings.NewReader(string(b)))
 	keywords := false
 	authors := false
+	multiline := false
 	authorIndex := -1
 	foundAuthors := []author{}
 	for scanner.Scan() {
@@ -280,6 +281,8 @@ func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, p
 					if len(s) > 0 {
 						foundAuthors[authorIndex] = setAuthorField(s[0][len("    "):], joinAndUnescape(s[1:]), foundAuthors[authorIndex])
 					}
+				} else if multiline {
+					res.DsDescription[0] = res.DsDescription[0] + "\\\\n" + joinAndUnescape([]string{line[len("  "):]})
 				}
 			}
 		} else {
@@ -289,19 +292,29 @@ func getMdFromCitatinCff(ctx context.Context, node tree.Node, p plugin.Plugin, p
 				res.Title = joinAndUnescape(s[1:])
 				keywords = false
 				authors = false
+				multiline = false
 			case "abstract":
-				res.DsDescription = []string{joinAndUnescape(s[1:])}
+				description := joinAndUnescape(s[1:])
+				if description == ">-" {
+					multiline = true
+					res.DsDescription = []string{""}
+				} else {
+					res.DsDescription = []string{description}
+				}
 				keywords = false
 				authors = false
 			case "keywords:":
 				keywords = true
 				authors = false
+				multiline = false
 			case "authors:":
 				authors = true
 				keywords = false
+				multiline = false
 			default:
 				keywords = false
 				authors = false
+				multiline = false
 			}
 		}
 	}
