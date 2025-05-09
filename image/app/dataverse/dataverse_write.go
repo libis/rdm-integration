@@ -35,7 +35,7 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string, m
 	if len(metadata) == 0 {
 		body = api.CreateDatasetRequestBody(user)
 	} else {
-		metadata["license"], err = getDefaultLicense(ctx, token, userName)
+		metadata["datasetVersion"].(map[string]interface{})["license"], err = getDefaultLicense(ctx, token, userName)
 		if err != nil {
 			return "", err
 		}
@@ -62,19 +62,15 @@ func getDefaultLicense(ctx context.Context, user, token string) (map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	data, ok := res["data"].([]map[string]interface{})
-	if !ok || res["status"] != "OK" {
+	data, ok := res["data"].([]interface{})
+	if !ok {
 		return nil, fmt.Errorf("listing licenses failed: %+v", res)
 	}
 
-	for _, license := range data {
+	for _, l := range data {
+		license, _ := l.(map[string]interface{})
 		if d, ok := license["isDefault"].(bool); ok && d {
-			name, _ := license["name"].(string)
-			uri, _ := license["uri"].(string)
-			return map[string]interface{}{
-				"name": name,
-				"uri":  uri,
-			}, nil
+			return license, nil
 		}
 	}
 
