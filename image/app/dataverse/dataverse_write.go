@@ -67,18 +67,17 @@ func getDefaultLicense(ctx context.Context, user, token string) (map[string]inte
 		return nil, fmt.Errorf("listing licenses failed: %+v", res)
 	}
 
-	license := map[string]interface{}{}
-	for _, license = range data {
+	for _, license := range data {
 		if d, ok := license["isDefault"].(bool); ok && d {
 			name, _ := license["name"].(string)
 			uri, _ := license["uri"].(string)
 			return map[string]interface{}{
 				"name": name,
-				"uri": uri,
+				"uri":  uri,
 			}, nil
 		}
 	}
-	
+
 	return map[string]interface{}{}, nil
 }
 
