@@ -35,6 +35,10 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string, m
 	if len(metadata) == 0 {
 		body = api.CreateDatasetRequestBody(user)
 	} else {
+		metadata["license"], err = getDefaultLicense(ctx, token, userName)
+		if err != nil {
+			return "", err
+		}
 		data, err := json.Marshal(metadata)
 		if err != nil {
 			return "", err
@@ -46,6 +50,36 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string, m
 	req := GetRequest(path, "POST", userName, token, body, api.JsonContentHeader())
 	err = api.Do(ctx, req, &res)
 	return res.Data.PersistentId, err
+}
+
+func getDefaultLicense(ctx context.Context, user, token string) (map[string]interface{}, error) {
+	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
+	defer cancel()
+	path := "/api/v1/licenses"
+	res := map[string]interface{}{}
+	req := GetRequest(path, "GET", user, token, nil, nil)
+	err := api.Do(shortContext, req, &res)
+	if err != nil {
+		return nil, err
+	}
+	data, ok := res["data"].([]map[string]interface{})
+	if !ok || res["status"] != "OK" {
+		return nil, fmt.Errorf("listing licenses failed: %+v", res)
+	}
+
+	license := map[string]interface{}{}
+	for _, license = range data {
+		if d, ok := license["isDefault"].(bool); ok && d {
+			name, _ := license["name"].(string)
+			uri, _ := license["uri"].(string)
+			return map[string]interface{}{
+				"name": name,
+				"uri": uri,
+			}, nil
+		}
+	}
+	
+	return map[string]interface{}{}, nil
 }
 
 func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error {
