@@ -22,6 +22,7 @@ import (
 type Config struct {
 	DataverseServer string         `json:"dataverseServer"`   // url of the server where Detaverse API is deployed
 	RedisHost       string         `json:"redisHost"`         // redis host, not used when running the local/main.go (fake redis client with only 1 worker is used when running on local machine)
+	GlobusEnpoint   string         `json:"globusEndpoint"`
 	Options         OptionalConfig `json:"options,omitempty"` // customizations
 }
 

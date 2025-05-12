@@ -108,10 +108,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams)
 }
 
 func doTransfer(ctx context.Context, sessionId, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) error {
-	destinationEndpoint, err := getDestinationEndpoint(ctx, pId, dvToken, user)
-	if err != nil {
-		return err
-	}
+	destinationEndpoint := getGlobusEndpoint()
 	prinicpal, err := getPrincipal(ctx, sessionId)
 	if err != nil {
 		return err
@@ -217,32 +214,8 @@ func transfer(ctx context.Context, token string, transferRequest TransferRequest
 	return response.TaskId, nil
 }
 
-func getDestinationEndpoint(ctx context.Context, persistentId, token, user string) (string, error) {
-	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusUploadParameters?persistentId=" + persistentId
-	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
-	client.Token = token
-	req := client.NewRequest(path, "GET", nil, api.JsonContentHeader())
-	res := map[string]interface{}{}
-	err := api.Do(ctx, req, &res)
-	if err != nil {
-		return "", err
-	}
-	if res["status"] != "OK" {
-		return "", fmt.Errorf("requesting Globus upload parameters failed: %s", res["message"])
-	}
-	data, ok := res["data"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
-	}
-	queryParameters, ok := data["queryParameters"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
-	}
-	destinationEndpoint, ok := queryParameters["endpoint"].(string)
-	if !ok || destinationEndpoint == "" {
-		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
-	}
-	return destinationEndpoint, nil
+func getGlobusEndpoint() string {
+	return config.GetConfig().GlobusEnpoint
 }
 
 func RequestGlobusUploadPaths(ctx context.Context, persistentId, token, user, principal string, nbFiles int) ([]Path, error) {
@@ -318,10 +291,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	if token == "" || repoName == "" || option == "" {
 		return "", fmt.Errorf("globus download: missing parameters")
 	}
-	sourceEndpoint, err := getDestinationEndpoint(ctx, pId, dvToken, user)
-	if err != nil {
-		return "", err
-	}
+	sourceEndpoint := getGlobusEndpoint()
 	prinicpal, err := getPrincipal(ctx, sessionId)
 	if err != nil {
 		return "", err
@@ -366,31 +336,6 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 		})
 	}
 	return transfer(ctx, token, transferRequest)
-}
-
-func RequestGlobusDownloadParameters(ctx context.Context, persistentId, token, user, downloadId string) (string, error) {
-	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/globusDownloadParameters?persistentId=" + persistentId + "&downloadId" + downloadId
-	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
-	client.Token = token
-	req := client.NewRequest(path, "GET", nil, api.JsonContentHeader())
-	res := map[string]interface{}{}
-	err := api.Do(ctx, req, &res)
-	if err != nil {
-		return "", err
-	}
-	data, ok := res["data"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
-	}
-	queryParameters, ok := data["queryParameters"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("globus error: destination endpoint id not found in %+v", res)
-	}
-	sourceEndpoint, ok := queryParameters["endpoint"].(string)
-	if !ok || sourceEndpoint == "" {
-		return "", fmt.Errorf("globus error: source endpoint id not found in %+v", res)
-	}
-	return sourceEndpoint, nil
 }
 
 func requestGlobusDownload(ctx context.Context, persistentId, token, user, principal string, fileIds []int64) (map[string]string, error) {
