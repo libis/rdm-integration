@@ -55,5 +55,11 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		w.Write(fmt.Appendf(nil, "500 - %v", err))
 		return
 	}
-	w.Write([]byte(res))
+	resBytes, err := json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(fmt.Appendf(nil, "500 - %v", err))
+		return
+	}
+	w.Write(resBytes)
 }
