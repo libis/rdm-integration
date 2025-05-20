@@ -14,13 +14,14 @@ import (
 )
 
 type Response struct {
-	Code           string   `json:"code"`
-	Message        string   `json:"message"`
-	RequiredScopes []string `json:"required_scopes"`
-	Data           []Data   `json:"DATA"`
-	HasNextPage    bool     `json:"has_next_page"`
-	Limit          int      `json:"limit"`
-	Offset         int      `json:"offset"`
+	Code             string   `json:"code"`
+	Message          string   `json:"message"`
+	RequiredScopes   []string `json:"required_scopes"`
+	Data             []Data   `json:"DATA"`
+	HasNextPage      bool     `json:"has_next_page"`
+	Limit            int      `json:"limit"`
+	Offset           int      `json:"offset"`
+	DefaultDirectory string   `json:"default_directory"`
 }
 
 type Data struct {
