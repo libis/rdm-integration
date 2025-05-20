@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
-	coreTypes "integration/app/core/types"
+	"integration/app/core/oauth"
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -94,12 +94,12 @@ func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams)
 	if len(in) == 0 {
 		return types.StreamsType{}, nil
 	}
-	sessionId, token, repoName, option, pId, dvToken, user := p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User
+	pluginId, sessionId, token, repoName, option, pId, dvToken, user := p.PluginId, p.SessionId, p.Token, p.RepoName, p.Option, p.PersistentId, p.DVToken, p.User
 	if token == "" || repoName == "" || option == "" {
 		return types.StreamsType{}, fmt.Errorf("globus streams: missing parameters")
 	}
 	return types.StreamsType{Streams: nil, Cleanup: func() error {
-		err := doTransfer(ctx, sessionId, token, repoName, option, pId, dvToken, user, in)
+		err := doTransfer(ctx, pluginId, sessionId, token, repoName, option, pId, dvToken, user, in)
 		if err != nil {
 			logging.Logger.Println("globus transfer failed: " + err.Error())
 		}
@@ -107,9 +107,9 @@ func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams)
 	}}, nil
 }
 
-func doTransfer(ctx context.Context, sessionId, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) error {
+func doTransfer(ctx context.Context, pluginId, sessionId, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) error {
 	destinationEndpoint := getGlobusEndpoint()
-	prinicpal, err := getPrincipal(ctx, sessionId)
+	prinicpal, err := getPrincipal(ctx, pluginId, sessionId)
 	if err != nil {
 		return err
 	}
@@ -161,8 +161,8 @@ func doTransfer(ctx context.Context, sessionId, token, repoName, option, pId, dv
 	return addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
 }
 
-func getPrincipal(ctx context.Context, sessionId string) (string, error) {
-	token, ok := getTokenFromCache(ctx, sessionId)
+func getPrincipal(ctx context.Context, pluginId, sessionId string) (string, error) {
+	token, ok := oauth.GetTokenFromCacheRaw(ctx, pluginId, sessionId)
 	if !ok {
 		return "", fmt.Errorf("globus error: token not in cache")
 	}
@@ -215,7 +215,7 @@ func transfer(ctx context.Context, token string, transferRequest TransferRequest
 }
 
 func getGlobusEndpoint() string {
-	return config.GetConfig().GlobusEnpoint
+	return config.GetConfig().GlobusEndpoint
 }
 
 func RequestGlobusUploadPaths(ctx context.Context, persistentId, token, user, principal string, nbFiles int) ([]Path, error) {
@@ -272,17 +272,6 @@ func requestBody(data []byte) (io.Reader, string) {
 	return body, writer.FormDataContentType()
 }
 
-func getTokenFromCache(ctx context.Context, sessionId string) (coreTypes.OauthTokenResponse, bool) {
-	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", "globus", sessionId))
-	jsonString := cached.Val()
-	if jsonString == "" {
-		return coreTypes.OauthTokenResponse{}, false
-	}
-	res := coreTypes.OauthTokenResponse{}
-	json.Unmarshal([]byte(jsonString), &res)
-	return res, true
-}
-
 func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node) (string, error) {
 	if len(in) == 0 {
 		return "", nil
@@ -292,7 +281,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 		return "", fmt.Errorf("globus download: missing parameters")
 	}
 	sourceEndpoint := getGlobusEndpoint()
-	prinicpal, err := getPrincipal(ctx, sessionId)
+	principal, err := getPrincipal(ctx, p.PluginId, sessionId)
 	if err != nil {
 		return "", err
 	}
@@ -300,7 +289,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	for _, f := range in {
 		fileIds = append(fileIds, f.Attributes.DestinationFile.Id)
 	}
-	paths, err := requestGlobusDownload(ctx, pId, dvToken, user, prinicpal, fileIds)
+	paths, err := requestGlobusDownload(ctx, pId, dvToken, user, principal, fileIds)
 	if err != nil {
 		return "", err
 	}

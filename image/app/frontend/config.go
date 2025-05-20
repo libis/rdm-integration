@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
-	"integration/app/core"
+	"integration/app/core/oauth"
 	"integration/app/logging"
 	"net/http"
 	"os"
@@ -32,9 +32,9 @@ func init() {
 		panic(fmt.Errorf("could not unmarshal config: %v", err))
 	}
 	for _, v := range Config.Plugins {
-		core.PluginConfig[v.Id] = v
+		oauth.PluginConfig[v.Id] = v
 	}
-	core.RedirectUri = Config.RedirectUri
+	oauth.RedirectUri = Config.RedirectUri
 }
 
 func GetConfig(w http.ResponseWriter, r *http.Request) {

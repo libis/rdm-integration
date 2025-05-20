@@ -13,4 +13,5 @@ type CompareRequest struct {
 	PersistentId string `json:"persistentId"`
 	NewlyCreated bool   `json:"newlyCreated"`
 	DataverseKey string `json:"dataverseKey"`
+	SessionId    string `json:"sessionId"`
 }

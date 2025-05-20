@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/core"
+	"integration/app/core/oauth"
 	"io"
 	"net/http"
 )
@@ -33,7 +34,7 @@ func GetOauthToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionId := core.GetSessionId(r.Header)
-	res, err := core.GetOauthToken(r.Context(), req.PluginId, req.Code, "", sessionId)
+	res, err := oauth.GetOauthToken(r.Context(), req.PluginId, req.Code, "", sessionId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

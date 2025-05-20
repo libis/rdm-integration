@@ -20,10 +20,11 @@ import (
 
 // Configuration types
 type Config struct {
-	DataverseServer string         `json:"dataverseServer"` // url of the server where Detaverse API is deployed
-	RedisHost       string         `json:"redisHost"`       // redis host, not used when running the local/main.go (fake redis client with only 1 worker is used when running on local machine)
-	GlobusEnpoint   string         `json:"globusEndpoint"`
-	Options         OptionalConfig `json:"options,omitempty"` // customizations
+	DataverseServer    string         `json:"dataverseServer"` // url of the server where Detaverse API is deployed
+	RedisHost          string         `json:"redisHost"`       // redis host, not used when running the local/main.go (fake redis client with only 1 worker is used when running on local machine)
+	GlobusEndpoint     string         `json:"globusEndpoint"`
+	AddUserToGlobusUrl bool           `json:"addUserToGlobusUrl"`
+	Options            OptionalConfig `json:"options"` // customizations
 }
 
 type OptionalConfig struct {
@@ -38,13 +39,13 @@ type OptionalConfig struct {
 	DefaultDriver                string        `json:"defaultDriver,omitempty"`        // default driver as used by the dataverse installation, only "file" and "s3" are supported, leave empty otherwise
 	StorageId                    string        `json:"storageId,omitempty"`            // storage identifier in Dataverse
 	PathToFilesDir               string        `json:"pathToFilesDir,omitempty"`       // path to the folder where dataverse files are stored (only needed when using "file" driver)
-	S3Config                     S3Config      `json:"s3Config,omitempty"`             // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
+	S3Config                     S3Config      `json:"s3Config"`                       // config if using "s3" driver -> see also settings for your s3 in Dataverse installation. Only needed when using S3 filesystem.
 	PathToOauthSecrets           string        `json:"pathToOauthSecrets,omitempty"`   // path to file containing the oath client ids and secrets
 	MaxFileSize                  int64         `json:"maxFileSize,omitempty"`          // if not set, the upload file size is unlimited
 	UserHeaderName               string        `json:"userHeaderName,omitempty"`       // URL signing needs the username in order to know for which user to sign, the user name should be passed in the header of the request. The default is "Ajp_uid", as send by the Shibboleth IDP.
-	SmtpConfig                   Smtp          `json:"smtpConfig,omitempty"`           // configure this when you wish to send notification emails to the users: on job error and on job completion
+	SmtpConfig                   Smtp          `json:"smtpConfig"`                     // configure this when you wish to send notification emails to the users: on job error and on job completion
 	PathToSmtpPassword           string        `json:"pathToSmtpPassword,omitempty"`   // path to the file containing the password needed to authenticate with the SMTP server
-	MailConfig                   MailConfig    `json:"mailConfig,omitempty"`
+	MailConfig                   MailConfig    `json:"mailConfig"`
 	MaxDvObjectPages             int           `json:"maxDvObjectPages"`
 	PathToDataversePluginsConfig string        `json:"pathToDataversePluginsConfig"`
 	ComputationQueues            []Queue       `json:"computationQueues"`

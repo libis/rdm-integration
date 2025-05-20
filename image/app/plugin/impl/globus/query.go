@@ -14,7 +14,7 @@ func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node
 	if folder == "" {
 		folder = "/"
 	}
-	entries, err := listItems(ctx, folder, req.Url+"/operation/endpoint/"+req.RepoName+"/ls", req.Token, true)
+	entries, err := listItems(ctx, folder, req.Url+"/operation/endpoint/"+req.RepoName+"/ls", req.Token, req.User, true)
 	if err != nil {
 		return nil, err
 	}

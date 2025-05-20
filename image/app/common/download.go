@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/core/oauth"
 	"integration/app/plugin/impl/globus"
 	"integration/app/tree"
 	"io"
@@ -47,7 +48,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	}
 	req.StreamParams.SessionId = core.GetSessionId(r.Header)
 	req.StreamParams.PersistentId = req.PersistentId
-	req.StreamParams.Token = core.GetTokenFromCache(r.Context(), req.StreamParams.Token, req.StreamParams.SessionId, "globus")
+	req.StreamParams.Token = oauth.GetTokenFromCache(r.Context(), req.StreamParams.Token, req.StreamParams.SessionId, "globus")
 	res := ""
 	res, err = globus.Download(r.Context(), req.StreamParams, selected)
 	if err != nil {

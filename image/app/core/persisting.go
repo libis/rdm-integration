@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"integration/app/config"
+	"integration/app/core/oauth"
 	"integration/app/logging"
 	"integration/app/plugin/funcs/stream"
 	"integration/app/plugin/types"
@@ -43,7 +44,7 @@ func doWork(job Job) (Job, error) {
 		}
 	}
 	streamParams := job.StreamParams
-	streamParams.Token = GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId, job.StreamParams.PluginId)
+	streamParams.Token = oauth.GetTokenFromCache(ctx, job.StreamParams.Token, job.SessionId, job.StreamParams.PluginId)
 	streamParams.PersistentId = job.PersistentId
 	streamParams.DVToken = job.DataverseKey
 	streamParams.SessionId = job.SessionId

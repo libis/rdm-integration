@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/core"
+	"integration/app/core/oauth"
 	"integration/app/dataverse"
 	"integration/app/logging"
 	"integration/app/plugin"
@@ -97,7 +98,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	streamParams.Url = getMetadataRequest.Url
 	streamParams.Option = getMetadataRequest.Option
 	streamParams.User = user
-	streamParams.Token = core.GetTokenFromCache(ctx, getMetadataRequest.Token, sessionId, getMetadataRequest.PluginId)
+	streamParams.Token = oauth.GetTokenFromCache(ctx, getMetadataRequest.Token, sessionId, getMetadataRequest.PluginId)
 	streamParams.DVToken = getMetadataRequest.DVToken
 	streamParams.SessionId = sessionId
 

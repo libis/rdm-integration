@@ -6,17 +6,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"integration/app/plugin/types"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type Response struct {
-	Data        []Data `json:"DATA"`
-	HasNextPage bool   `json:"has_next_page"`
-	Limit       int    `json:"limit"`
-	Offset      int    `json:"offset"`
+	Code           string   `json:"code"`
+	Message        string   `json:"message"`
+	RequiredScopes []string `json:"required_scopes"`
+	Data           []Data   `json:"DATA"`
+	HasNextPage    bool     `json:"has_next_page"`
+	Limit          int      `json:"limit"`
+	Offset         int      `json:"offset"`
 }
 
 type Data struct {
@@ -42,8 +47,12 @@ type Entry struct {
 	Size     int64
 }
 
-func listItems(ctx context.Context, path, theUrl, token string, recursive bool) ([]Entry, error) {
-	response, err := getResponse(ctx, theUrl+"?path="+url.QueryEscape(path), token)
+func listItems(ctx context.Context, path, theUrl, token, user string, recursive bool) ([]Entry, error) {
+	urlString := theUrl + "?path=" + url.QueryEscape(path)
+	if config.GetConfig().AddUserToGlobusUrl {
+		urlString = urlString + "&local_user=" + url.QueryEscape(user)
+	}
+	response, err := getResponse(ctx, urlString, token)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +61,7 @@ func listItems(ctx context.Context, path, theUrl, token string, recursive bool) 
 		isDir := v.Type == "dir"
 		id := path + v.Name + "/"
 		if recursive && isDir {
-			folderEntries, err := listItems(ctx, id, theUrl, token, true)
+			folderEntries, err := listItems(ctx, id, theUrl, token, user, true)
 			if err != nil {
 				return nil, err
 			}
@@ -87,6 +96,14 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 }
 
 func getPartialResponse(ctx context.Context, url string, token string, limit, offset int) (Response, error) {
+	res, err := doGetPartialResponse(ctx, url, token, limit, offset)
+	if err != nil && strings.HasPrefix(err.Error(), "ConsentRequired") {
+		return res, fmt.Errorf("*scopes*%v*scopes*", strings.Join(res.RequiredScopes, " "))
+	}
+	return res, err
+}
+
+func doGetPartialResponse(ctx context.Context, url string, token string, limit, offset int) (Response, error) {
 	fullUrl := fmt.Sprintf("%v&limit=%v&offset=%v", url, limit, offset)
 	b, err := DoGlobusRequest(ctx, fullUrl, "GET", token, nil)
 	if err != nil {
@@ -96,6 +113,9 @@ func getPartialResponse(ctx context.Context, url string, token string, limit, of
 	err = json.Unmarshal(b, &response)
 	if err != nil {
 		return Response{}, fmt.Errorf("globus error: response could not be unmarshalled from %v", string(b))
+	}
+	if response.Code != "" && response.Message != "" {
+		return response, fmt.Errorf("%v: %v", response.Code, response.Message)
 	}
 	return response, nil
 }

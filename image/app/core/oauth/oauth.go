@@ -1,6 +1,6 @@
 // Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-package core
+package oauth
 
 import (
 	"bytes"
@@ -101,7 +101,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 }
 
 func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) string {
-	res, ok := getTokenFromCache(ctx, pluginId, sessionId)
+	res, ok := GetTokenFromCacheRaw(ctx, pluginId, sessionId)
 	if !ok {
 		return token
 	}
@@ -113,7 +113,7 @@ func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) s
 			logging.Logger.Println("token refresh failed:", err)
 			return res.AccessToken
 		}
-		res, ok = getTokenFromCache(ctx, pluginId, sessionId)
+		res, ok = GetTokenFromCacheRaw(ctx, pluginId, sessionId)
 		if !ok {
 			logging.Logger.Println("token not in cache after refresh for plugin id:", pluginId)
 			return token
@@ -128,7 +128,7 @@ func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) s
 	return res.AccessToken
 }
 
-func getTokenFromCache(ctx context.Context, pluginId, sessionId string) (types.OauthTokenResponse, bool) {
+func GetTokenFromCacheRaw(ctx context.Context, pluginId, sessionId string) (types.OauthTokenResponse, bool) {
 	cached := config.GetRedis().Get(ctx, fmt.Sprintf("%v-%v", pluginId, sessionId))
 	jsonString := cached.Val()
 	if jsonString == "" {

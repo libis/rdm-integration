@@ -9,6 +9,7 @@ import (
 	"integration/app/common"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/core/oauth"
 	"integration/app/logging"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
@@ -94,7 +95,8 @@ func doCompare(req types.CompareRequest, key, user string) {
 	for k, v := range nm {
 		nmCopy[k] = v
 	}
-	req.Token = core.GetTokenFromCache(ctx, req.Token, req.Token, req.PluginId)
+	req.SessionId = req.Token
+	req.Token = oauth.GetTokenFromCache(ctx, req.Token, req.SessionId, req.PluginId)
 	repoNm, err := plugin.GetPlugin(req.Plugin).Query(ctx, req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()

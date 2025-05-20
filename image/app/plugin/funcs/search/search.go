@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/core"
+	"integration/app/core/oauth"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
 	"io"
@@ -30,7 +31,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params.Token = core.GetTokenFromCache(r.Context(), params.Token, params.Token, params.PluginId)
+	params.Token = oauth.GetTokenFromCache(r.Context(), params.Token, params.Token, params.PluginId)
 	if params.User == "" {
 		params.User = core.GetUserFromHeader(r.Header)
 	}

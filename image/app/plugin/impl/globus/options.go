@@ -17,11 +17,20 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 }
 
 func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
+	res, err = doListFolderItems(ctx, params)
+	if len(res) == 0 && err == nil && params.Option == "" {
+		params.Option = "/~/"
+		return doListFolderItems(ctx, params)
+	}
+	return
+}
+
+func doListFolderItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
 	folder := params.Option
 	if folder == "" {
 		folder = "/"
 	}
-	items, err := listItems(ctx, folder, params.Url+"/operation/endpoint/"+params.RepoName+"/ls", params.Token, false)
+	items, err := listItems(ctx, folder, params.Url+"/operation/endpoint/"+params.RepoName+"/ls", params.Token, params.User, false)
 	res = []types.SelectItem{}
 	if err != nil {
 		logging.Logger.Printf("globus plugin err: %v\n", err)
