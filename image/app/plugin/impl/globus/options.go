@@ -34,7 +34,7 @@ func doListFolderItems(ctx context.Context, params types.OptionsRequest) (res []
 	res = []types.SelectItem{}
 	if err != nil {
 		logging.Logger.Printf("globus plugin err: %v\n", err)
-		return res, nil // errors break the gui dropdown; most likely the path is a file, not a folder
+		return res, err
 	}
 	for _, e := range items {
 		if e.IsDir {
