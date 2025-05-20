@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"integration/app/config"
 	"integration/app/plugin/types"
 	"io"
 	"net/http"
@@ -49,9 +48,6 @@ type Entry struct {
 
 func listItems(ctx context.Context, path, theUrl, token, user string, recursive bool) ([]Entry, error) {
 	urlString := theUrl + "?path=" + url.QueryEscape(path)
-	if config.GetConfig().AddUserToGlobusUrl {
-		urlString = urlString + "&local_user=" + url.QueryEscape(user)
-	}
 	response, err := getResponse(ctx, urlString, token)
 	if err != nil {
 		return nil, err
