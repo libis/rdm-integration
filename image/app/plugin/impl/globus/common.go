@@ -22,6 +22,7 @@ type Response struct {
 	Limit            int      `json:"limit"`
 	Offset           int      `json:"offset"`
 	DefaultDirectory string   `json:"default_directory"`
+	AbsolutePath     string   `json:"absolute_path"`
 }
 
 type Data struct {
@@ -34,6 +35,7 @@ type Data struct {
 	LinkTarget   string `json:"link_target"`
 	LastModified string `json:"last_modified"`
 	Size         int64  `json:"size"`
+	AbsolutePath string `json:"absolute_path"`
 }
 
 type Entry struct {
@@ -56,7 +58,7 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 	res := []Entry{}
 	for _, v := range response {
 		isDir := v.Type == "dir"
-		id := path + v.Name + "/"
+		id := v.AbsolutePath + v.Name + "/"
 		if recursive && isDir {
 			folderEntries, err := listItems(ctx, id, theUrl, token, user, true)
 			if err != nil {
@@ -65,7 +67,7 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 			res = append(res, folderEntries...)
 		}
 		res = append(res, Entry{
-			Path:     path,
+			Path:     v.AbsolutePath,
 			Id:       id,
 			Name:     v.Name,
 			IsDir:    isDir,
@@ -86,7 +88,10 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, response.Data...)
+		for _, r := range response.Data {
+			r.AbsolutePath = response.AbsolutePath
+			res = append(res, r)
+		}
 		next = response.HasNextPage
 	}
 	return res, nil
