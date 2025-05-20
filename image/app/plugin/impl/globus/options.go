@@ -19,7 +19,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 
 func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
 	res, err = doListFolderItems(ctx, params)
-	if err != nil && strings.Contains(err.Error(), "ClientError.NotFound") {
+	if len(res) == 0 && (err == nil || strings.Contains(err.Error(), "ClientError.NotFound")) && params.Option == "" {
 		params.Option = "/~/"
 		return doListFolderItems(ctx, params)
 	}
