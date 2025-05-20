@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"integration/app/logging"
 	"integration/app/plugin/types"
+	"strings"
 )
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
@@ -18,7 +19,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 
 func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
 	res, err = doListFolderItems(ctx, params)
-	if len(res) == 0 && err == nil && params.Option == "" {
+	if err != nil && strings.Contains(err.Error(), "ClientError.NotFound") {
 		params.Option = "/~/"
 		return doListFolderItems(ctx, params)
 	}
