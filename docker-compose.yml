@@ -122,6 +122,7 @@ services:
         -Ddataverse.api.allow-incomplete-metadata=true
         -Ddataverse.ui.allow-review-for-incomplete=false
         -Ddataverse.ui.show-validity-filter=true
+        -Ddataverse.feature.api-bearer-auth=true
     ports:
       - "8080:8080" # HTTP (Dataverse Application)
     networks:
