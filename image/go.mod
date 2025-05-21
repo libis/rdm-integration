@@ -11,15 +11,10 @@ require (
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/libis/rdm-dataverse-go-api v1.0.7
+	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.8.0
 	golang.org/x/crypto v0.38.0
 	golang.org/x/oauth2 v0.30.0
-)
-
-require (
-	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
-	github.com/kr/fs v0.1.0 // indirect
 )
 
 require (
@@ -37,16 +32,18 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19 // indirect
-	github.com/aws/smithy-go v1.22.3 // indirect
+	github.com/aws/smithy-go v1.22.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
-	github.com/pkg/sftp v1.13.9
-	github.com/rs/xid v1.6.0 // indirect
+	github.com/rs/xid v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 )
