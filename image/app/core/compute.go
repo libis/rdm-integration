@@ -48,9 +48,10 @@ func compute(job Job) (Job, error) {
 		consoleOut, err = doCompute(fileName, job)
 		if err != nil {
 			if consoleOut != "" {
-				consoleOut = consoleOut + "\n\n"
+				consoleOut = fmt.Sprintf("%s\n\n%s", consoleOut, err.Error())
+			} else {
+				consoleOut = err.Error()
 			}
-			consoleOut = consoleOut + err.Error()
 		}
 	} else {
 		errorMessage = "computation failed"
@@ -79,7 +80,7 @@ func doCompute(fileName string, job Job) (string, error) {
 		o, err := cmd.CombinedOutput()
 		out = string(o)
 		if err != nil {
-			out = out + "\n\n" + err.Error()
+			out = fmt.Sprintf("%s\n\n%s", out, err.Error())
 		}
 	}
 	unmount(job)
@@ -87,8 +88,8 @@ func doCompute(fileName string, job Job) (string, error) {
 }
 
 func mountDataset(ctx context.Context, job Job) (string, error) {
-	s3Dir := job.Key + "/s3"
-	linkedDir := job.Key + "/linked"
+	s3Dir := fmt.Sprintf("%s/s3", job.Key)
+	linkedDir := fmt.Sprintf("%s/linked", job.Key)
 	b, err := exec.Command("mkdir", job.Key).CombinedOutput()
 	if err != nil {
 		return string(b), err
@@ -119,8 +120,8 @@ func mountDataset(ctx context.Context, job Job) (string, error) {
 		if err != nil {
 			return err.Error(), err
 		}
-		filename := identifier + "/" + getStorage(n.Attributes.DestinationFile.StorageIdentifier).filename
-		command = fmt.Sprintf("ln -s $(pwd)/%v $(pwd)/%v", s3Dir+"/"+filename, linkedDir+"/"+n.Id)
+		filename := fmt.Sprintf("%s/%s", identifier, getStorage(n.Attributes.DestinationFile.StorageIdentifier).filename)
+		command = fmt.Sprintf("ln -s $(pwd)/%s/%s $(pwd)/%s/%s", s3Dir, filename, linkedDir, n.Id)
 		b, err = exec.Command("bash", "-c", command).CombinedOutput()
 		if err != nil {
 			return string(b), err
