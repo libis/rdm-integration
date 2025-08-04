@@ -10,6 +10,7 @@ import (
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 )
 
@@ -55,8 +56,9 @@ func GetExecutableFiles(w http.ResponseWriter, r *http.Request) {
 	data := []tree.Node{}
 	for _, node := range nm {
 		if node.Attributes.IsFile {
-			parts := strings.Split(node.Name, ".")
-			if len(parts) > 0 && computable[parts[len(parts)-1]] {
+			// More efficient file extension extraction using filepath.Ext
+			ext := strings.TrimPrefix(filepath.Ext(node.Name), ".")
+			if computable[ext] {
 				data = append(data, node)
 			}
 		}

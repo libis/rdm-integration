@@ -69,22 +69,23 @@ func generateStorageIdentifier(fileName string) string {
 
 func getHash(hashType string, fileSize int64) (hasher hash.Hash, err error) {
 	lowerHashType := strings.ToLower(hashType)
-	if lowerHashType == strings.ToLower(types.Md5) {
+	switch lowerHashType {
+	case "md5":
 		hasher = md5.New()
-	} else if lowerHashType == strings.ToLower(types.SHA1) {
+	case "sha-1", "sha1":
 		hasher = sha1.New()
-	} else if lowerHashType == strings.ToLower(types.SHA256) {
+	case "sha256":
 		hasher = sha256.New()
-	} else if lowerHashType == strings.ToLower(types.SHA512) {
+	case "sha512":
 		hasher = sha512.New()
-	} else if lowerHashType == strings.ToLower(types.GitHash) {
+	case "git-hash":
 		hasher = sha1.New()
 		hasher.Write([]byte(fmt.Sprintf("blob %d\x00", fileSize)))
-	} else if lowerHashType == strings.ToLower(types.QuickXorHash) {
+	case "quickxorhash":
 		hasher = &QuickXorHash{}
-	} else if lowerHashType == strings.ToLower(types.FileSize) {
+	case "filesize":
 		hasher = &FileSizeHash{}
-	} else {
+	default:
 		err = fmt.Errorf("unsupported hash type: %v", hashType)
 	}
 	return
@@ -147,7 +148,20 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 			return nil, nil, 0, err
 		}
 		uploader := manager.NewUploader(client)
-		uploader.PartSize = 1024 * 1024 * 1024
+
+		// Optimize part size based on file size for better performance
+		if fileSize > 0 {
+			if fileSize < 100*1024*1024 { // Files smaller than 100MB
+				uploader.PartSize = 5 * 1024 * 1024 // 5MB parts
+			} else if fileSize < 1024*1024*1024 { // Files smaller than 1GB
+				uploader.PartSize = 64 * 1024 * 1024 // 64MB parts
+			} else {
+				uploader.PartSize = 256 * 1024 * 1024 // 256MB parts for large files
+			}
+		} else {
+			uploader.PartSize = 64 * 1024 * 1024 // Default to 64MB when size unknown
+		}
+
 		uploader.MaxUploadParts = 1000
 		uploader.Concurrency = 2
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{

@@ -136,7 +136,12 @@ func ProcessJobs(queue string) {
 					sendJobFailedMail(err, job)
 				} else {
 					logging.Logger.Println("job failed, but will retry:", persistentId, err)
-					time.Sleep(10 * time.Second)
+					// Exponential backoff: start with 1 second, double each time, max 60 seconds
+					backoffDuration := time.Duration(1<<uint(job.ErrCnt-1)) * time.Second
+					if backoffDuration > 60*time.Second {
+						backoffDuration = 60 * time.Second
+					}
+					time.Sleep(backoffDuration)
 				}
 			}
 			if len(job.WritableNodes) > 0 && job.ErrCnt < maxErrors {

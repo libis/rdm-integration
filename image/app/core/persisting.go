@@ -319,11 +319,15 @@ func cleanup(writtenKeys []string) error {
 }
 
 func cleanRedis(writtenKeys []string) {
-	time.Sleep(FileNamesInCacheDuration)
+	// Instead of a fixed 5-minute sleep, use a shorter delay and batch cleanup
+	// This reduces memory usage by cleaning up Redis keys more promptly
+	time.Sleep(30 * time.Second) // Reduced from 5 minutes to 30 seconds
 	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
 	defer cancel()
-	for _, k := range writtenKeys {
-		config.GetRedis().Del(shortContext, k)
+
+	// Batch delete for better performance
+	if len(writtenKeys) > 0 {
+		config.GetRedis().Del(shortContext, writtenKeys...)
 	}
 }
 
