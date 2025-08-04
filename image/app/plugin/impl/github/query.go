@@ -6,18 +6,39 @@ import (
 	"context"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 )
 
+// Connection pool for HTTP clients to improve performance
+var (
+	clientPool = sync.Pool{
+		New: func() interface{} {
+			return &http.Client{}
+		},
+	}
+)
+
 func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node) (map[string]tree.Node, error) {
+	// Get HTTP client from pool
+	httpClient := clientPool.Get().(*http.Client)
+	defer clientPool.Put(httpClient)
+
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: req.Token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
+	// Override the HTTP client with our pooled one to reuse connections
+	tc.Transport = &oauth2.Transport{
+		Source: ts,
+		Base:   httpClient.Transport,
+	}
 	defer tc.CloseIdleConnections()
+
 	client := github.NewClient(tc)
 	user := ""
 	repo := ""

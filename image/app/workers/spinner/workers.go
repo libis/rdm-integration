@@ -16,8 +16,14 @@ import (
 func SpinWorkers(numberWorkers int, queue string) {
 	// start workers in background
 	for i := 0; i < numberWorkers; i++ {
+		// Reduce random sleep time and only apply for multiple workers to avoid thundering herd
 		if numberWorkers > 1 {
-			time.Sleep(time.Duration(rand.Intn(10000/numberWorkers)) * time.Millisecond)
+			// Stagger worker startup with smaller delays
+			maxDelay := 1000 // 1 second max
+			if numberWorkers < 100 {
+				maxDelay = 10000 / numberWorkers // Scale delay based on number of workers
+			}
+			time.Sleep(time.Duration(rand.Intn(maxDelay)) * time.Millisecond)
 		}
 		if queue == "ALL" {
 			core.Wait.Add(1)
