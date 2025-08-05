@@ -13,16 +13,14 @@ RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
 
 # Install packages with better caching
 WORKDIR /app/rdm-integration-frontend-${FRONTEND_VERSION}
-COPY package*.json yarn.lock* ./
 RUN --mount=type=cache,target=/root/.yarn/cache \
-    --mount=type=cache,target=/app/rdm-integration-frontend-${FRONTEND_VERSION}/node_modules \
-    yarn install --network-timeout 300000 --frozen-lockfile --production=true
+    yarn install --network-timeout 300000
 
 # Build
 ARG NODE_ENV=production
 ARG BASE_HREF=/
-RUN --mount=type=cache,target=/app/rdm-integration-frontend-${FRONTEND_VERSION}/node_modules \
-    yarn ng build --configuration=${NODE_ENV} --base-href=${BASE_HREF}
+RUN --mount=type=cache,target=/root/.yarn/cache \
+    yarn run build --configuration=${NODE_ENV} --base-href=${BASE_HREF}
 
 # Customize
 ARG CUSTOMIZATIONS=./conf/kul_customizations
