@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func Query(ctx context.Context, req types.CompareRequest, nm map[string]tree.Node) (map[string]tree.Node, error) {
@@ -65,15 +66,32 @@ func hash(entry Entry, nm map[string]tree.Node, url, token string) (string, int6
 		DocId:        entry.DocId,
 		ReturnFormat: "json",
 	}
-	req, _ := http.NewRequest("POST", url, encode(data))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, encode(data))
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to create request: %w", err)
+	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+
+	resp, err := getHTTPClient().Do(req)
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", 0, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
 	hasher := md5.New()
 	size, err := io.Copy(hasher, resp.Body)
-	return fmt.Sprintf("%x", hasher.Sum(nil)), size, err
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to calculate hash: %w", err)
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)), size, nil
 }

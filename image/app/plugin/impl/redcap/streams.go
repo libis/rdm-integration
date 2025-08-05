@@ -39,9 +39,9 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
-				r, err = http.DefaultClient.Do(request)
+				r, err = getHTTPClient().Do(request)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("HTTP request failed: %w", err)
 				}
 				if r.StatusCode != 200 {
 					b, _ := io.ReadAll(r.Body)
@@ -51,7 +51,10 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 				return r.Body, nil
 			},
 			Close: func() error {
-				return r.Body.Close()
+				if r != nil && r.Body != nil {
+					return r.Body.Close()
+				}
+				return nil
 			},
 		}
 	}

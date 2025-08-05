@@ -11,14 +11,18 @@ ARG FRONTEND_TAR_GZ=https://github.com/libis/rdm-integration-frontend/archive/re
 ADD ${FRONTEND_TAR_GZ} /app/
 RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
 
-# Install packages
+# Install packages with better caching
 WORKDIR /app/rdm-integration-frontend-${FRONTEND_VERSION}
-RUN --mount=type=cache,target=/app/rdm-integration-frontend-${FRONTEND_VERSION}/node_modules yarn install --network-timeout 300000
+COPY package*.json yarn.lock* ./
+RUN --mount=type=cache,target=/root/.yarn/cache \
+    --mount=type=cache,target=/app/rdm-integration-frontend-${FRONTEND_VERSION}/node_modules \
+    yarn install --network-timeout 300000 --frozen-lockfile --production=true
 
 # Build
 ARG NODE_ENV=production
 ARG BASE_HREF=/
-RUN --mount=type=cache,target=/app/rdm-integration-frontend-${FRONTEND_VERSION}/node_modules yarn ng build --configuration=${NODE_ENV} --base-href=${BASE_HREF}
+RUN --mount=type=cache,target=/app/rdm-integration-frontend-${FRONTEND_VERSION}/node_modules \
+    yarn ng build --configuration=${NODE_ENV} --base-href=${BASE_HREF}
 
 # Customize
 ARG CUSTOMIZATIONS=./conf/kul_customizations
@@ -26,21 +30,31 @@ COPY ${CUSTOMIZATIONS} /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/da
 
 FROM golang:alpine AS backend-builder
 
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
 WORKDIR /usr/src/app
 
 # pre-copy/cache go.mod for pre-downloading dependencies and only redownloading them in subsequent builds if they change
 COPY ./image/go.mod ./image/go.sum ./
-RUN go mod download && go mod verify
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download && go mod verify
 
 COPY ./image .
 ARG FRONTEND_VERSION=1.0.5-rc
 COPY --from=frontend-builder /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist ./app/frontend/dist
-RUN go build -ldflags "-s -w" -v -o /usr/local/bin/app ./app
-RUN go build -ldflags "-s -w" -v -o /usr/local/bin/workers ./app/workers
+
+# Build with optimizations
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w -extldflags '-static'" -a -installsuffix cgo -v -o /usr/local/bin/app ./app
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w -extldflags '-static'" -a -installsuffix cgo -v -o /usr/local/bin/workers ./app/workers
 
 FROM quay.io/oauth2-proxy/oauth2-proxy:${OAUTH2_POXY_VERSION}-alpine
 
-RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
+RUN apk update && apk add --no-cache ca-certificates && rm -rf /var/cache/apk/*
 COPY ./image/USERTrust_RSA_Certification_Authority.pem /usr/local/share/ca-certificates/USERTrust_RSA_Certification_Authority.pem
 RUN update-ca-certificates
 

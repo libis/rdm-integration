@@ -71,20 +71,36 @@ func addJob(ctx context.Context, job Job, requireLock bool) error {
 		return nil
 	}
 	if requireLock && !lock(job.PersistentId) {
-		return fmt.Errorf("Job for this dataverse is already in progress")
+		return fmt.Errorf("job for this dataverse is already in progress")
 	}
 	if requireLock {
 		job.Deadline = time.Now().Add(config.LockMaxDuration)
 	}
+
+	// Pre-validate job data before serialization
+	if job.PersistentId == "" {
+		if requireLock {
+			unlock(job.PersistentId)
+		}
+		return fmt.Errorf("persistent ID is required")
+	}
+
 	b, err := json.Marshal(job)
 	if err != nil {
-		return err
+		if requireLock {
+			unlock(job.PersistentId)
+		}
+		return fmt.Errorf("failed to serialize job: %w", err)
 	}
+
 	key := "jobs"
 	if job.Queue != "" {
 		key = job.Queue + " " + key
 	}
 	cmd := config.GetRedis().LPush(ctx, key, string(b))
+	if cmd.Err() != nil && requireLock {
+		unlock(job.PersistentId)
+	}
 	return cmd.Err()
 }
 

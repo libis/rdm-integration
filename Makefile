@@ -31,30 +31,17 @@ push: ## Push Docker image (only in prod stage)
 	fi
 
 solr_latest_config: ## update solr config files with latest version from github
-	wget https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/schema.xml -O conf/solr/schema.xml
-	wget https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/solrconfig.xml -O conf/solr/solrconfig.xml
-	wget https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/update-fields.sh -O dataverse/update-fields.sh
+	@echo "Downloading latest Solr configuration files..."
+	@wget -q --show-progress https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/schema.xml -O conf/solr/schema.xml
+	@wget -q --show-progress https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/solrconfig.xml -O conf/solr/solrconfig.xml
+	@wget -q --show-progress https://raw.githubusercontent.com/IQSS/dataverse/refs/heads/develop/conf/solr/update-fields.sh -O dataverse/update-fields.sh
+	@chmod +x dataverse/update-fields.sh
 
 init: ## initialize docker volumes before running the server locally
+	@echo "Initializing Docker volumes..."
 	docker compose -f docker-compose.yml down || true
 	rm -rf docker-volumes
-	mkdir -p docker-volumes/cache/data
-	mkdir -p docker-volumes/dataverse/data/docroot
-	mkdir -p docker-volumes/dataverse/data/temp
-	mkdir -p docker-volumes/dataverse/data/uploads
-	mkdir -p docker-volumes/dataverse/data/exporters
-	mkdir -p docker-volumes/dataverse/secrets/api
-	mkdir -p docker-volumes/dataverse/conf
-	mkdir -p docker-volumes/integration/aws
-	mkdir -p docker-volumes/integration/conf
-	mkdir -p docker-volumes/integration/data
-	mkdir -p docker-volumes/solr/conf
-	mkdir -p docker-volumes/solr/data
-	mkdir -p docker-volumes/postgresql/data
-	mkdir -p docker-volumes/keycloak/conf
-	mkdir -p docker-volumes/localstack/conf
-	mkdir -p docker-volumes/localstack/data
-	mkdir -p docker-volumes/minio/data/mybucket
+	mkdir -p docker-volumes/{cache/data,dataverse/{data/{docroot,temp,uploads,exporters},secrets/api,conf},integration/{aws,conf,data},solr/{conf,data},postgresql/data,keycloak/conf,localstack/{conf,data},minio/data/mybucket}
 	echo -n 'secret-admin-password' > docker-volumes/dataverse/secrets/password
 	echo -n 'secret-unblock-key' > docker-volumes/dataverse/secrets/api/key
 	echo AWS_ACCESS_KEY_ID=4cc355_k3y > docker-volumes/integration/aws/aws.env
@@ -69,7 +56,7 @@ init: ## initialize docker volumes before running the server locally
 	cp conf/localstack/buckets.sh docker-volumes/localstack/conf/buckets.sh
 	cp conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json
 	docker compose -f docker-compose.yml up -d --build
-	@echo -n "Waiting for Dataverse initialized "
+	@echo -n "Waiting for Dataverse initialization "
 	@while [ ! -f docker-volumes/dataverse/data/initialized ]; do \
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo	' OK.'
@@ -112,4 +99,15 @@ staticcheck: ## staticcheck the go code
 upgrade_dependencies: ## upgrade all go dependencies
 	cd image && go get -u ./app/...
 	cd image && go mod tidy
+
+test: ## Run tests
+	cd image && go test -v ./app/...
+
+benchmark: ## Run benchmarks
+	cd image && go test -bench=. -benchmem ./app/...
+
+coverage: ## Run tests with coverage
+	cd image && go test -coverprofile=coverage.out ./app/...
+	cd image && go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: image/coverage.html"
  

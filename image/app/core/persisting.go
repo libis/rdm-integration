@@ -20,13 +20,20 @@ var deleteAndCleanupCtxDuration = 5 * time.Minute
 func doWork(job Job) (Job, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), job.Deadline)
 	defer cancel()
+
+	// Use a buffered channel for graceful shutdown
+	done := make(chan struct{})
+	defer close(done)
+
 	go func() {
 		select {
 		case <-Stop:
 			cancel()
 		case <-ctx.Done():
+		case <-done:
 		}
 	}()
+
 	if job.Plugin == "hash-only" {
 		return doRehash(ctx, job.DataverseKey, job.User, job.PersistentId, job.WritableNodes, job)
 	}
@@ -319,15 +326,22 @@ func cleanup(writtenKeys []string) error {
 }
 
 func cleanRedis(writtenKeys []string) {
-	// Instead of a fixed 5-minute sleep, use a shorter delay and batch cleanup
-	// This reduces memory usage by cleaning up Redis keys more promptly
-	time.Sleep(30 * time.Second) // Reduced from 5 minutes to 30 seconds
+	// Reduced cleanup delay for better memory management
+	time.Sleep(10 * time.Second) // Reduced from 30 seconds to 10 seconds
 	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
 	defer cancel()
 
-	// Batch delete for better performance
-	if len(writtenKeys) > 0 {
-		config.GetRedis().Del(shortContext, writtenKeys...)
+	// Batch delete with chunking for very large key sets
+	const chunkSize = 100
+	for i := 0; i < len(writtenKeys); i += chunkSize {
+		end := i + chunkSize
+		if end > len(writtenKeys) {
+			end = len(writtenKeys)
+		}
+		chunk := writtenKeys[i:end]
+		if len(chunk) > 0 {
+			config.GetRedis().Del(shortContext, chunk...)
+		}
 	}
 }
 
