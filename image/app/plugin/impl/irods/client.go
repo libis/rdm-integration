@@ -122,8 +122,15 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		// Make a single connection using PAM to retrieve a "native" password with a longer lifetime
 		account.PamTTL = 168 // hours
 
-		conn := connection.NewIRODSConnection(account, time.Minute, "libis-obtain-native-pass")
-		conn.Connect()
+		conn, err := connection.NewIRODSConnection(account, nil)
+		if err != nil {
+			return nil, err
+		}
+		err = conn.Connect()
+		if err != nil {
+			conn.Disconnect()
+			return nil, err
+		}
 		nativePass := conn.GetAccount().PAMToken
 		conn.Disconnect()
 
@@ -132,10 +139,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 		account.AuthenticationScheme = types.AuthSchemeNative
 	}
 
-	sessionConfig := session.NewIRODSSessionConfig(ClientProgramName)
-	sessionConfig.ConnectionLifespan = connectionLifespan
-	sessionConfig.OperationTimeout = connectionLifespan
-	i.Session, err = session.NewIRODSSession(account, sessionConfig)
+	i.Session, err = session.NewIRODSSession(account, nil)
 	if err != nil {
 		return nil, err
 	}

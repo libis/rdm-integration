@@ -11,7 +11,7 @@ import (
 )
 
 func (i *IrodsClient) Checksum(irodsPath string) (string, string, error) {
-	conn, err := i.Session.AcquireConnection()
+	conn, err := i.Session.AcquireConnection(false)
 	if err != nil {
 		return "", "", err
 	}
