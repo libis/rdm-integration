@@ -1,6 +1,6 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-STAGE ?= prod
+STAGE ?= dev
 BUILD_BASE_HREF ?= /integration/
 
 include env.$(STAGE)
@@ -14,7 +14,7 @@ SHELL = /bin/bash
 USER_ID ?= $(shell id -u)
 GROUP_ID ?= $(shell id -g)
 
-build: fmt staticcheck ## Build Docker image
+build: fmt ## Build Docker image
 	docker build \
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
 		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
