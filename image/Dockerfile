@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.yarn/cache \
 
 # Customize
 ARG CUSTOMIZATIONS=./conf/kul_customizations
-COPY ${CUSTOMIZATIONS} /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/
+COPY ${CUSTOMIZATIONS} /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/browser/
 
 FROM golang:alpine AS backend-builder
 
@@ -40,7 +40,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 COPY ./image .
 ARG FRONTEND_VERSION=1.0.5-rc
-COPY --from=frontend-builder /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist ./app/frontend/dist
+COPY --from=frontend-builder /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/browser ./app/frontend/dist/datasync
 
 # Build with optimizations
 RUN --mount=type=cache,target=/go/pkg/mod \
