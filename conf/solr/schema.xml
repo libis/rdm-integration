@@ -157,7 +157,8 @@
     <field name="dvSubject" type="string" stored="true" indexed="true" multiValued="true"/>
 
     <field name="publicationStatus" type="string" stored="true" indexed="true" multiValued="true"/>
-    <field name="externalStatus" type="string" stored="true" indexed="true" multiValued="false"/>
+    <field name="curationStatus" type="string" stored="true" indexed="true" multiValued="false"/>
+    <field name="curationStatusCreateTime" type="pdate" indexed="true" stored="true"/>
     <field name="embargoEndDate" type="plong" stored="true" indexed="true" multiValued="false"/>
     <field name="retentionEndDate" type="plong" stored="true" indexed="true" multiValued="false"/>
 
@@ -206,7 +207,8 @@
     <field name="deaccessionReason" type="string" stored="true" indexed="false" multiValued="false"/>
     <field name="fileRestricted" type="boolean" stored="true" indexed="false" multiValued="false"/>
     <field name="canDownloadFile" type="boolean" stored="true" indexed="false" multiValued="false"/>
-
+    <field name="versionNote" type="string" stored="true" indexed="false" multiValued="false"/>
+    
     <!-- Added for Dataverse 4.0 alpha 1. This is a required field so we don't have to go to the database to get the database id of the entity. On cards we use the id in links -->
     <field name="entityId" type="plong" stored="true" indexed="true" multiValued="false"/>
 
@@ -240,6 +242,7 @@
 
     <field name="license" type="string" stored="true" indexed="true" multiValued="false"/>
     <field name="fileCount" type="plong" stored="true" indexed="true" multiValued="false"/>
+    <field name="datasetCount" type="plong" stored="true" indexed="true" multiValued="false"/>
     
     <!--
         METADATA SCHEMA FIELDS
