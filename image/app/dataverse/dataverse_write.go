@@ -35,7 +35,7 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string, m
 	if len(metadata) == 0 {
 		body = api.CreateDatasetRequestBody(user)
 	} else {
-		metadata["datasetVersion"].(map[string]interface{})["license"], err = getDefaultLicense(ctx, token, userName)
+		metadata["datasetVersion"].(map[string]interface{})["license"], err = getDefaultLicense(ctx, userName, token)
 		if err != nil {
 			return "", err
 		}
