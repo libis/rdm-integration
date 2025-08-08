@@ -33,7 +33,7 @@ func GetUserFromHeader(h http.Header) string {
 		// If Bearer token authentication failed, log the error for debugging
 		// but continue to try other authentication methods
 	}
-	
+
 	// Fall back to Shibboleth header-based authentication
 	hn := "Ajp_uid"
 	if config.GetConfig().Options.UserHeaderName != "" {
