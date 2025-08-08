@@ -15,18 +15,26 @@ import (
 )
 
 func GetUserFromHeader(h http.Header) string {
+	// First, try OIDC Bearer token authentication
 	token := getValueFromHeader(h, "X-Forwarded-Access-Token")
 	if token != "" {
 		client := api.NewClient(config.GetConfig().DataverseServer)
 		header := http.Header{"Authorization": []string{"Bearer " + token}}
 		res := api.User{}
-		api.Do(context.Background(), client.NewRequest("/api/v1/users/:me", "GET", nil, header), &res)
-		if len(res.Data.Identifier) > 1 {
-			return res.Data.Identifier[1:]
-		} else {
-			return ""
+		err := api.Do(context.Background(), client.NewRequest("/api/v1/users/:me", "GET", nil, header), &res)
+		if err == nil && res.Data.Identifier != "" {
+			// Successfully got user identifier from OIDC Bearer token
+			// Remove leading '@' if present (some systems include it)
+			if len(res.Data.Identifier) > 1 && res.Data.Identifier[0] == '@' {
+				return res.Data.Identifier[1:]
+			}
+			return res.Data.Identifier
 		}
+		// If Bearer token authentication failed, log the error for debugging
+		// but continue to try other authentication methods
 	}
+	
+	// Fall back to Shibboleth header-based authentication
 	hn := "Ajp_uid"
 	if config.GetConfig().Options.UserHeaderName != "" {
 		hn = config.GetConfig().Options.UserHeaderName

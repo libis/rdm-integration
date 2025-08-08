@@ -19,3 +19,4 @@ docker-volumes
 *.tar.gz
 *.war
 image/coverage.html
+image/integration-app
