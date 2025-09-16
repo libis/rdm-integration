@@ -87,6 +87,22 @@ dev_up: ## Run the development frontend version locally
 	rm $(FRONTEND_VERSION).tar.gz
 	rm dataverse-$(DATAVERSE_VERSION).war
 
+dev_build: fmt ## Build Docker image using local frontend (like dev_up but only builds; respects STAGE)
+	echo "Building integration frontend..."
+	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz \
+		--prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ \
+		$$(if [[ $$(git stash create) ]]; then git stash create; else git rev-parse HEAD; fi)
+	@echo "Building Docker image (STAGE=$(STAGE)) using local frontend..."
+	docker build \
+		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
+		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
+		--build-arg FRONTEND_VERSION=$(FRONTEND_VERSION) --build-arg FRONTEND_TAR_GZ=$(FRONTEND_VERSION).tar.gz \
+		--build-arg NODE_ENV=$(NODE_ENV) \
+		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
+		--tag "$(IMAGE_TAG)" --file image/Dockerfile .
+	@echo "Cleaning up local frontend archive..."
+	@rm -f $(FRONTEND_VERSION).tar.gz
+
 down: ## Stop the server locally
 	docker compose -f docker-compose.yml down
 
