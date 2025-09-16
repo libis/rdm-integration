@@ -1,0 +1,16 @@
+{
+  "default": true,
+  "MD013": false,
+  "MD034": false,
+  "MD033": false,
+  "MD029": false,
+  "MD007": false,
+  "MD012": false,
+  "MD009": false,
+  "MD010": false,
+  "MD040": false,
+  "MD025": false,
+  "MD022": { "lines_above": 0, "lines_below": 0 },
+  "MD031": false,
+  "MD032": false
+}
