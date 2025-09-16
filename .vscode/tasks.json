@@ -1,0 +1,23 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Prepare PR body file",
+			"type": "shell",
+			"command": "bash -lc 'tmp=$(mktemp); cp .github/pull_request_template.md \"$tmp\"; sed -i \"s#<!-- paste exact prompt or link -->#Bootstrap governance workflows and PR template; normalize uses to local.#\" \"$tmp\"; sed -i \"s#<!-- e.g., GitHub Copilot gpt-5 -->#GitHub Copilot gpt-5#\" \"$tmp\"; sed -i \"s#<!-- UTC ISO-8601, e.g., 2025-09-12T14:23:45Z; NEVER ${...} -->#2025-09-16T10:00:00Z#\" \"$tmp\"; sed -i \"s#<!-- @handle only (no names/emails) -->#@ErykKul#\" \"$tmp\"; sed -i \"s#provider|deployer#deployer#\" \"$tmp\"; sed -i \"s#\\- \\[ \\] No secrets/PII#- [x] No secrets/PII#I\" \"$tmp\"; sed -i \"s#\\- \\[ \\] Agent logging enabled#- [x] Agent logging enabled#I\" \"$tmp\"; sed -i \"s#\\- \\[ \\] Kill-switch / feature flag present#- [x] Kill-switch / feature flag present#I\" \"$tmp\"; sed -i \"s#Risk classification: limited|high#Risk classification: limited#\" \"$tmp\"; sed -i \"s#Personal data: yes|no#Personal data: no#\" \"$tmp\"; sed -i \"s#DPIA: <link or N/A>#DPIA: N/A#\" \"$tmp\"; sed -i \"s#Automated decision-making: yes|no#Automated decision-making: no#\" \"$tmp\"; sed -i \"s#Agent mode used: yes|no#Agent mode used: yes#\" \"$tmp\"; sed -i \"s#\\- \\[ \\] No prohibited practices under EU AI Act#- [x] No prohibited practices under EU AI Act#I\" \"$tmp\"; sed -i \"s#\\- \\[ \\] License/IP attestation#- [x] License/IP attestation#I\" \"$tmp\"; sed -i \"s#Attribution: <link or N/A>#Attribution: N/A#\" \"$tmp\"; sed -i \"s#GPAI obligations: <link or N/A>#GPAI obligations: N/A#\" \"$tmp\"; sed -i \"s#Vendor GPAI compliance reviewed: <link or N/A>#Vendor GPAI compliance reviewed: N/A#\" \"$tmp\"; echo \"$tmp\"'",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Prepare PR body file (safe sed)",
+			"type": "shell",
+			"command": "bash -lc 'tmp=$(mktemp); cp .github/pull_request_template.md \"$tmp\"; perl -0777 -pe \"s/<!-- paste exact prompt or link -->/Bootstrap governance workflows and PR template; normalize uses to local./g; s/<!-- e.g., GitHub Copilot gpt-5 -->/GitHub Copilot gpt-5/g; s/<!-- UTC ISO-8601, e.g., 2025-09-12T14:23:45Z; NEVER \\$\\{\\.\\.\\.\\} -->/2025-09-16T10:00:00Z/g; s/<!-- @handle only (no names\\/emails) -->/@ErykKul/g; s/provider\\|deployer/deployer/g; s/- \\[ \\] No secrets\\/PII/- [x] No secrets\\/PII/ig; s/- \\[ \\] Agent logging enabled/- [x] Agent logging enabled/ig; s/- \\[ \\] Kill-switch \\/ feature flag present/- [x] Kill-switch \\/ feature flag present/ig; s/Risk classification: limited\\|high/Risk classification: limited/g; s/Personal data: yes\\|no/Personal data: no/g; s/DPIA: <link or N\\/A>/DPIA: N\\/A/g; s/Automated decision-making: yes\\|no/Automated decision-making: no/g; s/Agent mode used: yes\\|no/Agent mode used: yes/g; s/- \\[ \\] No prohibited practices under EU AI Act/- [x] No prohibited practices under EU AI Act/ig; s/- \\[ \\] License\\/IP attestation/- [x] License\\/IP attestation/ig; s/Attribution: <link or N\\/A>/Attribution: N\\/A/g; s/GPAI obligations: <link or N\\/A>/GPAI obligations: N\\/A/g; s/Vendor GPAI compliance reviewed: <link or N\\/A>/Vendor GPAI compliance reviewed: N\\/A/g;\" -i \"$tmp\"; echo \"$tmp\"'",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		}
+	]
+}
