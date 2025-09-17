@@ -225,22 +225,30 @@ func annotateSources(res types.Metadata, sourceByField map[string]string) {
 			m["source"] = src
 			// For compound fields, propagate to each nested field object so UI leaf rows can show source, too.
 			if tc, _ := m["typeClass"].(string); tc == "compound" {
-				if vals, ok := m["value"].([]interface{}); ok {
-					for _, entry := range vals {
-						if entryMap, ok := entry.(map[string]interface{}); ok {
-							for _, v := range entryMap {
-								if child, ok := v.(map[string]interface{}); ok {
-									child["source"] = src
-								}
-							}
-						}
-					}
-				}
+				annotateCompoundFieldSources(m, src)
 			}
 		}
 	}
 }
 
+// annotateCompoundFieldSources propagates the source annotation to all nested child fields of a compound field.
+func annotateCompoundFieldSources(field map[string]interface{}, src string) {
+	vals, ok := field["value"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, entry := range vals {
+		entryMap, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for _, v := range entryMap {
+			if child, ok := v.(map[string]interface{}); ok {
+				child["source"] = src
+			}
+		}
+	}
+}
 func mergeMetadata(from, to types.MetadataStruct) types.MetadataStruct {
 	if from.Title != "" {
 		to.Title = jsonEscape(from.Title)
