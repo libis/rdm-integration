@@ -190,7 +190,9 @@ func recordProvenance(dst map[string]string, source string, md types.MetadataStr
 		dst["relatedMaterial"] = source
 	}
 	if len(md.Author) > 0 {
-		dst["author"] = source
+		if _, exists := dst["author"]; !exists {
+			dst["author"] = source
+		}
 	}
 }
 
