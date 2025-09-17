@@ -156,7 +156,9 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		return nil, err
 	}
 	// Add provenance hints for UI (non-breaking for consumers that ignore unknown props)
-	annotateSources(res, sourceByField)
+	// Ensure a default source label is present for all fields that have values
+	// when no specific file-based provenance was detected.
+	annotateSources(res, sourceByField, getMetadataRequest.Plugin)
 	return res, nil
 }
 
@@ -196,8 +198,9 @@ func recordProvenance(dst map[string]string, source string, md types.MetadataStr
 	}
 }
 
-// annotateSources sets a "source" key on top-level citation fields based on collected provenance
-func annotateSources(res types.Metadata, sourceByField map[string]string) {
+// annotateSources sets a "source" key on top-level citation fields based on collected provenance.
+// If a field has no specific provenance recorded, it will be annotated with defaultSource.
+func annotateSources(res types.Metadata, sourceByField map[string]string, defaultSource string) {
 	dv, ok := res["datasetVersion"].(map[string]interface{})
 	if !ok {
 		return
@@ -221,11 +224,17 @@ func annotateSources(res types.Metadata, sourceByField map[string]string) {
 		}
 		tn, _ := m["typeName"].(string)
 		src, exists := sourceByField[tn]
-		if exists && src != "" {
+		switch {
+		case exists && src != "":
 			m["source"] = src
-			// For compound fields, propagate to each nested field object so UI leaf rows can show source, too.
 			if tc, _ := m["typeClass"].(string); tc == "compound" {
 				annotateCompoundFieldSources(m, src)
+			}
+		case defaultSource != "":
+			// No recorded provenance for this field, use the default plugin source.
+			m["source"] = defaultSource
+			if tc, _ := m["typeClass"].(string); tc == "compound" {
+				annotateCompoundFieldSources(m, defaultSource)
 			}
 		}
 	}
