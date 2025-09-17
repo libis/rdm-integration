@@ -85,6 +85,8 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		return nil, err
 	}
 	md := types.MetadataStruct{Author: []types.Author{{AuthorName: jsonEscape(fmt.Sprintf("%v, %v", userObj.Data.LastName, userObj.Data.FirstName))}}}
+	// Collect provenance for each Dataverse citation field populated from repo files
+	sourceByField := map[string]string{}
 
 	nodemap := map[string]tree.Node{}
 	for _, v := range getMetadataRequest.CompareResult.Data {
@@ -107,6 +109,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		if err != nil {
 			return nil, err
 		}
+		// No explicit source label for generic plugin metadata to keep UI focused on file-based provenance
 		md = mergeMetadata(moreMd, md)
 	}
 
@@ -116,6 +119,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		if err != nil {
 			return nil, err
 		}
+		recordProvenance(sourceByField, "ro-crate.json", moreMd)
 		md = mergeMetadata(moreMd, md)
 	}
 
@@ -125,6 +129,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		if err != nil {
 			return nil, err
 		}
+		recordProvenance(sourceByField, "codemeta.json", moreMd)
 		md = mergeMetadata(moreMd, md)
 	}
 
@@ -134,6 +139,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		if err != nil {
 			return nil, err
 		}
+		recordProvenance(sourceByField, "CITATION.cff", moreMd)
 		md = mergeMetadata(moreMd, md)
 	}
 
@@ -149,9 +155,100 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	if err != nil {
 		return nil, err
 	}
+	// Add provenance hints for UI (non-breaking for consumers that ignore unknown props)
+	annotateSources(res, sourceByField)
 	return res, nil
 }
 
+// recordProvenance records which file populated which Dataverse field(s)
+func recordProvenance(dst map[string]string, source string, md types.MetadataStruct) {
+	if md.Title != "" {
+		dst["title"] = source
+	}
+	if len(md.AlternativeTitle) > 0 {
+		dst["alternativeTitle"] = source
+	}
+	if len(md.AlternativeURL) > 0 {
+		dst["alternativeURL"] = source
+	}
+	if len(md.OtherId) > 0 {
+		dst["otherId"] = source
+	}
+	if len(md.DsDescription) > 0 {
+		dst["dsDescription"] = source
+	}
+	if len(md.Keyword) > 0 {
+		dst["keyword"] = source
+	}
+	if len(md.ContributorName) > 0 {
+		dst["contributor"] = source
+	}
+	if len(md.GrantNumber) > 0 {
+		dst["grantNumber"] = source
+	}
+	if len(md.RelatedMaterialCitation) > 0 {
+		dst["relatedMaterial"] = source
+	}
+	if len(md.Author) > 0 {
+		if _, exists := dst["author"]; !exists {
+			dst["author"] = source
+		}
+	}
+}
+
+// annotateSources sets a "source" key on top-level citation fields based on collected provenance
+func annotateSources(res types.Metadata, sourceByField map[string]string) {
+	dv, ok := res["datasetVersion"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	mbs, ok := dv["metadataBlocks"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	cit, ok := mbs["citation"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	fields, ok := cit["fields"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, f := range fields {
+		m, ok := f.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		tn, _ := m["typeName"].(string)
+		src, exists := sourceByField[tn]
+		if exists && src != "" {
+			m["source"] = src
+			// For compound fields, propagate to each nested field object so UI leaf rows can show source, too.
+			if tc, _ := m["typeClass"].(string); tc == "compound" {
+				annotateCompoundFieldSources(m, src)
+			}
+		}
+	}
+}
+
+// annotateCompoundFieldSources propagates the source annotation to all nested child fields of a compound field.
+func annotateCompoundFieldSources(field map[string]interface{}, src string) {
+	vals, ok := field["value"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, entry := range vals {
+		entryMap, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for _, v := range entryMap {
+			if child, ok := v.(map[string]interface{}); ok {
+				child["source"] = src
+			}
+		}
+	}
+}
 func mergeMetadata(from, to types.MetadataStruct) types.MetadataStruct {
 	if from.Title != "" {
 		to.Title = jsonEscape(from.Title)
