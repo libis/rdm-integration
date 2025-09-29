@@ -1,5 +1,5 @@
 ## General Remarks
-- **Action Point:**[] Add “integration dashboard” under edit dataset button as external tool
+- **Action Point:** [ ] Add “integration dashboard” under edit dataset button as external tool
 - Non-allowed characters => it can be confusing if you don’t know which characters are not allowed.
     - **Action Point:**[] Explore provide a warning beforehand somewhere or a clearer warning with specifically what the issue is. Split which files exceed the file size limit & which files contain unsupported characters (give list of what characters are or aren’t supported).
 - When you add files to an existing dataset, you get the option to upload files via Globus transfer. However, the button redirects to the integration dashboard (with Globus preselected, but not clear).
