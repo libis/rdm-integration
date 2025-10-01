@@ -30,9 +30,9 @@
 ## Second Screen (Overview of Actions)
 
 - When clicking on Return I would expect to go back to my previous selection. Instead, the whole folder is shown without any files being selected. Use case: if you forgot to select only one file you have to go over the whole process again.
-    - [ ] **Action Point:** Is it possible to copy the previous selection back into the file selection page?
+    - [x] **Action Point:** Is it possible to copy the previous selection back into the file selection page?
 - Show a ‘transfer completed’ message? Otherwise, you only get one if you tick the checkbox to receive an email.
-    - [ ] **Action Point:** Add a progress bar with file count (not looking at file size)
-    - [ ] **Action Point:** For Globus: Have it say “Transfer submitted in Globus, progress can be checked in the dataset page”.
+    - [x] **Action Point:** Add a progress bar with file count (not looking at file size)
+    - [x] **Action Point:** For Globus: Have it say “Transfer submitted in Globus, progress can be checked in the dataset page”.
     - For Globus: you get a checkmark when the file has been submitted, not indicating that the transfer is complete --> maybe indicate this more clearly.
-        - [ ] **Action Point:** Also not getting the pop-up about the email?
+        - [x] **Action Point:** Also not getting the pop-up about the email?
