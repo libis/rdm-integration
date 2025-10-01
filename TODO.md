@@ -3,11 +3,11 @@
 - Non-allowed characters => it can be confusing if you don’t know which characters are not allowed.
     - [x] **Action Point:** Explore provide a warning beforehand somewhere or a clearer warning with specifically what the issue is. Split which files exceed the file size limit & which files contain unsupported characters (give list of what characters are or aren’t supported).
 - When you add files to an existing dataset, you get the option to upload files via Globus transfer. However, the button redirects to the integration dashboard (with Globus preselected, but not clear).
-    - [ ] **Action Point:** Suggestion: rename button to “Upload from other source” & guidance to “Upload files and folder structures from SharePoint, ManGO, Globus, GitHub etc. using integration dashboard. This method is recommended for large file transfers and complex folder structures. (Using it will cancel any other types of uploads in progress on this page.)”
+    - [x] **Action Point:** Suggestion: rename button to “Upload from other source” & guidance to “Upload files and folder structures from SharePoint, ManGO, Globus, GitHub etc. using integration dashboard. This method is recommended for large file transfers and complex folder structures. (Using it will cancel any other types of uploads in progress on this page.)”
 - After clicking on Authorize to select your source, it is not immediately clear that you have to expand the data/code source again (even if you have selected your source previously)
     - [ ] **Action Point:** It should be uncollapsed after an authorization. Or both expanded to start with. Maybe option to collapse isn’t necessary, though then there is a hover message necessary to indicate what’s missing when someone tries to got to the “connect & compare” button.
-    - [ ] **Action Point:** Also; collapse or uncollapse shouldn’t give the circle animation.
-- (on production as well): GitHub authorize doesn’t work (22.09.2025)
+    - [x] **Action Point:** Also; collapse or uncollapse shouldn’t give the circle animation.
+- (on production as well): GitHub authorize doesn’t work (22.09.2025) -> fixed
 
 ## First Screen
 
