@@ -19,7 +19,14 @@ type CompareResponse struct {
 	Data        []tree.Node `json:"data"`
 	Url         string      `json:"url"`
 	MaxFileSize int64       `json:"maxFileSize,omitempty"`
-	Rejected    []string    `json:"rejected,omitempty"`
+	// RejectedSize: files excluded because they exceed the maximum file size
+	RejectedSize []string `json:"rejectedSize,omitempty"`
+	// RejectedName: files excluded because their name or path contains unsupported characters
+	RejectedName []string `json:"rejectedName,omitempty"`
+	// AllowedFileNamePattern: regex pattern describing allowed file name characters
+	AllowedFileNamePattern string `json:"allowedFileNamePattern,omitempty"`
+	// AllowedFolderPathPattern: regex pattern describing allowed folder path characters
+	AllowedFolderPathPattern string `json:"allowedFolderPathPattern,omitempty"`
 }
 
 func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {

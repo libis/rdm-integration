@@ -23,8 +23,14 @@ import (
 	"github.com/google/uuid"
 )
 
-var fileNameR, _ = regexp.Compile(`^[^:<>;#"\/\*\|\?\\]*$`)
-var folderNameR, _ = regexp.Compile(`^[a-zA-Z0-9_\.\/\- \\]*$`)
+// NOTE: Keep these patterns in sync with frontend documentation (exposed via API response)
+// Simplified equivalent of the previous pattern (removed redundant escapes & duplicate backslash)
+// Disallowed chars: : < > ; # " / | ? * \
+var fileNameR, _ = regexp.Compile(`^[^:<>;#"/|?*\\]*$`)
+
+// Allowed folder path chars: letters, digits, underscore, dot, slash, backslash, space, hyphen
+// (hyphen placed at end of class to avoid needing escape)
+var folderNameR, _ = regexp.Compile(`^[A-Za-z0-9_. /\\-]*$`)
 
 func Compare(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
@@ -104,15 +110,16 @@ func doCompare(req types.CompareRequest, key, user string) {
 		logging.Logger.Println("plugin query failed")
 		return
 	}
-	rejected := []string{}
+	rejectedSize := []string{}
+	rejectedName := []string{}
 	maxFileSize := config.GetMaxFileSize()
 	for k, v := range repoNm {
 		if maxFileSize > 0 && v.Attributes.RemoteFileSize > maxFileSize {
 			delete(repoNm, k)
-			rejected = append(rejected, v.Id)
+			rejectedSize = append(rejectedSize, v.Id)
 		} else if !fileNameR.MatchString(v.Name) || !folderNameR.MatchString(v.Path) {
 			delete(repoNm, k)
-			rejected = append(rejected, v.Id)
+			rejectedName = append(rejectedName, v.Id)
 		} else if len(strings.TrimSpace(v.Name)) == 0 {
 			delete(repoNm, k)
 		}
@@ -124,6 +131,9 @@ func doCompare(req types.CompareRequest, key, user string) {
 
 	cachedRes.Response = res
 	cachedRes.Response.MaxFileSize = maxFileSize
-	cachedRes.Response.Rejected = rejected
+	cachedRes.Response.RejectedSize = rejectedSize
+	cachedRes.Response.RejectedName = rejectedName
+	cachedRes.Response.AllowedFileNamePattern = fileNameR.String()
+	cachedRes.Response.AllowedFolderPathPattern = folderNameR.String()
 	common.CacheResponse(cachedRes)
 }

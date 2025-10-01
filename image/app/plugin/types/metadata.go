@@ -53,5 +53,8 @@ type CompareResponse struct {
 	Data        []tree.Node `json:"data"`
 	Url         string      `json:"url"`
 	MaxFileSize int64       `json:"maxFileSize,omitempty"`
-	Rejected    []string    `json:"rejected,omitempty"`
+	RejectedSize []string `json:"rejectedSize,omitempty"`
+	RejectedName []string `json:"rejectedName,omitempty"`
+	AllowedFileNamePattern string `json:"allowedFileNamePattern,omitempty"`
+	AllowedFolderPathPattern string `json:"allowedFolderPathPattern,omitempty"`
 }
