@@ -48,13 +48,13 @@ type GetMetadataRequest struct {
 }
 
 type CompareResponse struct {
-	Id          string      `json:"id"`
-	Status      int         `json:"status"`
-	Data        []tree.Node `json:"data"`
-	Url         string      `json:"url"`
-	MaxFileSize int64       `json:"maxFileSize,omitempty"`
-	RejectedSize []string `json:"rejectedSize,omitempty"`
-	RejectedName []string `json:"rejectedName,omitempty"`
-	AllowedFileNamePattern string `json:"allowedFileNamePattern,omitempty"`
-	AllowedFolderPathPattern string `json:"allowedFolderPathPattern,omitempty"`
+	Id                       string      `json:"id"`
+	Status                   int         `json:"status"`
+	Data                     []tree.Node `json:"data"`
+	Url                      string      `json:"url"`
+	MaxFileSize              int64       `json:"maxFileSize,omitempty"`
+	RejectedSize             []string    `json:"rejectedSize,omitempty"`
+	RejectedName             []string    `json:"rejectedName,omitempty"`
+	AllowedFileNamePattern   string      `json:"allowedFileNamePattern,omitempty"`
+	AllowedFolderPathPattern string      `json:"allowedFolderPathPattern,omitempty"`
 }
