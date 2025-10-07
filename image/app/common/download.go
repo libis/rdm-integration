@@ -56,11 +56,49 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		w.Write(fmt.Appendf(nil, "500 - %v", err))
 		return
 	}
-	resBytes, err := json.Marshal(res)
+	type downloadResponse struct {
+		TaskId     string `json:"taskId"`
+		MonitorUrl string `json:"monitorUrl,omitempty"`
+	}
+	response := downloadResponse{TaskId: res}
+	if res != "" {
+		response.MonitorUrl = globus.TaskActivityURL(res)
+	}
+	resBytes, err := json.Marshal(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(fmt.Appendf(nil, "500 - %v", err))
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resBytes)
+}
+
+func DownloadStatus(w http.ResponseWriter, r *http.Request) {
+	if !config.RedisReady(r.Context()) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - cache not ready"))
+		return
+	}
+	taskId := r.URL.Query().Get("taskId")
+	if taskId == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - taskId is required"))
+		return
+	}
+	sessionId := core.GetSessionId(r.Header)
+	token := oauth.GetTokenFromCache(r.Context(), "", sessionId, "globus")
+	if token == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("401 - globus session expired"))
+		return
+	}
+	resBytes, err := globus.GetTaskStatus(r.Context(), token, taskId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(fmt.Appendf(nil, "500 - %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(resBytes)
 }

@@ -50,6 +50,7 @@ type OptionalConfig struct {
 	ComputationQueues            []Queue       `json:"computationQueues"`
 	ComputationAccessEndpoint    string        `json:"computationAccessEndpoint"`
 	ComputationAccessConfig      []QueueAccess `json:"computationAccessConfig"`
+	GlobusWebAppUrl              string        `json:"globusWebAppUrl,omitempty"`
 }
 
 type QueueAccess struct {
@@ -245,6 +246,13 @@ func GetExternalDestinationURL() string {
 		return config.Options.DataverseExternalUrl
 	}
 	return config.DataverseServer
+}
+
+func GetGlobusWebAppUrl() string {
+	if config.Options.GlobusWebAppUrl != "" {
+		return strings.TrimSuffix(config.Options.GlobusWebAppUrl, "/")
+	}
+	return "https://app.globus.org/activity"
 }
 
 func GetComputationQueues() []Queue {

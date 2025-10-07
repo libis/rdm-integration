@@ -36,6 +36,7 @@
                 "userEmail": "rdrResearcher@kuleuven.be",
                 "queue": ["default", "r"]
             }
-        ]
+        ],
+        "globusWebAppUrl": "https://app.globus.org/activity"
     }
 }
