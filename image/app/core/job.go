@@ -30,6 +30,7 @@ type Job struct {
 	SendEmailOnSuccess bool
 	Key                string
 	Queue              string
+	GlobusTaskId       string
 }
 
 var Stop = make(chan struct{})
@@ -143,7 +144,7 @@ func ProcessJobs(queue string) {
 			if job.Plugin == "compute" {
 				job, err = compute(job)
 			} else {
-				job, err = doWork(job)
+				job, err = DoWork(job)
 			}
 			if err != nil {
 				job.ErrCnt = job.ErrCnt + 1

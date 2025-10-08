@@ -4,7 +4,7 @@
 @org_repo: https://github.com/libis/ai-transition
 @version: 0.6.0
 @workflows_source_api: https://api.github.com/repos/libis/ai-transition/contents/.github?ref=main
-@last_context_update: 2025-09-12T16:28:00Z
+@last_context_update: 2025-10-08T00:00:00Z
 @last_github_sync: 1970-01-01T00:00:00Z
 @upstream_ref: main
 @suggestions_enabled: true
@@ -35,6 +35,7 @@ Important: Act only after the user invokes these commands. Before making changes
 
 - Goal: Check if this context and .github are up to date.
 - Steps:
+
   - Compare this file’s @version/@last_context_update to upstream at @template_source.
   - For .github, compare local files to upstream names and checksums using the Content API `sha` fields.
   - Summarize:
@@ -50,6 +51,7 @@ Important: Act only after the user invokes these commands. Before making changes
 
 - Goal: Sync .github from the upstream project, preserving local customizations.
 - Steps:
+
   - Show planned adds/modifies/removes for .github.
   - For modified files, show a 3-way diff proposal.
   - After confirmation, apply changes, update .github/ai-transition-sync.json and @last_github_sync.
@@ -61,6 +63,7 @@ Important: Act only after the user invokes these commands. Before making changes
 
 - Goal: Add AI-Assistance provenance to the PR body.
 - Insert if missing:
+
   - AI-Assistance Provenance
 
     - Prompt: <summary or link>
@@ -82,40 +85,47 @@ Important: Act only after the user invokes these commands. Before making changes
   - reviewers (array of handles), optional
   - body_append (string), optional extra notes (e.g., provenance)
 - Steps:
+
   1. Verify prerequisites:
+
   - Ensure Git is initialized and remote origin exists.
   - Ensure GitHub CLI is installed and authenticated: `gh auth status`.
+
   2. Branch & commit:
+
   - Create/switch: `git checkout -b <branch>`.
   - Stage: `git add -A`.
   - Commit: `git commit -m "<title>"` (add a second -m with a short summary if useful).
   - Push: `git push -u origin <branch>`.
+
   3. Prepare body:
 
-    - Always build the PR body from `.github/pull_request_template.md` and FILL IT IN-PLACE. Do not append a second provenance block.
-    - Steps:
-      - Copy the template to a temp file.
-      - Replace placeholders with real values (or N/A where allowed) directly in the existing sections:
-        - AI Provenance: Prompt, Model, Date (UTC ISO-8601 Z), Author, Role (provider|deployer)
-        - Compliance checklist: set required checkboxes, risk classification, personal data, ADM, agent mode, vendor GPAI (if deployer), attribution
-        - Change-type specifics: add only relevant lines; remove optional placeholders that don’t apply
-        - Tests & Risk: add rollback plan, smoke link if high-risk
-      - Ensure only one `- Date:` line exists and it contains a real timestamp; remove inline hints if needed.
-    - Pre-flight validation (local):
-      - Confirm these patterns exist in the body:
-        - Prompt:, Model:, Date: 20..-..-..T..:..:..Z, Author:
-        - Role: (provider|deployer)
-        - [x] No secrets/PII, [x] Agent logging enabled, [x] Kill-switch / feature flag present, [x] No prohibited practices
-        - Risk classification: (limited|high), Personal data: (yes|no), Automated decision-making: (yes|no), Agent mode used: (yes|no)
-        - If Role=deployer → Vendor GPAI compliance reviewed: (https://…|N/A)
-      - No `<…>` or `${…}` placeholders remain.
-    - Optionally append `body_append` at the end for extra notes (avoid duplicating provenance).
+  - Always build the PR body from `.github/pull_request_template.md` and FILL IT IN-PLACE. Do not append a second provenance block.
+  - Steps:
+    - Copy the template to a temp file.
+    - Replace placeholders with real values (or N/A where allowed) directly in the existing sections:
+      - AI Provenance: Prompt, Model, Date (UTC ISO-8601 Z), Author, Role (provider|deployer)
+      - Compliance checklist: set required checkboxes, risk classification, personal data, ADM, agent mode, vendor GPAI (if deployer), attribution
+      - Change-type specifics: add only relevant lines; remove optional placeholders that don’t apply
+      - Tests & Risk: add rollback plan, smoke link if high-risk
+    - Ensure only one `- Date:` line exists and it contains a real timestamp; remove inline hints if needed.
+  - Pre-flight validation (local):
+    - Confirm these patterns exist in the body:
+      - Prompt:, Model:, Date: 20..-..-..T..:..:..Z, Author:
+      - Role: (provider|deployer)
+      - [x] No secrets/PII, [x] Agent logging enabled, [x] Kill-switch / feature flag present, [x] No prohibited practices
+      - Risk classification: (limited|high), Personal data: (yes|no), Automated decision-making: (yes|no), Agent mode used: (yes|no)
+      - If Role=deployer → Vendor GPAI compliance reviewed: (https://…|N/A)
+    - No `<…>` or `${…}` placeholders remain.
+  - Optionally append `body_append` at the end for extra notes (avoid duplicating provenance).
 
   4. Create PR:
+
   - Detect base branch (prefer repo default); fallback to `main`.
   - Run: `gh pr create -B <base> -H <branch> --title "<title>" --body-file <temp_body_path> --draft`
   - Add labels inline: `--label ai --label governance` (plus any provided).
   - Add reviewers if provided: `--reviewer user1 --reviewer user2`.
+
   5. Output PR URL and short summary of changes.
 
      Notes:
@@ -146,12 +156,10 @@ Important: Act only after the user invokes these commands. Before making changes
   - Example:
 
     ```json
-
     {
       "suggestions_enabled": false,
       "user": { "name": "<name>", "email": "<email>" }
     }
-
     ```
 
   - When false, do not surface proactive suggestions; act only on explicit commands.
@@ -185,6 +193,7 @@ If any expected file is absent upstream when bootstrapping, warn and proceed wit
 - PR hygiene: always include Provenance (Prompt/Model/Date/Author); labels ai/governance; default to draft PRs.
 - Quality gates: when code/workflows change, run a fast lint/test and report PASS/FAIL succinctly.
 - Suggestions policy: suggest updates only after “read context”; users can opt out via `.ai/context.local.json`.
+- **Credential handling guardrail:** Frontend `credentials.token` is _not_ an OAuth access token. For OAuth flows (e.g., Globus) it carries the opaque session ID needed by the backend to fetch/refresh tokens from Redis. Never expose or persist real OAuth access/refresh tokens client-side; only API tokens supplied manually by users may live in the browser.
 
 ### Context recall protocol
 
@@ -246,7 +255,7 @@ Golden scaffold (fill exactly; replace all <…> with a concrete value or N/A):
 - Prompt: <paste exact prompt or link to prompt file/snippet>
 - Model: <e.g., GitHub Copilot gpt-5>
 - Date: <UTC ISO-8601, e.g., 2025-09-12T14:23:45Z>
-- Author: @<github-handle>  // Do NOT include names or emails
+- Author: @<github-handle> // Do NOT include names or emails
 - Role: provider|deployer (choose one)
 - Vendor GPAI compliance reviewed: <https://… or N/A> (required if Role=deployer)
 - [ ] No secrets/PII
@@ -294,6 +303,7 @@ Two minimal examples
 Note: Examples must avoid PII; use `@<github-handle>` only for attribution.
 
 - Limited, non-UI backend change
+
   - Prompt: “Refactor YAML linter invocation to use pinned version; add smoke test.”
   - Model: GitHub Copilot gpt-5
   - Date: 2025-09-12T10:21:36Z
@@ -315,6 +325,7 @@ Note: Examples must avoid PII; use `@<github-handle>` only for attribution.
   - Attribution: N/A
 
 - High risk, UI changed, ADM yes
+
   - Prompt: “Add user-facing agent output; update transparency; link oversight and smoke.”
   - Model: GitHub Copilot gpt-5
   - Date: 2025-09-12T10:45:03Z
@@ -441,7 +452,6 @@ Note: Examples must avoid PII; use `@<github-handle>` only for attribution.
 ## State (maintained by agent)
 
 ```json
-
 {
   "template_source": "https://github.com/libis/ai-transition/blob/main/templates/pilot-starter/ai-context.md",
   "template_version": "0.6.0",
@@ -451,7 +461,6 @@ Note: Examples must avoid PII; use `@<github-handle>` only for attribution.
   "upstream_ref": "main",
   "upstream_commit": "unknown"
 }
-
 ```
 
 Notes for maintainers

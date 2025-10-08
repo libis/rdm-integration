@@ -11,13 +11,14 @@ import (
 	"integration/app/plugin/funcs/stream"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"strings"
 	"time"
 )
 
 var FileNamesInCacheDuration = 5 * time.Minute
 var deleteAndCleanupCtxDuration = 5 * time.Minute
 
-func doWork(job Job) (Job, error) {
+func DoWork(job Job) (Job, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), job.Deadline)
 	defer cancel()
 
@@ -59,12 +60,23 @@ func doWork(job Job) (Job, error) {
 	if err != nil {
 		return job, err
 	}
-	if streams.Cleanup != nil {
-		defer streams.Cleanup()
-	}
 	j, err := doPersistNodeMap(ctx, streams.Streams, job, knownHashes)
 	if err != nil {
+		if streams.Cleanup != nil {
+			if cleanupErr := streams.Cleanup(); cleanupErr != nil {
+				logging.Logger.Println("cleanup failed:", cleanupErr)
+			}
+		}
 		return j, err
+	}
+	if streams.Cleanup != nil {
+		if cleanupErr := streams.Cleanup(); cleanupErr != nil {
+			if job.Plugin == "globus" && strings.HasPrefix(cleanupErr.Error(), "globus transfer started, task ID: ") {
+				j.GlobusTaskId = strings.TrimPrefix(cleanupErr.Error(), "globus transfer started, task ID: ")
+			} else {
+				return j, cleanupErr
+			}
+		}
 	}
 	return j, sendJobSuccessMail(j)
 }

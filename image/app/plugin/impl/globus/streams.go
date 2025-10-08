@@ -99,27 +99,29 @@ func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams)
 		return types.StreamsType{}, fmt.Errorf("globus streams: missing parameters")
 	}
 	return types.StreamsType{Streams: nil, Cleanup: func() error {
-		err := doTransfer(ctx, pluginId, sessionId, token, repoName, option, pId, dvToken, user, in)
+		taskID, err := doTransfer(ctx, pluginId, sessionId, token, repoName, option, pId, dvToken, user, in)
 		if err != nil {
 			logging.Logger.Println("globus transfer failed: " + err.Error())
+		} else if taskID != "" {
+			err = fmt.Errorf("globus transfer started, task ID: %s", taskID)
 		}
 		return err
 	}}, nil
 }
 
-func doTransfer(ctx context.Context, pluginId, sessionId, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) error {
+func doTransfer(ctx context.Context, pluginId, sessionId, token, repoName, option, pId, dvToken, user string, in map[string]tree.Node) (string, error) {
 	destinationEndpoint := getGlobusEndpoint()
 	prinicpal, err := getPrincipal(ctx, pluginId, sessionId)
 	if err != nil {
-		return err
+		return "", err
 	}
 	paths, err := RequestGlobusUploadPaths(ctx, pId, dvToken, user, prinicpal, len(in))
 	if err != nil {
-		return err
+		return "", err
 	}
 	submissionId, err := getSubmissionId(ctx, token)
 	if err != nil {
-		return err
+		return "", err
 	}
 	transferRequest := TransferRequest{
 		DataType:            "transfer",
@@ -155,10 +157,10 @@ func doTransfer(ctx context.Context, pluginId, sessionId, token, repoName, optio
 	}
 	taskId, err := transfer(ctx, token, transferRequest)
 	if err != nil {
-		return err
+		return "", err
 	}
 	addGlobusFilesRequest.TaskIdentifier = taskId
-	return addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
+	return taskId, addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
 }
 
 func getPrincipal(ctx context.Context, pluginId, sessionId string) (string, error) {

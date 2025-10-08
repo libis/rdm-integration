@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/plugin/impl/globus"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
@@ -16,6 +17,8 @@ import (
 type StoreResult struct {
 	Status     string `json:"status"`
 	DatasetUrl string `json:"datasetUrl"`
+	TaskId     string `json:"taskId"`
+	MonitorUrl string `json:"monitorUrl"`
 }
 
 type StoreRequest struct {
@@ -57,7 +60,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	if req.StreamParams.User == "" {
 		req.StreamParams.User = user
 	}
-	err = core.AddJob(r.Context(), core.Job{
+	job := core.Job{
 		DataverseKey:       req.DataverseKey,
 		User:               user,
 		SessionId:          req.StreamParams.Token,
@@ -66,15 +69,27 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		Plugin:             req.Plugin,
 		StreamParams:       req.StreamParams,
 		SendEmailOnSuccess: req.SendEmailOnSuccess,
-	})
+	}
+	if req.Plugin == "globus" {
+		job, err = core.DoWork(job)
+	} else {
+		err = core.AddJob(r.Context(), job)
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return
 	}
+	monitorUrl := ""
+	if job.GlobusTaskId != "" {
+		monitorUrl = globus.TaskActivityURL(job.GlobusTaskId)
+	}
+
 	res := StoreResult{
 		Status:     "OK",
 		DatasetUrl: core.Destination.GetRepoUrl(req.PersistentId, true),
+		TaskId:     job.GlobusTaskId,
+		MonitorUrl: monitorUrl,
 	}
 	b, err = json.Marshal(res)
 	if err != nil {
