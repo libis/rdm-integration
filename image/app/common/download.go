@@ -74,7 +74,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	w.Write(resBytes)
 }
 
-func DownloadStatus(w http.ResponseWriter, r *http.Request) {
+func GlobusTransferStatus(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - cache not ready"))

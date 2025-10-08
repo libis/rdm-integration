@@ -15,10 +15,10 @@ import (
 )
 
 type StoreResult struct {
-	Status     string `json:"status"`
-	DatasetUrl string `json:"datasetUrl"`
-	TaskId     string `json:"taskId"`
-	MonitorUrl string `json:"monitorUrl"`
+	Status                   string `json:"status"`
+	DatasetUrl               string `json:"datasetUrl"`
+	GlobusTransferTaskId     string `json:"globusTransferTaskId"`
+	GlobusTransferMonitorUrl string `json:"globusTransferMonitorUrl"`
 }
 
 type StoreRequest struct {
@@ -86,10 +86,10 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := StoreResult{
-		Status:     "OK",
-		DatasetUrl: core.Destination.GetRepoUrl(req.PersistentId, true),
-		TaskId:     job.GlobusTaskId,
-		MonitorUrl: monitorUrl,
+		Status:                   "OK",
+		DatasetUrl:               core.Destination.GetRepoUrl(req.PersistentId, true),
+		GlobusTransferTaskId:     job.GlobusTaskId,
+		GlobusTransferMonitorUrl: monitorUrl,
 	}
 	b, err = json.Marshal(res)
 	if err != nil {
