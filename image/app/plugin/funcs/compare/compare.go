@@ -23,14 +23,54 @@ import (
 	"github.com/google/uuid"
 )
 
-// NOTE: Keep these patterns in sync with frontend documentation (exposed via API response)
+// NOTE: Keep the regexes AND the human-readable strings in sync.
+// Whenever you change the regex or add an extra rule, update both the compiled pattern
+// and the string returned to the client (search for buildAllowed*Description helpers).
 // Simplified equivalent of the previous pattern (removed redundant escapes & duplicate backslash)
 // Disallowed chars: : < > ; # " / | ? * \
-var fileNameR, _ = regexp.Compile(`^[^:<>;#"/|?*\\]*$`)
+var (
+	fileNameR, _                    = regexp.Compile(`^[^:<>;#"/|?*\\]*$`)
+	folderNameR, _                  = regexp.Compile(`^[A-Za-z0-9_. /\\-]*$`)
+	disallowedFileNameChars         = []string{":", "<", ">", ";", "#", "\"", "/", "|", "?", "*", "\\"}
+	disallowedFolderPathPrefixes    = []string{".", "-", "/"}
+	allowedFolderPathCharSummary    = "letters, digits, spaces, underscores (_), hyphens (-), dots (.), forward slashes (/), or backslashes (\\)"
+	fileNameRuleDescriptionCached   = buildAllowedFileNameDescription()
+	folderPathRuleDescriptionCached = buildAllowedFolderPathDescription()
+)
 
-// Allowed folder path chars: letters, digits, underscore, dot, slash, backslash, space, hyphen
-// (hyphen placed at end of class to avoid needing escape)
-var folderNameR, _ = regexp.Compile(`^[A-Za-z0-9_. /\\-]*$`)
+func buildAllowedFileNameDescription() string {
+	return fmt.Sprintf("Cannot contain any of: %s", strings.Join(disallowedFileNameChars, ", "))
+}
+
+func buildAllowedFolderPathDescription() string {
+	return fmt.Sprintf("Allowed characters: %s. Must not start with %s.", allowedFolderPathCharSummary, humanizeQuotedList(disallowedFolderPathPrefixes))
+}
+
+func humanizeQuotedList(items []string) string {
+	quoted := make([]string, 0, len(items))
+	for _, item := range items {
+		quoted = append(quoted, fmt.Sprintf("\"%s\"", item))
+	}
+	if len(quoted) == 0 {
+		return ""
+	}
+	if len(quoted) == 1 {
+		return quoted[0]
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + ", or " + quoted[len(quoted)-1]
+}
+
+func isFolderPathAllowed(path string) bool {
+	if len(path) == 0 {
+		return true
+	}
+	for _, prefix := range disallowedFolderPathPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return false
+		}
+	}
+	return folderNameR.MatchString(path)
+}
 
 func Compare(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
@@ -117,7 +157,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 		if maxFileSize > 0 && v.Attributes.RemoteFileSize > maxFileSize {
 			delete(repoNm, k)
 			rejectedSize = append(rejectedSize, v.Id)
-		} else if !fileNameR.MatchString(v.Name) || !folderNameR.MatchString(v.Path) {
+		} else if !fileNameR.MatchString(v.Name) || !isFolderPathAllowed(v.Path) {
 			delete(repoNm, k)
 			rejectedName = append(rejectedName, v.Id)
 		} else if len(strings.TrimSpace(v.Name)) == 0 {
@@ -133,7 +173,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	cachedRes.Response.MaxFileSize = maxFileSize
 	cachedRes.Response.RejectedSize = rejectedSize
 	cachedRes.Response.RejectedName = rejectedName
-	cachedRes.Response.AllowedFileNamePattern = fileNameR.String()
-	cachedRes.Response.AllowedFolderPathPattern = folderNameR.String()
+	cachedRes.Response.AllowedFileNamePattern = fileNameRuleDescriptionCached
+	cachedRes.Response.AllowedFolderPathPattern = folderPathRuleDescriptionCached
 	common.CacheResponse(cachedRes)
 }
