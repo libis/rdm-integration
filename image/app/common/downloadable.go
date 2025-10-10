@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/dataverse"
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"strings"
 )
 
 func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
@@ -36,10 +38,28 @@ func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 
 	//get files and write response
 	user := core.GetUserFromHeader(r.Header)
-	nm, err := core.Destination.Query(r.Context(), req.PersistentId, req.DataverseKey, user)
+	nm, hasRestricted, hasEmbargoed, err := dataverse.GetDatasetNodesWithAccessInfo(r.Context(), req.PersistentId, req.DataverseKey, user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - getting files failed"))
+		return
+	}
+	if hasRestricted || hasEmbargoed {
+		reasons := []string{}
+		if hasRestricted {
+			reasons = append(reasons, "restricted files")
+		}
+		if hasEmbargoed {
+			reasons = append(reasons, "an active embargo")
+		}
+		reasonText := "restricted files or an active embargo"
+		if len(reasons) == 1 {
+			reasonText = reasons[0]
+		} else if len(reasons) == 2 {
+			reasonText = strings.Join(reasons, " and ")
+		}
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(fmt.Sprintf("403 - dataset cannot be downloaded because it has %s. This applies to all users.", reasonText)))
 		return
 	}
 	data := []tree.Node{}
