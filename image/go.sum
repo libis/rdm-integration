@@ -66,8 +66,8 @@ github.com/hashicorp/go-rootcerts v1.0.2 h1:jzhAVGtqPKbwpyCPELlgNWhE1znq+qwJtW5O
 github.com/hashicorp/go-rootcerts v1.0.2/go.mod h1:pqUvnprVnM5bf7AOirdbb01K4ccR319Vf4pU3K5EGc8=
 github.com/kr/fs v0.1.0 h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=
-github.com/libis/rdm-dataverse-go-api v1.0.7 h1:QAgAShYLkq0acpdiWlBuCsb7uS/CysnNkgNqApIZ1LY=
-github.com/libis/rdm-dataverse-go-api v1.0.7/go.mod h1:vpmD3Kbir7qZEWSliG/XX2AnCI+aQ5xpQKSMaBvpUKM=
+github.com/libis/rdm-dataverse-go-api v1.0.8 h1:Ge/wU55AzIBFtjgkv2L6sn//ozDVAZ+HclFiRbVjDqA=
+github.com/libis/rdm-dataverse-go-api v1.0.8/go.mod h1:vpmD3Kbir7qZEWSliG/XX2AnCI+aQ5xpQKSMaBvpUKM=
 github.com/mitchellh/go-homedir v1.1.0 h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/patrickmn/go-cache v2.1.0+incompatible h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=

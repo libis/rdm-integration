@@ -10,7 +10,7 @@ require (
 	github.com/cyverse/go-irodsclient v0.18.0
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/uuid v1.6.0
-	github.com/libis/rdm-dataverse-go-api v1.0.7
+	github.com/libis/rdm-dataverse-go-api v1.0.8
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
 	golang.org/x/crypto v0.40.0
