@@ -326,7 +326,15 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 			Recursive:       false,
 		})
 	}
-	return transfer(ctx, token, transferRequest)
+	taskId, err := transfer(ctx, token, transferRequest)
+	if err != nil {
+		return "", err
+	}
+	err = monitorGlobusDownloadAtDV(pId, taskId, dvToken, user, ctx)
+	if err != nil {
+		logging.Logger.Println("monitoring globus download at DV failed: " + err.Error())
+	}
+	return taskId, nil
 }
 
 func requestGlobusDownload(ctx context.Context, persistentId, token, user, principal string, fileIds []int64) (map[string]string, error) {
@@ -353,4 +361,21 @@ func requestGlobusDownload(ctx context.Context, persistentId, token, user, princ
 		}
 	}
 	return params, nil
+}
+
+func monitorGlobusDownloadAtDV(persistentId, taskId string, token, user string, ctx context.Context) error {
+	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/monitorGlobusDownload?persistentId=" + persistentId
+	data, _ := json.Marshal(map[string]interface{}{"taskIdentifier": taskId})
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client.Token = token
+	req := client.NewRequest(path, "POST", bytes.NewReader(data), api.JsonContentHeader())
+	res := map[string]interface{}{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return err
+	}
+	if res["status"] != "OK" {
+		return fmt.Errorf("globus error: requsting globus monitoring at DV failed: %+v", res)
+	}
+	return nil
 }
