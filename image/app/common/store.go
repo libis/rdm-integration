@@ -63,7 +63,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	job := core.Job{
 		DataverseKey:       req.DataverseKey,
 		User:               user,
-		SessionId:          req.StreamParams.Token,
+		SessionId:          core.GetSessionId(r.Header),
 		PersistentId:       req.PersistentId,
 		WritableNodes:      selected,
 		Plugin:             req.Plugin,
