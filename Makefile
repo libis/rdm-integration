@@ -126,4 +126,3 @@ coverage: ## Run tests with coverage
 	cd image && go test -coverprofile=coverage.out ./app/...
 	cd image && go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: image/coverage.html"
- 
