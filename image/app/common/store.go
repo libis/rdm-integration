@@ -12,6 +12,7 @@ import (
 	"integration/app/tree"
 	"io"
 	"net/http"
+	"time"
 )
 
 type StoreResult struct {
@@ -71,6 +72,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		SendEmailOnSuccess: req.SendEmailOnSuccess,
 	}
 	if req.Plugin == "globus" {
+		job.Deadline = time.Now().Add(time.Minute)
 		job, err = core.DoWork(job)
 	} else {
 		err = core.AddJob(r.Context(), job)
