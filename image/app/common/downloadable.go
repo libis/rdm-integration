@@ -12,7 +12,6 @@ import (
 	"net/http"
 )
 
-// this is called when polling for status changes, after specific compare is finished or store is called
 func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 	if !config.RedisReady(r.Context()) {
 		w.WriteHeader(http.StatusInternalServerError)
