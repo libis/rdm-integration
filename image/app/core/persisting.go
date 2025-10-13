@@ -298,12 +298,14 @@ func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tre
 					config.GetRedis().Del(shortContext, k)
 				}
 			}
+			logging.Logger.Printf("%v: flush failed: %v\n", job.PersistentId, err)
+		} else {
+			logging.Logger.Printf("%v: flushed\n", job.PersistentId)
 		}
 		*toAddNodes = []tree.Node{}
 		*toAddIdentifiers = []string{}
 		*toReplaceNodes = []tree.Node{}
 		*toReplaceIdentifiers = []string{}
-		logging.Logger.Printf("%v: flushed\n", job.PersistentId)
 	}
 }
 
