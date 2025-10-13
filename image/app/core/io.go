@@ -24,8 +24,28 @@ import (
 	cfg "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go/middleware"
 	"github.com/google/uuid"
 )
+
+const (
+	awsChecksumSetupInputContextID         = "AWSChecksum:SetupInputContext"
+	awsChecksumComputePayloadChecksumID    = "AWSChecksum:ComputeInputPayloadChecksum"
+	awsChecksumAddInputTrailerMiddlewareID = "addInputChecksumTrailer"
+)
+
+// disableS3InputChecksums strips the SDK's checksum middleware chain from the
+// request pipeline. Those middleware handlers are the pieces that flip uploads
+// over to the aws-chunked transfer encoding so they can stream per-chunk
+// checksums. Our S3-compatible target (e.g. MinIO) rejects aws-chunked uploads
+// with HTTP 501, so we surgically remove the handlers by ID and leave the rest
+// of the stack intact. The handler IDs are part of the public middleware API,
+// so removing them directly avoids importing the SDK's internal packages.
+func disableS3InputChecksums(stack *middleware.Stack) {
+	stack.Initialize.Remove(awsChecksumSetupInputContextID)
+	stack.Finalize.Remove(awsChecksumComputePayloadChecksumID)
+	stack.Finalize.Remove(awsChecksumAddInputTrailerMiddlewareID)
+}
 
 func (r hashingReader) Read(buf []byte) (n int, err error) {
 	n, err = r.reader.Read(buf)
@@ -101,7 +121,10 @@ func newS3Client(ctx context.Context) (*s3.Client, error) {
 	return s3.NewFromConfig(awsConfig, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(config.GetConfig().Options.S3Config.AWSEndpoint)
 		o.UsePathStyle = config.GetConfig().Options.S3Config.AWSPathstyle
-		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired // This turns off the aws-chunked content type, which is not supported by the OpenStack implementation. Also, we have an integrity check at publish call in Dataverse code, skipping checksum while uploading should be fine.
+		o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+			disableS3InputChecksums(stack)
+			return nil
+		})
 	}), nil
 }
 
