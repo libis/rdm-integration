@@ -50,7 +50,9 @@ type OptionalConfig struct {
 	ComputationQueues            []Queue       `json:"computationQueues"`
 	ComputationAccessEndpoint    string        `json:"computationAccessEndpoint"`
 	ComputationAccessConfig      []QueueAccess `json:"computationAccessConfig"`
+	DisableDdiCdi                bool          `json:"disableDdiCdi,omitempty"` // set to true to disable DDI-CDI generation feature
 	GlobusWebAppUrl              string        `json:"globusWebAppUrl,omitempty"`
+	WorkspaceRoot                string        `json:"workspaceRoot,omitempty"` // base directory for job workspaces (default: /dsdata)
 }
 
 type QueueAccess struct {
@@ -264,4 +266,8 @@ func HasAccessToQueue(userEmail, queue string) bool {
 		return len(queueAccess[userEmail]) > 0
 	}
 	return queueAccess[userEmail][queue]
+}
+
+func IsDdiCdiEnabled() bool {
+	return !config.Options.DisableDdiCdi
 }

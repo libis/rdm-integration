@@ -1,0 +1,26 @@
+* Stata data definition file
+clear
+input ID AGE GENDER INCOME EDUCATION
+label variable ID "Respondent ID"
+label variable AGE "Age in years"
+label variable GENDER "Gender"
+label variable INCOME "Annual income in dollars"
+label variable EDUCATION "Education level"
+
+label define genderlbl 1 "Male" 2 "Female"
+label define edulbl 1 "Less than high school" 2 "High school" 3 "Some college" 4 "Bachelor degree" 5 "Graduate degree"
+label values GENDER genderlbl
+label values EDUCATION edulbl
+
+begin
+1 25 1 35000 3
+2 30 2 42000 4
+3 45 1 55000 5
+4 28 2 38000 3
+5 52 1 68000 5
+6 33 2 45000 4
+7 41 1 52000 4
+8 29 2 36000 3
+9 38 1 48000 4
+10 55 2 72000 5
+end

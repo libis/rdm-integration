@@ -1,0 +1,6 @@
+id,name,age,salary,hired_date,active
+1,John Doe,35,75000.50,2020-01-15,true
+2,Jane Smith,28,62000.00,2021-03-22,true
+3,Bob Johnson,42,95000.75,2018-07-10,false
+4,Alice Williams,31,68000.00,2019-11-05,true
+5,Charlie Brown,39,82000.25,2017-05-18,true

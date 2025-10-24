@@ -22,5 +22,7 @@ func SetDataverseAsDestination() {
 		GetStream:             dataverse.DownloadFile,
 		Query:                 dataverse.GetNodeMap,
 		GetUserEmail:          dataverse.GetUserEmail,
+		GetDatasetMetadata:    dataverse.GetDatasetMetadata,
+		GetDataFileDDI:        dataverse.GetDataFileDDI,
 	}
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<codeBook xmlns="ddi:codebook:2_5">
+  <dataDscr>
+    <var name="id" ID="V1">
+      <labl>Identifier</labl>
+      <sumStat type="valid">5</sumStat>
+      <sumStat type="min">1</sumStat>
+      <sumStat type="max">5</sumStat>
+    </var>
+    <var name="name" ID="V2">
+      <labl>Full Name</labl>
+      <sumStat type="valid">5</sumStat>
+    </var>
+    <var name="age" ID="V3">
+      <labl>Age in Years</labl>
+      <sumStat type="mean">35.0</sumStat>
+      <sumStat type="stdev">5.24</sumStat>
+    </var>
+    <var name="category" ID="V4">
+      <labl>Category Code</labl>
+      <catgry>
+        <catValu>A</catValu>
+        <labl>Category A</labl>
+      </catgry>
+      <catgry>
+        <catValu>B</catValu>
+        <labl>Category B</labl>
+      </catgry>
+      <catgry>
+        <catValu>C</catValu>
+        <labl>Category C</labl>
+      </catgry>
+    </var>
+  </dataDscr>
+</codeBook>

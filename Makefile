@@ -1,6 +1,6 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-STAGE ?= prod
+STAGE ?= dev
 BUILD_BASE_HREF ?= /integration/
 
 include env.$(STAGE)
@@ -116,8 +116,14 @@ upgrade_dependencies: ## upgrade all go dependencies
 	cd image && go get -u ./app/...
 	cd image && go mod tidy
 
-test: ## Run tests
+test: ## Run tests (Python + Go)
+	cd image && ./run_tests.sh
+
+test-go: ## Run Go tests only
 	cd image && go test -v ./app/...
+
+test-python: ## Run Python tests only
+	cd image && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt && python test_csv_to_cdi.py
 
 benchmark: ## Run benchmarks
 	cd image && go test -bench=. -benchmem ./app/...

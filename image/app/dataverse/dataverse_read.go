@@ -4,8 +4,8 @@ package dataverse
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/libis/rdm-dataverse-go-api/api"
 	"integration/app/config"
 	"integration/app/core"
 	"integration/app/plugin/types"
@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/libis/rdm-dataverse-go-api/api"
 )
 
 var dvContextDuration = 5 * time.Minute
@@ -50,6 +52,51 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 	//check known hashes cache
 	core.CheckKnownHashes(ctx, persistentId, mapped)
 	return mapped, nil
+}
+
+type datasetMetadataResponse struct {
+	Status string          `json:"status"`
+	Data   json.RawMessage `json:"data"`
+}
+
+func GetDatasetMetadata(ctx context.Context, persistentId, token, user string) ([]byte, error) {
+	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
+	defer cancel()
+	queryPid := url.QueryEscape(persistentId)
+	path := fmt.Sprintf("/api/v1/datasets/:persistentId?persistentId=%s&excludeFiles=true", queryPid)
+	res := datasetMetadataResponse{}
+	req := GetRequest(path, "GET", user, token, nil, nil)
+	err := api.Do(shortContext, req, &res)
+	if err != nil {
+		return nil, err
+	}
+	if res.Status != "OK" {
+		return nil, fmt.Errorf("listing metadata for %s failed: status %s", persistentId, res.Status)
+	}
+	return res.Data, nil
+}
+
+func GetDataFileDDI(ctx context.Context, token, user string, fileID int64) ([]byte, error) {
+	if fileID == 0 {
+		return nil, fmt.Errorf("data file ID was not provided")
+	}
+	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
+	defer cancel()
+	path := fmt.Sprintf("/api/v1/access/datafile/%d/metadata/ddi", fileID)
+	req := GetRequest(path, "GET", user, token, nil, nil)
+	stream, err := api.DoStream(shortContext, req)
+	if err != nil {
+		return nil, err
+	}
+	defer stream.Close()
+	body, err := io.ReadAll(stream)
+	if err != nil {
+		return nil, err
+	}
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty DDI response for file %d", fileID)
+	}
+	return body, nil
 }
 
 func mapToNodes(data []api.MetaData) map[string]tree.Node {

@@ -20,3 +20,7 @@ docker-volumes
 *.war
 image/coverage.html
 image/integration-app
+image/__pycache__
+test_output.log
+XCONVERT.LST
+XCONVERT.MSG

@@ -52,9 +52,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM quay.io/oauth2-proxy/oauth2-proxy:${OAUTH2_POXY_VERSION}-alpine
 
-RUN apk update && apk add --no-cache ca-certificates && rm -rf /var/cache/apk/*
+RUN apk update && apk add --no-cache ca-certificates bash python3 py3-pip gzip fuse fuse3 s3fs-fuse && rm -rf /var/cache/apk/*
 COPY ./image/USERTrust_RSA_Certification_Authority.pem /usr/local/share/ca-certificates/USERTrust_RSA_Certification_Authority.pem
 RUN update-ca-certificates
+
+RUN python3 -m pip install --no-cache-dir --break-system-packages --upgrade pip && \
+    python3 -m pip install --no-cache-dir --break-system-packages rdflib==7.0.0 chardet==5.2.0 datasketch==1.5.9 python-dateutil==2.9.0.post0
 
 ARG USER_ID
 ARG GROUP_ID
@@ -62,6 +65,10 @@ RUN addgroup --gid ${GROUP_ID} app \
  && adduser --disabled-password --uid ${USER_ID} --ingroup app --gecos '' app
 
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
+
+COPY ./image/csv_to_cdi.py /usr/local/bin/csv_to_cdi.py
+COPY ./xconvert /usr/local/bin/xconvert
+RUN chmod +x /usr/local/bin/csv_to_cdi.py /usr/local/bin/xconvert
 
 USER app
 

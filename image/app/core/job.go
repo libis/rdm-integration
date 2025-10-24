@@ -141,9 +141,12 @@ func ProcessJobs(queue string) {
 			persistentId := job.PersistentId
 			logging.Logger.Printf("%v: job started\n", persistentId)
 			var err error
-			if job.Plugin == "compute" {
+			switch job.Plugin {
+			case "compute":
 				job, err = compute(job)
-			} else {
+			case "ddi_cdi":
+				job, err = DdiCdiGen(job)
+			default:
 				job, err = DoWork(job)
 			}
 			if err != nil {

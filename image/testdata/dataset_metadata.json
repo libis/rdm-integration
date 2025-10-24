@@ -1,0 +1,43 @@
+{
+  "datasetVersion": {
+    "metadataBlocks": {
+      "citation": {
+        "fields": [
+          {
+            "typeName": "title",
+            "value": "Test Dataset for DDI-CDI"
+          },
+          {
+            "typeName": "author",
+            "value": [
+              {
+                "authorName": {
+                  "value": "John Doe"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "files": [
+    {
+      "label": "sample.csv",
+      "dataFile": {
+        "id": 123456,
+        "filename": "sample.csv",
+        "pidURL": "https://example.org/file/doi:10.123/456",
+        "persistentId": "doi:10.123/F/456"
+      }
+    },
+    {
+      "label": "data/sample_types.csv",
+      "directoryLabel": "data",
+      "dataFile": {
+        "id": 123457,
+        "filename": "sample_types.csv"
+      }
+    }
+  ]
+}

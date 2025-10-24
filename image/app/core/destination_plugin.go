@@ -26,4 +26,6 @@ type DestinationPlugin struct {
 	GetStream             func(ctx context.Context, token, user string, id int64) (io.ReadCloser, error)
 	Query                 func(ctx context.Context, persistentId, token, user string) (map[string]tree.Node, error)
 	GetUserEmail          func(ctx context.Context, token, user string) (string, error)
+	GetDatasetMetadata    func(ctx context.Context, persistentId, token, user string) ([]byte, error)
+	GetDataFileDDI        func(ctx context.Context, token, user string, fileID int64) ([]byte, error)
 }

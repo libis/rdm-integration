@@ -26,6 +26,12 @@ services:
       FRONTEND_CONFIG_FILE: "/config/frontend_config.json"
     env_file:
       - ./docker-volumes/integration/aws/aws.env
+    devices:
+      - /dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
     volumes: 
       - ./docker-volumes/integration/data:/dsdata
       - ./docker-volumes/integration/conf:/config
@@ -187,9 +193,10 @@ services:
     restart: unless-stopped
     ports:
       - "1080:1080" # web ui
+      - "1025:1025" # smtp port
     environment:
-      - MAILSMTP_PORT=25
-      - MAILMAIL_DIRECTORY=/mail
+      - MAILDEV_SMTP_PORT=1025
+      - MAILDEV_MAIL_DIRECTORY=/mail
     networks:
       - dataverse
     tmpfs:

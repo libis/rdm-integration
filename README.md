@@ -4,6 +4,14 @@
 
 This is an application for files synchronization from different source repositories into a [Dataverse](https://dataverse.org) installation. This application uses background processes for the synchronization of the files. The background processes are also used for hashing of the Dataverse files when the source repository uses different hash type than the Dataverse installation. These hashes are needed for the comparison of the files, allowing easier versioning of the files between the dataset versions (only the files that effectively have changed would be replaced and added to the overview of changes between different dataset versions). The frontend application does not need to be running when the synchronization is running on the server (users can close their browsers once that the synchronization has been set up), and multiple synchronizations for different users can run simultaneously, each on its own goroutine, scheduled as a "job" in the background. The number of simultaneously running jobs is adjustable, and the jobs are scheduled in "First In First Out" order.
 
+## Key Features
+
+### Data Synchronization
+Synchronize files from various repositories into Dataverse with background processing, hash verification, and version tracking.
+
+### DDI-CDI Metadata Generation
+Automatically generate rich, standardized metadata descriptions for your tabular data files following the DDI-CDI (Data Documentation Initiative - Cross-Domain Integration) specification. The feature analyzes CSV, TSV, SPSS, SAS, and Stata files to create comprehensive documentation including variable types, roles, statistics, and relationships. See [ddi-cdi.md](ddi-cdi.md) for complete documentation.
+
 ## Available plugins
 Support for different repositories is implemented as plugins. More plugins will be added in the feature. At this moment, the following plugins are provided with the latest version:
 - [GitHub](https://github.com/)
