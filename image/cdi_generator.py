@@ -416,6 +416,169 @@ def extract_dataset_title(metadata: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def extract_dataset_description(metadata: Dict[str, Any]) -> Optional[str]:
+    """Extract dataset description from Dataverse-style metadata."""
+    dataset_version = metadata.get("datasetVersion") or metadata.get("latestVersion")
+    if not isinstance(dataset_version, dict):
+        return None
+    metadata_blocks = dataset_version.get("metadataBlocks")
+    if not isinstance(metadata_blocks, dict):
+        return None
+    citation_block = metadata_blocks.get("citation")
+    if not isinstance(citation_block, dict):
+        return None
+    fields = citation_block.get("fields")
+    if not isinstance(fields, list):
+        return None
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        type_name = field.get("typeName")
+        if type_name not in ("dsDescription", "description"):
+            continue
+        value = field.get("value")
+        # Description can be a string or a list of objects with dsDescriptionValue
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list) and value:
+            first = value[0]
+            if isinstance(first, str):
+                return first
+            if isinstance(first, dict):
+                desc_value = first.get("dsDescriptionValue") or first.get("value")
+                if isinstance(desc_value, dict):
+                    return desc_value.get("value")
+                if isinstance(desc_value, str):
+                    return desc_value
+    return None
+
+
+def extract_authors(metadata: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Extract author information with names and optional ORCID identifiers."""
+    dataset_version = metadata.get("datasetVersion") or metadata.get("latestVersion")
+    if not isinstance(dataset_version, dict):
+        return []
+    metadata_blocks = dataset_version.get("metadataBlocks")
+    if not isinstance(metadata_blocks, dict):
+        return []
+    citation_block = metadata_blocks.get("citation")
+    if not isinstance(citation_block, dict):
+        return []
+    fields = citation_block.get("fields")
+    if not isinstance(fields, list):
+        return []
+    
+    authors = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") != "author":
+            continue
+        value = field.get("value")
+        if not isinstance(value, list):
+            continue
+        
+        for author_obj in value:
+            if not isinstance(author_obj, dict):
+                continue
+            
+            author_info = {}
+            # Extract author name
+            name_field = author_obj.get("authorName")
+            if isinstance(name_field, dict):
+                name = name_field.get("value")
+                if name:
+                    author_info["name"] = name
+            
+            # Extract ORCID if present
+            orcid_field = author_obj.get("authorIdentifier")
+            scheme_field = author_obj.get("authorIdentifierScheme")
+            if isinstance(orcid_field, dict) and isinstance(scheme_field, dict):
+                orcid = orcid_field.get("value")
+                scheme = scheme_field.get("value")
+                if orcid and scheme and scheme.upper() == "ORCID":
+                    author_info["orcid"] = orcid
+            
+            if author_info:
+                authors.append(author_info)
+    
+    return authors
+
+
+def extract_keywords(metadata: Dict[str, Any]) -> List[str]:
+    """Extract keywords/subjects from metadata."""
+    dataset_version = metadata.get("datasetVersion") or metadata.get("latestVersion")
+    if not isinstance(dataset_version, dict):
+        return []
+    metadata_blocks = dataset_version.get("metadataBlocks")
+    if not isinstance(metadata_blocks, dict):
+        return []
+    citation_block = metadata_blocks.get("citation")
+    if not isinstance(citation_block, dict):
+        return []
+    fields = citation_block.get("fields")
+    if not isinstance(fields, list):
+        return []
+    
+    keywords = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") not in ("keyword", "subject"):
+            continue
+        value = field.get("value")
+        if isinstance(value, list):
+            for kw_obj in value:
+                if isinstance(kw_obj, dict):
+                    kw_value = kw_obj.get("keywordValue") or kw_obj.get("value")
+                    if isinstance(kw_value, dict):
+                        kw = kw_value.get("value")
+                    else:
+                        kw = kw_value
+                    if kw and isinstance(kw, str):
+                        keywords.append(kw)
+                elif isinstance(kw_obj, str):
+                    keywords.append(kw_obj)
+    
+    return keywords
+
+
+def extract_license(metadata: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """Extract license information (name and URI)."""
+    dataset_version = metadata.get("datasetVersion") or metadata.get("latestVersion")
+    if not isinstance(dataset_version, dict):
+        return None
+    
+    license_info = dataset_version.get("license")
+    if isinstance(license_info, dict):
+        name = license_info.get("name")
+        uri = license_info.get("uri")
+        if name or uri:
+            return {"name": name, "uri": uri}
+    
+    return None
+
+
+def extract_publication_date(metadata: Dict[str, Any]) -> Optional[str]:
+    """Extract publication date."""
+    # Try dataset-level publication date first
+    pub_date = metadata.get("publicationDate")
+    if pub_date:
+        return pub_date
+    
+    # Fall back to dataset version publication date
+    dataset_version = metadata.get("datasetVersion") or metadata.get("latestVersion")
+    if isinstance(dataset_version, dict):
+        return dataset_version.get("publicationDate")
+    
+    return None
+
+
+def extract_publisher(metadata: Dict[str, Any]) -> Optional[str]:
+    """Extract publisher name."""
+    return metadata.get("publisher")
+
+
 def extract_file_uri(metadata: Dict[str, Any], filename: str, base_url: str) -> Optional[str]:
     """Extract file URI from Dataverse metadata JSON by matching filename."""
     def collect_files(data: Any) -> List[Dict[str, Any]]:
@@ -675,6 +838,8 @@ def add_file_to_dataset_graph(
     ddi_is_xml_literal: bool,
     process_description: str = "Generated CDI from CSV via streaming profiler",
     file_format: str = "text/csv",
+    dataset_description: Optional[str] = None,
+    file_name: Optional[str] = None,
 ):
     """Add physical/logical/variable structures for a single file into the dataset graph."""
 
@@ -695,8 +860,27 @@ def add_file_to_dataset_graph(
             graph.add((phys, DCTERMS.source, Literal(ddi_raw)))
     graph.add((dataset_uri, LINK["dataset_to_physical"], phys))
 
-    logical = BNode()
+    # Create LogicalDataSet with proper URI and metadata (not blank node)
+    logical_frag = safe_uri_fragment(f"logical_{file_format.replace('/', '_')}")
+    logical = URIRef(f"{dataset_uri_str}#logical/{logical_frag}")
     graph.add((logical, RDF.type, CDI.LogicalDataSet))
+    graph.add((logical, DCTERMS.identifier, Literal(f"logical-dataset-{logical_frag}")))
+    
+    # Build a descriptive label based on file name if available
+    if file_name:
+        graph.add((logical, SKOS.prefLabel, Literal(f"Logical dataset: {file_name}")))
+    else:
+        graph.add((logical, SKOS.prefLabel, Literal(f"Logical dataset ({file_format})")))
+    
+    # Use dataset description if available, otherwise create file-specific description
+    if dataset_description:
+        desc = f"{dataset_description}\n\nLogical representation of data from file: {file_name or file_uri or 'unknown'}"
+        graph.add((logical, DCTERMS.description, Literal(desc)))
+    elif file_uri:
+        graph.add((logical, DCTERMS.description, Literal(f"Logical representation of data from {file_uri}")))
+    elif file_name:
+        graph.add((logical, DCTERMS.description, Literal(f"Logical representation of data from {file_name}")))
+    
     graph.add((dataset_uri, LINK["dataset_to_logical"], logical))
 
     for name, st in zip(columns, stats):
@@ -829,6 +1013,7 @@ def generate_manifest_cdi(
     dataset_metadata_path = manifest.get("dataset_metadata_path")
 
     metadata_payload: Optional[Dict[str, Any]] = None
+    dataset_description: Optional[str] = None
     if dataset_metadata_path:
         metadata_payload = load_metadata_from_file(Path(dataset_metadata_path))
         if metadata_payload is None:
@@ -836,6 +1021,9 @@ def generate_manifest_cdi(
 
     if not dataset_title and metadata_payload:
         dataset_title = extract_dataset_title(metadata_payload)
+    
+    if metadata_payload:
+        dataset_description = extract_dataset_description(metadata_payload)
 
     dataset_uri = URIRef(dataset_uri_base.rstrip("/") + "/" + dataset_pid)
     dataset_base_url = manifest.get("dataset_base_url")
@@ -852,6 +1040,48 @@ def generate_manifest_cdi(
     graph.add((dataset_uri, DCTERMS.identifier, Literal(dataset_pid)))
     if dataset_title:
         graph.add((dataset_uri, DCTERMS.title, Literal(dataset_title)))
+    if dataset_description:
+        graph.add((dataset_uri, DCTERMS.description, Literal(dataset_description)))
+    
+    # Add additional metadata from Dataverse
+    if metadata_payload:
+        # Authors
+        authors = extract_authors(metadata_payload)
+        for author in authors:
+            if "name" in author:
+                author_node = BNode()
+                graph.add((author_node, RDF.type, PROV.Agent))
+                graph.add((author_node, SKOS.prefLabel, Literal(author["name"])))
+                if "orcid" in author:
+                    # ORCID as identifier
+                    orcid_uri = author["orcid"]
+                    if not orcid_uri.startswith("http"):
+                        orcid_uri = f"https://orcid.org/{orcid_uri}"
+                    graph.add((author_node, DCTERMS.identifier, URIRef(orcid_uri)))
+                graph.add((dataset_uri, DCTERMS.creator, author_node))
+        
+        # Keywords
+        keywords = extract_keywords(metadata_payload)
+        for keyword in keywords:
+            graph.add((dataset_uri, DCTERMS.subject, Literal(keyword)))
+        
+        # License
+        license_info = extract_license(metadata_payload)
+        if license_info:
+            if license_info.get("uri"):
+                graph.add((dataset_uri, DCTERMS.license, URIRef(license_info["uri"])))
+            if license_info.get("name"):
+                graph.add((dataset_uri, DCTERMS.rights, Literal(license_info["name"])))
+        
+        # Publication date
+        pub_date = extract_publication_date(metadata_payload)
+        if pub_date:
+            graph.add((dataset_uri, DCTERMS.issued, Literal(pub_date, datatype=XSD.date)))
+        
+        # Publisher
+        publisher = extract_publisher(metadata_payload)
+        if publisher:
+            graph.add((dataset_uri, DCTERMS.publisher, Literal(publisher)))
 
     summary_payload: List[Dict[str, Any]] = []
     total_rows = 0
@@ -922,6 +1152,8 @@ def generate_manifest_cdi(
             ddi_variables=ddi_variables,
             ddi_is_xml_literal=ddi_is_xml_literal,
             process_description=process_note,
+            dataset_description=dataset_description,
+            file_name=file_name,
         )
 
         total_rows += info.get("rows_read", 0)
