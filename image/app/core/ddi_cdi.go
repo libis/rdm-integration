@@ -280,8 +280,8 @@ func fetchDataFileDDI(ctx context.Context, job Job, node tree.Node, workDir stri
 		} else {
 			ddiBytes, err := Destination.GetDataFileDDI(ctx, job.DataverseKey, job.User, fileID)
 			if err == nil {
-				if len(ddiBytes) == 0 {
-					return "", nil, fmt.Errorf("empty DDI metadata returned")
+				if err := validateDDIResponse(fileID, ddiBytes); err != nil {
+					return "", nil, err
 				}
 				tmpFile, tmpErr := os.CreateTemp(workDir, fmt.Sprintf("ddi-%d-*.xml", fileID))
 				if tmpErr != nil {
@@ -311,6 +311,36 @@ func fetchDataFileDDI(ctx context.Context, job Job, node tree.Node, workDir stri
 
 	// TODO: xconvert fallback for syntax files (future work)
 	return "", nil, apiErr
+}
+
+func validateDDIResponse(fileID int64, payload []byte) error {
+	trimmed := strings.TrimSpace(string(payload))
+	trimmed = strings.TrimPrefix(trimmed, "\ufeff")
+	if trimmed == "" {
+		return fmt.Errorf("file %d: empty DDI metadata returned", fileID)
+	}
+	if strings.HasPrefix(trimmed, "{") {
+		var dvResp struct {
+			Status  string `json:"status"`
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal([]byte(trimmed), &dvResp); err == nil && (dvResp.Status != "" || dvResp.Message != "") {
+			msg := strings.TrimSpace(dvResp.Message)
+			if msg == "" {
+				msg = fmt.Sprintf("dataverse status %s", dvResp.Status)
+			}
+			if dvResp.Code != 0 {
+				return fmt.Errorf("file %d: %s (code %d)", fileID, msg, dvResp.Code)
+			}
+			return fmt.Errorf("file %d: %s", fileID, msg)
+		}
+		return fmt.Errorf("file %d: unexpected JSON DDI response", fileID)
+	}
+	if !strings.HasPrefix(trimmed, "<") && !strings.HasPrefix(trimmed, "<?") {
+		return fmt.Errorf("file %d: DDI response is not XML", fileID)
+	}
+	return nil
 }
 
 func formatWarningsAsConsoleOutput(warnings []string) string {

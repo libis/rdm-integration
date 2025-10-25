@@ -365,6 +365,98 @@ func TestCreateManifestFile_AllowsXconvertWhenDdiMissing(t *testing.T) {
 	}
 }
 
+func TestCreateManifestFile_IgnoresJsonErrorDDI(t *testing.T) {
+	ctx := context.Background()
+	tempDir := t.TempDir()
+	linkedDir := filepath.Join(tempDir, "linked")
+	workspaceDir := filepath.Join(tempDir, "work")
+	if err := os.MkdirAll(linkedDir, 0o755); err != nil {
+		t.Fatalf("failed to create linked dir: %v", err)
+	}
+	if err := os.MkdirAll(workspaceDir, 0o755); err != nil {
+		t.Fatalf("failed to create workspace dir: %v", err)
+	}
+
+	fileName := "json-error.csv"
+	filePath := filepath.Join(linkedDir, fileName)
+	if err := os.WriteFile(filePath, []byte("col1\nvalue"), 0o644); err != nil {
+		t.Fatalf("failed to write sample file: %v", err)
+	}
+
+	origDest := Destination
+	Destination = DestinationPlugin{}
+	t.Cleanup(func() { Destination = origDest })
+
+	Destination.GetDataFileDDI = func(ctx context.Context, token, user string, fileID int64) ([]byte, error) {
+		return []byte(`{"status":"ERROR","code":400,"message":"This type of metadata is only available for tabular files."}`), nil
+	}
+
+	nodeMap := map[string]tree.Node{
+		fileName: {
+			Name: fileName,
+			Attributes: tree.Attributes{
+				IsFile:          true,
+				DestinationFile: tree.DestinationFile{Id: 44},
+			},
+		},
+	}
+
+	job := Job{
+		DataverseKey: "token",
+		User:         "user",
+		PersistentId: "doi:test",
+	}
+
+	manifestPath, cleanups, warnings, err := createManifestFile(ctx, job, []string{fileName}, linkedDir, nodeMap, workspaceDir)
+	if err != nil {
+		t.Fatalf("createManifestFile returned error: %v", err)
+	}
+	if len(warnings) == 0 {
+		t.Fatalf("expected warnings when JSON error is returned for DDI")
+	}
+	found := false
+	for _, warning := range warnings {
+		if strings.Contains(warning, "This type of metadata is only available for tabular files") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected warning about tabular metadata error, got %v", warnings)
+	}
+
+	t.Cleanup(func() {
+		for _, cleanup := range cleanups {
+			cleanup()
+		}
+	})
+
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+
+	var manifest struct {
+		Files []struct {
+			AllowXconvert bool   `json:"allow_xconvert"`
+			DdiPath       string `json:"ddi_path"`
+		} `json:"files"`
+	}
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("failed to unmarshal manifest: %v", err)
+	}
+	if len(manifest.Files) != 1 {
+		t.Fatalf("expected one file entry, got %d", len(manifest.Files))
+	}
+	entry := manifest.Files[0]
+	if !entry.AllowXconvert {
+		t.Errorf("expected allow_xconvert=true when DDI response is an error payload")
+	}
+	if entry.DdiPath != "" {
+		t.Errorf("expected ddi_path to be empty when DDI response is invalid")
+	}
+}
+
 // Integration tests using FakeRedis
 
 func setupTestRedis(t *testing.T) (*testutil.FakeRedis, func()) {
