@@ -861,7 +861,15 @@ def add_file_to_dataset_graph(
     graph.add((dataset_uri, LINK["dataset_to_physical"], phys))
 
     # Create LogicalDataSet with proper URI and metadata (not blank node)
-    logical_frag = safe_uri_fragment(f"logical_{file_format.replace('/', '_')}")
+    # Use filename to make each LogicalDataSet unique (not just format)
+    if file_name:
+        base_name = file_name.rsplit('.', 1)[0]  # Remove extension
+        logical_frag = safe_uri_fragment(f"logical_{base_name}")
+    else:
+        # Fallback: use file_id or format
+        file_id_part = file_uri.split('/')[-1] if file_uri else file_format.replace('/', '_')
+        logical_frag = safe_uri_fragment(f"logical_{file_id_part}")
+    
     logical = URIRef(f"{dataset_uri_str}#logical/{logical_frag}")
     graph.add((logical, RDF.type, CDI.LogicalDataSet))
     graph.add((logical, DCTERMS.identifier, Literal(f"logical-dataset-{logical_frag}")))
