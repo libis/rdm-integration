@@ -861,10 +861,11 @@ def add_file_to_dataset_graph(
     graph.add((dataset_uri, LINK["dataset_to_physical"], phys))
 
     # Create LogicalDataSet with proper URI and metadata (not blank node)
-    # Use filename to make each LogicalDataSet unique (not just format)
+    # Use full filename (with extension) to make each LogicalDataSet unique
     if file_name:
-        base_name = file_name.rsplit('.', 1)[0]  # Remove extension
-        logical_frag = safe_uri_fragment(f"logical_{base_name}")
+        # Keep full filename including extension to avoid collisions
+        # e.g., simple_data.dct, simple_data.sas, simple_data.sps are all unique
+        logical_frag = safe_uri_fragment(f"logical_{file_name}")
     else:
         # Fallback: use file_id or format
         file_id_part = file_uri.split('/')[-1] if file_uri else file_format.replace('/', '_')
