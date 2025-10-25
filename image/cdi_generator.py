@@ -7,27 +7,37 @@
 # ---------------------------------------------------------------------------
 
 """
-CSV -> DDI-CDI RDF (Turtle) at FILE LEVEL, streaming & memory-safe.
+CSV/TSV -> DDI-CDI RDF (Turtle) generation utilities.
 
-- Streams huge CSVs row-by-row; never loads the whole file.
+- Streams large tabular files row-by-row; never loads the whole file.
 - Infers per-column XSD datatype and a role (identifier/dimension/measure/attribute).
 - Uses HyperLogLog (datasketch) to approximate distinct counts with tiny memory.
 - Emits a minimal CDI profile as Turtle: DataSet, PhysicalDataSet, LogicalDataSet, Variables, ProcessStep.
-- Keeps *link predicates* generic (dcterms:hasPart, etc.) to be easily swapped to exact CDI properties later.
+- Supports both single-file conversion and dataset manifests that describe many files at once.
 
 USAGE
 ------
-python csv_to_cdi.py \
-  --csv /data/big.csv \
-  --dataset-pid "doi:10.70122/FK2/EXAMPLE" \
-  --dataset-uri-base "https://rdr.kuleuven.be/dataset" \
-  --file-uri "https://rdr.kuleuven.be/api/access/datafile/123456" \
-  --dataset-title "Example dataset" \
-  --output dataset.cdi.ttl
+
+Dataset manifest (recommended):
+
+    python cdi_generator.py \
+        --manifest /tmp/manifest.json \
+        --output /tmp/dataset.cdi.ttl \
+        --quiet
+
+Single file (legacy mode retained for compatibility):
+
+    python cdi_generator.py \
+        --csv /data/big.csv \
+        --dataset-pid "doi:10.70122/FK2/EXAMPLE" \
+        --dataset-uri-base "https://rdr.kuleuven.be/dataset" \
+        --file-uri "https://rdr.kuleuven.be/api/access/datafile/123456" \
+        --dataset-title "Example dataset" \
+        --output dataset.cdi.ttl
 
 Notes
 -----
-- Header is assumed on the first row by default; use --no-header to auto-name cols.
+- Header auto-detects by default; use --no-header to force synthetic column names.
 - Encoding is detected on a sample via chardet; override with --encoding if needed.
 - Delimiter is sniffed unless provided with --delimiter.
 - For gz files, pass the decompressed path (or pipe through zcat). Keeping it simple avoids double-reading.
@@ -42,7 +52,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, List, Optional, Dict, Tuple
+from typing import Any, List, Optional, Dict, Tuple, Union
 import xml.etree.ElementTree as ET
 import chardet
 from datasketch import HyperLogLog
@@ -265,6 +275,84 @@ def detect_dialect(path: Path, encoding: str, sample_bytes: int = 256 * 1024) ->
             quoting = csv.QUOTE_MINIMAL
         return _D()
 
+
+def detect_header_mode(
+    path: Path,
+    encoding: str,
+    dialect: csv.Dialect,
+    sample_bytes: int = 256 * 1024,
+    typed_threshold: float = 0.75,
+) -> bool:
+    """Heuristically determine whether the file has a header row.
+
+    The csv.Sniffer heuristic occasionally misclassifies data-only files as having
+    headers (notably Dataverse .tab extracts lacking header rows). We combine the
+    built-in detection with a lightweight type analysis of the first row to guard
+    against promoting record values to variable names.
+    """
+
+    sample_text = ""
+    try:
+        with path.open("r", encoding=encoding, errors="replace", newline="") as f:
+            sample_text = f.read(sample_bytes)
+    except Exception as exc:
+        logging.debug("Failed to read sample for header detection: %s", exc)
+
+    sniffed_header = True
+    if sample_text.strip():
+        try:
+            sniffer = csv.Sniffer()
+            sniffed_header = sniffer.has_header(sample_text)
+        except Exception as exc:
+            logging.debug("csv.Sniffer header detection failed: %s", exc)
+
+    first_row: List[str] = []
+    second_row: Optional[List[str]] = None
+    try:
+        with path.open("r", encoding=encoding, errors="replace", newline="") as f:
+            reader = csv.reader(f, dialect)
+            first_row = next(reader)
+            second_row = next(reader, None)
+    except StopIteration:
+        logging.debug("File %s appears to be empty during header detection", path)
+        return False
+    except Exception as exc:
+        logging.debug("Failed to analyse first rows for header detection: %s", exc)
+        return sniffed_header
+
+    typed_cells = 0
+    total_cells = 0
+    for cell in first_row:
+        value = cell.strip()
+        if not value:
+            continue
+        total_cells += 1
+        if is_int(value) or is_float(value) or is_bool(value) or is_datetime(value):
+            typed_cells += 1
+
+    if total_cells:
+        ratio = typed_cells / total_cells
+    else:
+        ratio = 0.0
+
+    looks_like_data_row = ratio >= typed_threshold
+
+    if looks_like_data_row:
+        logging.info(
+            "Header auto-detect: first row of %s resembles data (typed_ratio=%.2f); treating as no header",
+            path,
+            ratio,
+        )
+        return False
+
+    # csv.Sniffer already decided; honour it if the first row does not look numeric-heavy.
+    if sniffed_header:
+        logging.debug("Header auto-detect: csv.Sniffer reports header present for %s", path)
+    else:
+        logging.debug("Header auto-detect: csv.Sniffer reports no header for %s", path)
+
+    return sniffed_header
+
 def md5sum(path: Path, chunk: int = 1024 * 1024) -> str:
     """Calculate MD5 hash of file."""
     logging.info(f"Calculating MD5 hash for {path}")
@@ -457,7 +545,7 @@ def stream_profile_csv(
     path: Path,
     encoding: Optional[str] = None,
     delimiter: Optional[str] = None,
-    header: bool = True,
+    header: Union[bool, str] = "auto",
     limit_rows: Optional[int] = None,
     compute_md5: bool = True,
 ) -> Tuple[List[str], List[ColumnStats], Dict[str, int], Optional[str], csv.Dialect]:
@@ -494,7 +582,26 @@ def stream_profile_csv(
             reader = csv.reader(f, dialect)
 
             # Header handling
-            if header:
+            header_decision: bool
+            auto_detect = False
+            if isinstance(header, str):
+                header_key = header.lower()
+                if header_key == "auto":
+                    auto_detect = True
+                elif header_key in {"present", "true", "yes"}:
+                    header_decision = True
+                elif header_key in {"absent", "false", "no"}:
+                    header_decision = False
+                else:
+                    raise ValueError(f"Invalid header mode: {header}")
+            else:
+                header_decision = bool(header)
+
+            if auto_detect:
+                header_decision = detect_header_mode(path, enc, dialect)
+                logging.info("Header auto-detection result for %s: %s", path, header_decision)
+
+            if header_decision:
                 try:
                     columns = next(reader)
                     logging.info(f"Found {len(columns)} columns in header")
@@ -555,6 +662,94 @@ def safe_uri_fragment(s: str) -> str:
         frag = "unnamed"
     return frag
 
+
+def add_file_to_dataset_graph(
+    graph: Graph,
+    dataset_uri: URIRef,
+    columns: List[str],
+    stats: List[ColumnStats],
+    file_uri: Optional[str],
+    file_md5: Optional[str],
+    ddi_raw: Optional[str],
+    ddi_variables: Optional[Dict[str, Dict[str, Any]]],
+    ddi_is_xml_literal: bool,
+    process_description: str = "Generated CDI from CSV via streaming profiler",
+    file_format: str = "text/csv",
+):
+    """Add physical/logical/variable structures for a single file into the dataset graph."""
+
+    variable_ddi = ddi_variables or {}
+    dataset_uri_str = str(dataset_uri)
+
+    phys = BNode()
+    graph.add((phys, RDF.type, CDI.PhysicalDataSet))
+    graph.add((phys, DCTERMS.format, Literal(file_format)))
+    if file_uri:
+        graph.add((phys, DCTERMS.identifier, URIRef(file_uri)))
+    if file_md5:
+        graph.add((phys, DCTERMS.provenance, Literal(f"md5:{file_md5}")))
+    if ddi_raw:
+        if ddi_is_xml_literal:
+            graph.add((phys, DCTERMS.source, Literal(ddi_raw, datatype=RDF.XMLLiteral)))
+        else:
+            graph.add((phys, DCTERMS.source, Literal(ddi_raw)))
+    graph.add((dataset_uri, LINK["dataset_to_physical"], phys))
+
+    logical = BNode()
+    graph.add((logical, RDF.type, CDI.LogicalDataSet))
+    graph.add((dataset_uri, LINK["dataset_to_logical"], logical))
+
+    for name, st in zip(columns, stats):
+        frag = safe_uri_fragment(name)
+        var = URIRef(f"{dataset_uri_str}#var/{frag}")
+        role_node = URIRef(f"{dataset_uri_str}#role/{frag}")
+
+        graph.add((var, RDF.type, CDI.Variable))
+        ddi_info: Dict[str, Any] = {}
+        if isinstance(variable_ddi, dict):
+            ddi_info = variable_ddi.get(name, {}) or {}
+
+        label = ddi_info.get("label") if isinstance(ddi_info, dict) else None
+        if label:
+            graph.add((var, SKOS.prefLabel, Literal(label)))
+            if label.strip() != name:
+                graph.add((var, SKOS.altLabel, Literal(name)))
+        else:
+            graph.add((var, SKOS.prefLabel, Literal(name)))
+
+        graph.add((var, DCTERMS.identifier, Literal(name)))
+        graph.add((var, LINK["variable_to_repr"], st.xsd_datatype()))
+
+        graph.add((role_node, RDF.type, CDI.Role))
+        graph.add((role_node, SKOS.prefLabel, Literal(st.role())))
+        graph.add((var, LINK["variable_to_role"], role_node))
+        graph.add((logical, LINK["logical_to_variable"], var))
+
+        if isinstance(ddi_info, dict):
+            categories = ddi_info.get("categories") or []
+            if categories:
+                cat_parts = []
+                for value, cat_label in categories:
+                    if value is None:
+                        continue
+                    entry = value
+                    if cat_label:
+                        entry = f"{value}={cat_label}"
+                    cat_parts.append(entry)
+                if cat_parts:
+                    graph.add((var, SKOS.note, Literal("DDI categories: " + "; ".join(cat_parts))))
+
+            stats_map_obj = ddi_info.get("statistics")
+            if isinstance(stats_map_obj, dict) and stats_map_obj:
+                stats_parts = [f"{key}={value}" for key, value in sorted(stats_map_obj.items())]
+                if stats_parts:
+                    graph.add((var, SKOS.note, Literal("DDI stats: " + "; ".join(stats_parts))))
+
+    step = BNode()
+    graph.add((step, RDF.type, CDI.ProcessStep))
+    graph.add((step, DCTERMS.description, Literal(process_description)))
+    graph.add((dataset_uri, PROV.wasGeneratedBy, step))
+
 def build_cdi_rdf(
     columns: List[str],
     stats: List[ColumnStats],
@@ -575,83 +770,25 @@ def build_cdi_rdf(
         g = Graph()
         g.bind("cdi", CDI); g.bind("dcterms", DCTERMS); g.bind("prov", PROV); g.bind("skos", SKOS)
 
-        variable_ddi = ddi_variables or {}
         dataset_uri = URIRef(dataset_uri_base.rstrip("/") + "/" + dataset_pid)
         g.add((dataset_uri, RDF.type, CDI.DataSet))
         g.add((dataset_uri, DCTERMS.identifier, Literal(dataset_pid)))
         if dataset_title:
             g.add((dataset_uri, DCTERMS.title, Literal(dataset_title)))
 
-        # Physical layer
-        phys = BNode()
-        g.add((phys, RDF.type, CDI.PhysicalDataSet))
-        g.add((phys, DCTERMS.format, Literal("text/csv")))
-        if file_uri:
-            g.add((phys, DCTERMS.identifier, URIRef(file_uri)))
-        if file_md5:
-            g.add((phys, DCTERMS.provenance, Literal(f"md5:{file_md5}")))
-        if ddi_raw:
-            if ddi_is_xml_literal:
-                g.add((phys, DCTERMS.source, Literal(ddi_raw, datatype=RDF.XMLLiteral)))
-            else:
-                g.add((phys, DCTERMS.source, Literal(ddi_raw)))
-        g.add((dataset_uri, LINK["dataset_to_physical"], phys))
-
-        # Logical layer
-        logical = BNode()
-        g.add((logical, RDF.type, CDI.LogicalDataSet))
-        g.add((dataset_uri, LINK["dataset_to_logical"], logical))
-
-        # Variables
-        for name, st in zip(columns, stats):
-            frag = safe_uri_fragment(name)
-            var = URIRef(f"{dataset_uri}#var/{frag}")
-            role_node = URIRef(f"{dataset_uri}#role/{frag}")
-
-            g.add((var, RDF.type, CDI.Variable))
-            if isinstance(variable_ddi, dict):
-                ddi_info = variable_ddi.get(name, {})
-            else:
-                ddi_info = {}
-            label = ddi_info.get("label") if isinstance(ddi_info, dict) else None
-            if label:
-                g.add((var, SKOS.prefLabel, Literal(label)))
-                if label.strip() != name:
-                    g.add((var, SKOS.altLabel, Literal(name)))
-            else:
-                g.add((var, SKOS.prefLabel, Literal(name)))
-            g.add((var, DCTERMS.identifier, Literal(name)))
-            g.add((var, LINK["variable_to_repr"], st.xsd_datatype()))
-            g.add((role_node, RDF.type, CDI.Role))
-            g.add((role_node, SKOS.prefLabel, Literal(st.role())))
-            g.add((var, LINK["variable_to_role"], role_node))
-            g.add((logical, LINK["logical_to_variable"], var))
-
-            if isinstance(ddi_info, dict):
-                categories = ddi_info.get("categories") or []
-                if categories:
-                    cat_parts = []
-                    for value, cat_label in categories:
-                        if value is None:
-                            continue
-                        entry = value
-                        if cat_label:
-                            entry = f"{value}={cat_label}"
-                        cat_parts.append(entry)
-                    if cat_parts:
-                        g.add((var, SKOS.note, Literal("DDI categories: " + "; ".join(cat_parts))))
-
-                stats_map_obj = ddi_info.get("statistics")
-                if isinstance(stats_map_obj, dict) and stats_map_obj:
-                    stats_parts = [f"{key}={value}" for key, value in sorted(stats_map_obj.items())]
-                    if stats_parts:
-                        g.add((var, SKOS.note, Literal("DDI stats: " + "; ".join(stats_parts))))
-
-        # Simple provenance
-        step = BNode()
-        g.add((step, RDF.type, CDI.ProcessStep))
-        g.add((step, DCTERMS.description, Literal("Generated CDI from CSV via streaming profiler")))
-        g.add((dataset_uri, PROV.wasGeneratedBy, step))
+        add_file_to_dataset_graph(
+            graph=g,
+            dataset_uri=dataset_uri,
+            columns=columns,
+            stats=stats,
+            file_uri=file_uri,
+            file_md5=file_md5,
+            ddi_raw=ddi_raw,
+            ddi_variables=ddi_variables,
+            ddi_is_xml_literal=ddi_is_xml_literal,
+            process_description="Generated CDI from CSV via streaming profiler",
+            file_format="text/csv",
+        )
 
         target_path = str(out_path)
         logging.info(f"Writing RDF output to {target_path}")
@@ -667,6 +804,181 @@ def build_cdi_rdf(
         
     except Exception as e:
         raise RuntimeError(f"Error building or writing RDF: {e}")
+
+
+def generate_manifest_cdi(
+    manifest: Dict[str, Any],
+    output_path: Path,
+    summary_json: Optional[Path],
+    skip_md5_default: bool = False,
+    quiet: bool = False,
+) -> Tuple[List[str], int, int]:
+    """Generate CDI output for a dataset manifest.
+
+    Returns a tuple of (warnings, total_rows_processed, files_processed).
+    """
+
+    warnings: List[str] = []
+
+    dataset_pid = manifest.get("dataset_pid")
+    dataset_uri_base = manifest.get("dataset_uri_base")
+    if not dataset_pid or not dataset_uri_base:
+        raise ValueError("manifest requires 'dataset_pid' and 'dataset_uri_base'")
+
+    dataset_title = manifest.get("dataset_title")
+    dataset_metadata_path = manifest.get("dataset_metadata_path")
+
+    metadata_payload: Optional[Dict[str, Any]] = None
+    if dataset_metadata_path:
+        metadata_payload = load_metadata_from_file(Path(dataset_metadata_path))
+        if metadata_payload is None:
+            warnings.append(f"Failed to parse dataset metadata from {dataset_metadata_path}")
+
+    if not dataset_title and metadata_payload:
+        dataset_title = extract_dataset_title(metadata_payload)
+
+    dataset_uri = URIRef(dataset_uri_base.rstrip("/") + "/" + dataset_pid)
+    dataset_base_url = manifest.get("dataset_base_url")
+    if not dataset_base_url:
+        dataset_base_url = dataset_uri_base.replace("/dataset", "")
+
+    files_cfg = manifest.get("files") or []
+    if not files_cfg:
+        raise ValueError("manifest contains no files to process")
+
+    graph = Graph()
+    graph.bind("cdi", CDI); graph.bind("dcterms", DCTERMS); graph.bind("prov", PROV); graph.bind("skos", SKOS)
+    graph.add((dataset_uri, RDF.type, CDI.DataSet))
+    graph.add((dataset_uri, DCTERMS.identifier, Literal(dataset_pid)))
+    if dataset_title:
+        graph.add((dataset_uri, DCTERMS.title, Literal(dataset_title)))
+
+    summary_payload: List[Dict[str, Any]] = []
+    total_rows = 0
+
+    for file_cfg in files_cfg:
+        if "csv_path" not in file_cfg:
+            raise ValueError("each manifest file entry must include 'csv_path'")
+
+        csv_path = Path(file_cfg["csv_path"])
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV path not found: {csv_path}")
+
+        file_name = file_cfg.get("file_name") or csv_path.name
+        header_option = file_cfg.get("header", "auto")
+        delimiter = file_cfg.get("delimiter")
+        encoding = file_cfg.get("encoding")
+        limit_rows = file_cfg.get("limit_rows")
+        skip_md5 = file_cfg.get("skip_md5", skip_md5_default)
+        allow_xconvert = file_cfg.get("allow_xconvert", True)
+
+        file_uri = file_cfg.get("file_uri")
+        metadata_lookup = file_cfg.get("metadata_lookup") or file_name
+        if not file_uri and metadata_payload:
+            inferred = extract_file_uri(metadata_payload, metadata_lookup, dataset_base_url)
+            if inferred:
+                file_uri = inferred
+
+        ddi_path_value = file_cfg.get("ddi_path")
+        ddi_path: Optional[Path] = None
+        if ddi_path_value:
+            ddi_candidate = Path(ddi_path_value)
+            if ddi_candidate.exists():
+                ddi_path = ddi_candidate
+            else:
+                warnings.append(f"DDI metadata file missing for {file_name}: {ddi_candidate}")
+
+        if ddi_path is None and allow_xconvert:
+            xconvert_ddi = detect_and_run_xconvert(csv_path, csv_path.parent)
+            if xconvert_ddi:
+                ddi_path = xconvert_ddi
+
+        ddi_raw: Optional[str] = None
+        ddi_variables: Dict[str, Dict[str, Any]] = {}
+        ddi_is_xml_literal = False
+        if ddi_path:
+            ddi_raw, ddi_variables, ddi_is_xml_literal = load_ddi_metadata(ddi_path)
+            if not ddi_raw:
+                warnings.append(f"DDI metadata unavailable or invalid for {file_name}: {ddi_path}")
+
+        columns, stats, info, file_md5_value, _ = stream_profile_csv(
+            csv_path,
+            encoding=encoding,
+            delimiter=delimiter,
+            header=header_option,
+            limit_rows=limit_rows,
+            compute_md5=not skip_md5,
+        )
+
+        process_note = f"Generated CDI from CSV via streaming profiler (file: {file_name})"
+        add_file_to_dataset_graph(
+            graph=graph,
+            dataset_uri=dataset_uri,
+            columns=columns,
+            stats=stats,
+            file_uri=file_uri,
+            file_md5=file_md5_value,
+            ddi_raw=ddi_raw,
+            ddi_variables=ddi_variables,
+            ddi_is_xml_literal=ddi_is_xml_literal,
+            process_description=process_note,
+        )
+
+        total_rows += info.get("rows_read", 0)
+
+        column_entries: List[Dict[str, Any]] = []
+        for name, st in zip(columns, stats):
+            datatype_uri = str(st.xsd_datatype())
+            datatype_name = datatype_uri.split('#')[-1]
+            entry = {
+                "name": name,
+                "datatype": datatype_name,
+                "role": st.role(),
+                "approx_distinct": st.approx_distinct(),
+                "non_missing": st.n_non_missing,
+            }
+            ddi_info = ddi_variables.get(name, {}) if isinstance(ddi_variables, dict) else {}
+            ddi_label = ddi_info.get("label") if isinstance(ddi_info, dict) else None
+            if ddi_label:
+                entry["ddi_label"] = ddi_label
+            stats_map_obj = ddi_info.get("statistics") if isinstance(ddi_info, dict) else None
+            if isinstance(stats_map_obj, dict) and stats_map_obj:
+                entry["ddi_statistics"] = stats_map_obj
+            categories = ddi_info.get("categories") if isinstance(ddi_info, dict) else None
+            if categories:
+                entry["ddi_categories"] = [
+                    {"value": value, "label": label}
+                    for value, label in categories
+                    if value is not None
+                ]
+            column_entries.append(entry)
+
+        summary_payload.append(
+            {
+                "file": file_name,
+                "rows_profiled": info.get("rows_read", 0),
+                "columns": column_entries,
+            }
+        )
+
+    rdf_output = graph.serialize(format="turtle")
+    output_parent = output_path.parent
+    if output_parent != Path("."):
+        output_parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(rdf_output, encoding="utf-8")
+    if not quiet:
+        logging.info("Wrote CDI Turtle to %s", output_path)
+
+    if summary_json:
+        summary = {
+            "dataset_pid": dataset_pid,
+            "rows_profiled": total_rows,
+            "files": summary_payload,
+        }
+        summary_json.parent.mkdir(parents=True, exist_ok=True)
+        summary_json.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    return warnings, total_rows, len(files_cfg)
 
 
 # ------------------------------ CLI ------------------------------
@@ -774,11 +1086,12 @@ def detect_and_run_xconvert(csv_path: Path, work_dir: Path) -> Optional[Path]:
 
 def parse_args():
     p = argparse.ArgumentParser(description="Stream a CSV and emit DDI-CDI RDF (Turtle).")
-    p.add_argument("--csv", required=True, type=Path, help="Path to CSV file")
-    p.add_argument("--dataset-pid", required=True, help="Dataset PID/DOI (e.g., doi:10.xxxx/xxxx)")
-    p.add_argument("--dataset-uri-base", required=True, help="Base URI for dataset landing pages")
-    p.add_argument("--file-uri", help="Public URI for this data file (if any)")
-    p.add_argument("--dataset-title", help="Dataset title (optional)")
+    p.add_argument("--manifest", type=Path, help="Path to dataset manifest JSON (enables multi-file mode)")
+    p.add_argument("--csv", type=Path, help="Path to CSV file (legacy single-file mode)")
+    p.add_argument("--dataset-pid", help="Dataset PID/DOI (required in single-file mode)")
+    p.add_argument("--dataset-uri-base", help="Base URI for dataset landing pages (single-file mode)")
+    p.add_argument("--file-uri", help="Public URI for this data file (if any; single-file mode)")
+    p.add_argument("--dataset-title", help="Dataset title (optional; single-file mode)")
     p.add_argument("--dataset-metadata-file", type=Path, help="Optional path to Dataverse dataset metadata JSON")
     p.add_argument("--output", "-o", type=Path, default=Path("dataset.cdi.ttl"), help="Output TTL path")
     p.add_argument("--delimiter", help="Force CSV delimiter (otherwise sniffed)")
@@ -795,66 +1108,111 @@ def parse_args():
 
 def main():
     args = parse_args()
-    
-    # Load metadata from file if provided, otherwise try stdin (legacy)
-    metadata_payload: Optional[Dict[str, Any]] = None
-    if args.dataset_metadata_file:
-        metadata_payload = load_metadata_from_file(args.dataset_metadata_file)
-    else:
-        metadata_payload = read_metadata_from_stdin()
-    
-    # Extract title and file URI from metadata if not provided as arguments
-    if metadata_payload:
-        if not args.dataset_title:
-            inferred_title = extract_dataset_title(metadata_payload)
-            if inferred_title:
-                args.dataset_title = inferred_title
-        
-        if not args.file_uri:
-            # Extract base URL from dataset_uri_base
-            base_url = args.dataset_uri_base.replace("/dataset", "")
-            inferred_uri = extract_file_uri(metadata_payload, args.csv.name, base_url)
-            if inferred_uri:
-                args.file_uri = inferred_uri
+    if args.manifest and args.csv:
+        print("[ERROR] --manifest and --csv are mutually exclusive", file=sys.stderr)
+        sys.exit(2)
 
-    # Set up logging
+    if not args.manifest and not args.csv:
+        print("[ERROR] Provide either --manifest for multi-file mode or --csv for single-file mode", file=sys.stderr)
+        sys.exit(2)
+
     setup_logging(args.verbose, args.quiet)
 
-    ddi_raw: Optional[str] = None
-    ddi_variables: Dict[str, Dict[str, Any]] = {}
-    ddi_is_xml_literal = False
-    
-    # Try xconvert if no DDI file provided
-    if not args.ddi_file:
-        logging.info("No DDI file provided, checking for xconvert-compatible syntax files")
-        work_path = Path(args.csv).parent
-        xconvert_ddi = detect_and_run_xconvert(args.csv, work_path)
-        if xconvert_ddi:
-            args.ddi_file = xconvert_ddi
-            logging.info(f"Using xconvert-generated DDI: {xconvert_ddi}")
-    
-    if args.ddi_file:
-        raw_ddi, parsed_variables, is_xml_literal = load_ddi_metadata(args.ddi_file)
-        if raw_ddi:
-            ddi_raw = raw_ddi
-            ddi_variables = parsed_variables
-            ddi_is_xml_literal = is_xml_literal
-            logging.info("Loaded DDI fragment from %s", args.ddi_file)
-            if not parsed_variables:
-                logging.info("DDI fragment contained no variable-level metadata")
-        else:
-            logging.warning("DDI metadata unavailable for %s", args.ddi_file)
-
     try:
+        if args.manifest:
+            if not args.manifest.exists():
+                raise FileNotFoundError(f"Manifest file not found: {args.manifest}")
+            manifest_data = json.loads(args.manifest.read_text(encoding="utf-8"))
+            warnings, total_rows, file_count = generate_manifest_cdi(
+                manifest=manifest_data,
+                output_path=args.output,
+                summary_json=args.summary_json,
+                skip_md5_default=args.skip_md5,
+                quiet=args.quiet,
+            )
+            for message in warnings:
+                logging.warning(message)
+            if not args.quiet:
+                print(f"[OK] Wrote CDI TTL: {args.output}")
+                print(f"  files_processed={file_count}, rows_profiled={total_rows}")
+                if args.summary_json:
+                    print(f"  summary_json={args.summary_json}")
+            logging.info("Manifest conversion completed: files=%s rows=%s", file_count, total_rows)
+            return
+
+        # Single-file mode validation
+        missing_args = [
+            name for name in ("dataset_pid", "dataset_uri_base")
+            if not getattr(args, name)
+        ]
+        if missing_args:
+            raise ValueError(
+                "Missing required arguments for single-file mode: " + ", ".join(missing_args)
+            )
+        if not args.csv:
+            raise ValueError("--csv is required in single-file mode")
+        if not args.csv.exists():
+            raise FileNotFoundError(f"CSV path not found: {args.csv}")
+
+        # Load metadata from file if provided, otherwise try stdin (legacy)
+        metadata_payload: Optional[Dict[str, Any]] = None
+        if args.dataset_metadata_file:
+            metadata_payload = load_metadata_from_file(args.dataset_metadata_file)
+        else:
+            metadata_payload = read_metadata_from_stdin()
+
+        # Extract title and file URI from metadata if not provided as arguments
+        if metadata_payload:
+            if not args.dataset_title:
+                inferred_title = extract_dataset_title(metadata_payload)
+                if inferred_title:
+                    args.dataset_title = inferred_title
+
+            if not args.file_uri:
+                base_url = args.dataset_uri_base.replace("/dataset", "")
+                inferred_uri = extract_file_uri(metadata_payload, args.csv.name, base_url)
+                if inferred_uri:
+                    args.file_uri = inferred_uri
+
+        ddi_raw: Optional[str] = None
+        ddi_variables: Dict[str, Dict[str, Any]] = {}
+        ddi_is_xml_literal = False
+
+        if not args.ddi_file:
+            logging.info("No DDI file provided, checking for xconvert-compatible syntax files")
+            work_path = Path(args.csv).parent
+            xconvert_ddi = detect_and_run_xconvert(args.csv, work_path)
+            if xconvert_ddi:
+                args.ddi_file = xconvert_ddi
+                logging.info("Using xconvert-generated DDI: %s", xconvert_ddi)
+
+        if args.ddi_file:
+            raw_ddi, parsed_variables, is_xml_literal = load_ddi_metadata(args.ddi_file)
+            if raw_ddi:
+                ddi_raw = raw_ddi
+                ddi_variables = parsed_variables
+                ddi_is_xml_literal = is_xml_literal
+                logging.info("Loaded DDI fragment from %s", args.ddi_file)
+                if not parsed_variables:
+                    logging.info("DDI fragment contained no variable-level metadata")
+            else:
+                logging.warning("DDI metadata unavailable for %s", args.ddi_file)
+
         logging.info("Starting CSV to CDI conversion")
-        logging.info(f"Input file: {args.csv}")
-        logging.info(f"Output file: {args.output}")
-        
-        cols, stats, info, md5, dialect = stream_profile_csv(
+        logging.info("Input file: %s", args.csv)
+        logging.info("Output file: %s", args.output)
+
+        header_mode: Union[bool, str]
+        if args.no_header:
+            header_mode = "absent"
+        else:
+            header_mode = "auto"
+
+        cols, stats, info, md5, _ = stream_profile_csv(
             args.csv,
             encoding=args.encoding,
             delimiter=args.delimiter,
-            header=not args.no_header,
+            header=header_mode,
             limit_rows=args.limit_rows,
             compute_md5=not args.skip_md5,
         )
@@ -877,12 +1235,12 @@ def main():
             print(f"[OK] Wrote CDI TTL: {args.output}")
             print(f"  rows_profiled={info['rows_read']}, columns={len(cols)}")
 
-        # Print column summary
         if not args.quiet:
             print("\nColumn Analysis:")
         column_summaries: List[Dict[str, object]] = []
         for name, st in zip(cols, stats):
-            datatype_name = st.xsd_datatype().split('#')[-1] if hasattr(st.xsd_datatype(),'split') else str(st.xsd_datatype())
+            datatype_uri = str(st.xsd_datatype())
+            datatype_name = datatype_uri.split('#')[-1]
             distinct = st.approx_distinct()
             non_missing = st.n_non_missing
             role = st.role()
@@ -928,12 +1286,12 @@ def main():
                 "columns": column_summaries,
             }
             summary_path.write_text(json.dumps(summary_payload, indent=2), encoding="utf-8")
-            logging.info(f"Wrote column summary JSON to {summary_path}")
-            
+            logging.info("Wrote column summary JSON to %s", summary_path)
+
         logging.info("Conversion completed successfully")
-        
+
     except Exception as e:
-        logging.error(f"Error during conversion: {e}")
+        logging.error("Error during conversion: %s", e)
         print(f"[ERROR] {e}", file=sys.stderr)
         sys.exit(1)
 

@@ -79,6 +79,7 @@ For each tabular data file, the system:
   - Infers data types for each column (integer, decimal, boolean, date/time, text)
   - Determines variable roles (identifier, measure, dimension, attribute)
   - Calculates approximate statistics using probabilistic data structures
+  - Packages the gathered context into a manifest entry that describes how the generator should read the file in Step 5
 
 ### Step 4: Metadata Enrichment
 
@@ -99,12 +100,15 @@ This multi-source approach ensures the richest possible documentation, leveragin
 
 ### Step 5: CDI Generation
 
-Using the [`csv_to_cdi.py`](image/csv_to_cdi.py) Python script, the system:
+The Go backend now assembles a manifest (JSON) that captures dataset context alongside every selected file (physical paths, discovered metadata, ingest/xconvert fragments, and processing options). It then invokes [`cdi_generator.py`](image/cdi_generator.py) once via `--manifest <manifest-path>`, letting the Python layer iterate through each entry, emit DDI-CDI output, and surface any warnings back to the job log. Legacy single-file invocations still work for ad-hoc CLI use, but the automated job defaults to manifest mode for consistency and performance.
+
+Within this manifest-driven run, the generator:
 
 - Constructs a DDI-CDI compliant RDF graph
 - Describes the dataset structure (physical and logical representations)
 - Documents each variable with its properties and relationships
 - Records provenance information (processing timestamp, tools used)
+- Writes optional per-run summary JSON when `--summary` is enabled (used by the backend to capture profiling metadata)
 - Outputs the result in RDF Turtle format (a human-readable semantic format)
 
 ### Step 6: Presentation
@@ -198,13 +202,13 @@ The DDI-CDI feature automatically filters files by their extension to show only 
 | `.sas` | SAS data step definitions | xconvert tool + DDI extraction |
 | `.dct` | Stata dictionary files | xconvert tool + DDI extraction |
 
-**Note**: The extension list is defined in the backend code (`image/app/common/ddi_cdi.go`) and files are filtered server-side. Files with other extensions will not appear in the file selection tree.
+**Note**: The extension list is defined in the backend code (`image/app/core/ddi_cdi.go`) and files are filtered server-side. Files with other extensions will not appear in the file selection tree.
 
 #### Adding Support for New Extensions
 
 If you need to add support for additional file formats (e.g., `.xlsx`, `.json`, or other statistical formats), you can modify the supported extensions list in the backend code:
 
-1. Open `image/app/common/ddi_cdi.go`
+1. Open `image/app/core/ddi_cdi.go`
 2. Locate the `GetDdiCdiCompatibleFiles` function
 3. Find the `supported` map definition:
    ```go
@@ -404,7 +408,7 @@ While generation is running or after completion, the **console output area** (le
 
 - Processing status messages
 - File analysis progress
-- Python script output from `csv_to_cdi.py`
+- Python script output from `cdi_generator.py`
 - Any warnings or non-fatal errors
 - Completion confirmation
 
@@ -522,9 +526,9 @@ The feature uses a hybrid architecture:
 - **Redis queue**: Manages background job processing
 - **SHACL form**: Provides interactive metadata presentation
 
-### The csv_to_cdi.py Script
+### The cdi_generator.py Script
 
-The core metadata generation is performed by [`csv_to_cdi.py`](image/csv_to_cdi.py), a Python script designed with contributions in mind:
+The core metadata generation is performed by [`cdi_generator.py`](image/cdi_generator.py), a Python script designed with contributions in mind:
 
 - **Clean, documented code** with clear function boundaries
 - **Standard Python libraries** (rdflib, chardet, datasketch, python-dateutil)
@@ -539,7 +543,16 @@ The core metadata generation is performed by [`csv_to_cdi.py`](image/csv_to_cdi.
 - Add new metadata enrichments
 - Fix bugs or improve performance
 
-View the script here: [image/csv_to_cdi.py](image/csv_to_cdi.py)
+View the script here: [image/cdi_generator.py](image/cdi_generator.py)
+
+### SHACL Shapes Hosting
+
+The SHACL form renderer now loads its shape definitions from the backend. The default template lives in [`image/app/frontend/default_shacl_shapes.ttl`](image/app/frontend/default_shacl_shapes.ttl) and is exposed via the `GET /api/frontend/shacl` endpoint (see [`image/app/frontend/shacl.go`](image/app/frontend/shacl.go)).
+
+- The template is delivered as Turtle; the Angular component performs a simple string substitution for the placeholder `__TARGET_NODE__`, replacing it with the dataset node discovered in the generated CDI graph.
+- Deployments can override the embedded template by setting the `FRONTEND_SHACL_FILE` environment variable to point to an alternative Turtle file at startup.
+- Keep the `__TARGET_NODE__` marker in any custom template so the frontend can continue to bind the active dataset node; the remainder of the file is free-form SHACL and can include additional shapes or constraints.
+- When contributing improvements, update the embedded template file and, if needed, extend the documentation here so downstream deployers know which shapes are new.
 
 ### Testing
 
@@ -593,6 +606,7 @@ The test suite includes 43 tests covering:
    - Stata to DDI conversion
    - Error handling for missing or invalid files
    - Complete workflow: statistical file → DDI → CDI-RDF
+  - Fixture validation against `testdata/tmp_ddi8.xml` (mirrors Dataverse `GetDataFileDDI` output)
 
 5. **Error Handling Tests**:
    - Graceful degradation when metadata unavailable
@@ -708,7 +722,7 @@ If you encounter problems:
 
 We welcome contributions, especially to the Python metadata generation:
 
-- **Python developers**: Enhance csv_to_cdi.py with new features
+- **Python developers**: Enhance cdi_generator.py with new features
 - **Data scientists**: Improve statistical profiling algorithms
 - **Metadata experts**: Refine DDI-CDI mappings and enrichments
 - **Testers**: Add test cases for edge cases and new formats

@@ -3,7 +3,6 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -39,44 +38,94 @@ func DdiCdiGen(job Job) (Job, error) {
 		consoleOut = "no writable files found"
 	} else {
 		sort.Strings(fileNames)
-
-		outputs := make([]string, 0, len(fileNames))
-		warnings := make([]string, 0)
-
-		for _, fileName := range fileNames {
-			delete(job.WritableNodes, fileName)
-			output, fileWarnings, err := processCdiFile(fileName, job)
-			warnings = append(warnings, fileWarnings...)
-			if err != nil {
-				warnings = append(warnings, formatComputeError(fileName, output, err))
-				logging.Logger.Printf("compute: failed for %s: %v", fileName, err)
-				continue
-			}
-			outputs = append(outputs, output)
+		for _, name := range fileNames {
+			delete(job.WritableNodes, name)
 		}
 
-		if len(outputs) == 0 {
-			errorMessage = "computation failed"
-			consoleOut = joinWarnings(warnings)
-			if strings.TrimSpace(consoleOut) == "" {
-				consoleOut = "no CDI output generated"
-			}
+		var (
+			ctx    context.Context
+			cancel context.CancelFunc
+		)
+		if job.Deadline.IsZero() {
+			ctx, cancel = context.WithCancel(context.Background())
 		} else {
-			combined, combineErr := combineTurtleOutputs(job, outputs)
-			if combineErr != nil {
-				errorMessage = combineErr.Error()
-				allMessages := []string{combineErr.Error()}
-				for _, w := range warnings {
-					if trimmed := strings.TrimSpace(w); trimmed != "" {
-						allMessages = append(allMessages, trimmed)
-					}
+			ctx, cancel = context.WithDeadline(context.Background(), job.Deadline)
+		}
+		defer cancel()
+
+		linkedDir, nodeMap, mountErr := mountDatasetForCdi(ctx, job)
+		if mountErr != nil {
+			errorMessage = "computation failed"
+			consoleOut = fmt.Sprintf("failed to mount dataset: %v", mountErr)
+		} else {
+			defer unmountCdi(job)
+
+			workspaceDir := jobWorkDir(job)
+			manifestPath, cleanupFuncs, manifestWarnings, manifestErr := createManifestFile(ctx, job, fileNames, linkedDir, nodeMap, workspaceDir)
+			warnings := make([]string, 0, len(manifestWarnings))
+			warnings = append(warnings, manifestWarnings...)
+
+			if manifestErr != nil {
+				errorMessage = "computation failed"
+				allMessages := append([]string{manifestErr.Error()}, warnings...)
+				consoleOut = strings.Join(nonEmptyStrings(allMessages), "\n\n")
+				for _, cleanup := range cleanupFuncs {
+					cleanup()
 				}
-				consoleOut = strings.Join(allMessages, "\n\n")
 			} else {
-				// Success: put Turtle in DdiCdi field, warnings in ConsoleOut
-				ddiCdi = combined
-				if len(warnings) > 0 {
-					consoleOut = formatWarningsAsConsoleOutput(warnings)
+				defer func() {
+					for _, cleanup := range cleanupFuncs {
+						cleanup()
+					}
+				}()
+
+				outputFile, err := os.CreateTemp(workspaceDir, "ddi-cdi-output-*.ttl")
+				if err != nil {
+					errorMessage = "computation failed"
+					allMessages := append([]string{fmt.Sprintf("failed to create CDI output file: %v", err)}, warnings...)
+					consoleOut = strings.Join(nonEmptyStrings(allMessages), "\n\n")
+				} else {
+					outputPath := outputFile.Name()
+					if closeErr := outputFile.Close(); closeErr != nil {
+						os.Remove(outputPath)
+						errorMessage = "computation failed"
+						allMessages := append([]string{fmt.Sprintf("failed to close CDI output file: %v", closeErr)}, warnings...)
+						consoleOut = strings.Join(nonEmptyStrings(allMessages), "\n\n")
+					} else {
+						defer os.Remove(outputPath)
+
+						args := []string{
+							"/usr/local/bin/cdi_generator.py",
+							"--manifest", manifestPath,
+							"--output", outputPath,
+							"--skip-md5",
+							"--quiet",
+						}
+
+						cmd := exec.CommandContext(ctx, "python3", args...)
+						cmd.Dir = workspaceDir
+						output, cmdErr := cmd.CombinedOutput()
+						if trimmed := strings.TrimSpace(string(output)); trimmed != "" {
+							warnings = append(warnings, trimmed)
+						}
+						if cmdErr != nil {
+							errorMessage = "computation failed"
+							allMessages := append([]string{fmt.Sprintf("cdi_generator execution failed: %v", cmdErr)}, warnings...)
+							consoleOut = strings.Join(nonEmptyStrings(allMessages), "\n\n")
+						} else {
+							content, readErr := os.ReadFile(outputPath)
+							if readErr != nil {
+								errorMessage = "computation failed"
+								allMessages := append([]string{fmt.Sprintf("failed to read CDI output: %v", readErr)}, warnings...)
+								consoleOut = strings.Join(nonEmptyStrings(allMessages), "\n\n")
+							} else {
+								ddiCdi = string(content)
+								if len(warnings) > 0 {
+									consoleOut = formatWarningsAsConsoleOutput(warnings)
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -101,113 +150,125 @@ func DdiCdiGen(job Job) (Job, error) {
 	return job, nil
 }
 
-func processCdiFile(fileName string, job Job) (string, []string, error) {
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-	if job.Deadline.IsZero() {
-		ctx, cancel = context.WithCancel(context.Background())
-	} else {
-		ctx, cancel = context.WithDeadline(context.Background(), job.Deadline)
-	}
-	defer cancel()
-
+func createManifestFile(
+	ctx context.Context,
+	job Job,
+	fileNames []string,
+	linkedDir string,
+	nodeMap map[string]tree.Node,
+	workspaceDir string,
+) (string, []func(), []string, error) {
+	cleanups := make([]func(), 0)
 	warnings := make([]string, 0)
 
-	workDir, nodeMap, err := mountDatasetForCdi(ctx, job)
-	if err != nil {
-		return workDir, warnings, err
-	}
-	defer unmountCdi(job)
-
-	csvPath := filepath.Join(workDir, fileName)
-
-	selectedNode, ok := nodeMap[fileName]
-	if !ok {
-		base := filepath.Base(fileName)
-		selectedNode, ok = nodeMap[base]
-	}
-	if !ok {
-		return "", warnings, fmt.Errorf("selected file %s not found in dataset", fileName)
+	manifest := map[string]interface{}{
+		"dataset_pid":      job.PersistentId,
+		"dataset_uri_base": strings.TrimSuffix(config.GetExternalDestinationURL(), "/") + "/dataset",
 	}
 
-	// Fetch and save dataset metadata to file
-	var metadataPath string
 	if Destination.GetDatasetMetadata != nil {
 		metadataJSON, metaErr := Destination.GetDatasetMetadata(ctx, job.PersistentId, job.DataverseKey, job.User)
 		if metaErr != nil {
 			warnings = append(warnings, fmt.Sprintf("dataset metadata unavailable: %v", metaErr))
 		} else if len(metadataJSON) > 0 {
-			tmpFile, tmpErr := os.CreateTemp(workDir, "dataset-metadata-*.json")
+			tmpFile, tmpErr := os.CreateTemp(workspaceDir, "dataset-metadata-*.json")
 			if tmpErr != nil {
 				warnings = append(warnings, fmt.Sprintf("failed to create metadata temp file: %v", tmpErr))
 			} else {
 				if _, writeErr := tmpFile.Write(metadataJSON); writeErr != nil {
 					tmpFile.Close()
+					os.Remove(tmpFile.Name())
 					warnings = append(warnings, fmt.Sprintf("failed to write metadata: %v", writeErr))
 				} else if closeErr := tmpFile.Close(); closeErr != nil {
+					os.Remove(tmpFile.Name())
 					warnings = append(warnings, fmt.Sprintf("failed to close metadata file: %v", closeErr))
 				} else {
-					metadataPath = tmpFile.Name()
-					defer os.Remove(metadataPath)
+					metadataPath := tmpFile.Name()
+					manifest["dataset_metadata_path"] = metadataPath
+					cleanups = append(cleanups, func() {
+						os.Remove(metadataPath)
+					})
 				}
 			}
 		}
 	}
 
-	// Fetch and save DDI metadata to file
-	ddiPath, cleanup, ddiErr := fetchDataFileDDI(ctx, job, selectedNode, workDir, nodeMap)
-	if cleanup != nil {
-		defer cleanup()
-	}
-	if ddiErr != nil {
-		warnings = append(warnings, fmt.Sprintf("file %s: failed to retrieve DDI metadata: %v", fileName, ddiErr))
+	files := make([]map[string]interface{}, 0, len(fileNames))
+	for _, fileName := range fileNames {
+		selectedNode, ok := nodeMap[fileName]
+		if !ok {
+			base := filepath.Base(fileName)
+			selectedNode, ok = nodeMap[base]
+		}
+		if !ok {
+			warnings = append(warnings, fmt.Sprintf("selected file %s not found in dataset", fileName))
+			continue
+		}
+
+		csvPath := filepath.Join(linkedDir, fileName)
+		if info, err := os.Stat(csvPath); err != nil {
+			warnings = append(warnings, fmt.Sprintf("file %s unavailable: %v", fileName, err))
+			continue
+		} else if info.IsDir() {
+			warnings = append(warnings, fmt.Sprintf("file %s is a directory; skipping", fileName))
+			continue
+		}
+
+		entry := map[string]interface{}{
+			"csv_path":        csvPath,
+			"file_name":       fileName,
+			"metadata_lookup": fileName,
+			"allow_xconvert":  false,
+		}
+
+		allowXconvert := false
+		ddiPath, cleanup, ddiErr := fetchDataFileDDI(ctx, job, selectedNode, linkedDir, nodeMap)
+		if cleanup != nil {
+			cleanups = append(cleanups, cleanup)
+		}
+		if ddiErr != nil {
+			warnings = append(warnings, fmt.Sprintf("file %s: failed to retrieve DDI metadata: %v", fileName, ddiErr))
+			allowXconvert = true
+		} else if ddiPath != "" {
+			entry["ddi_path"] = ddiPath
+		}
+		if allowXconvert {
+			entry["allow_xconvert"] = true
+		}
+
+		files = append(files, entry)
 	}
 
-	datasetURIBase := strings.TrimSuffix(config.GetExternalDestinationURL(), "/") + "/dataset"
+	if len(files) == 0 {
+		return "", cleanups, warnings, fmt.Errorf("no writable files were eligible for CDI generation")
+	}
 
-	outputFile, err := os.CreateTemp(workDir, "ddi-cdi-*.ttl")
+	manifest["files"] = files
+
+	tmpManifest, err := os.CreateTemp(workspaceDir, "ddi-cdi-manifest-*.json")
 	if err != nil {
-		return "", warnings, fmt.Errorf("failed to create CDI output file: %w", err)
-	}
-	outputPath := outputFile.Name()
-	if closeErr := outputFile.Close(); closeErr != nil {
-		os.Remove(outputPath)
-		return "", warnings, fmt.Errorf("failed to close CDI output file: %w", closeErr)
-	}
-	defer os.Remove(outputPath)
-
-	args := []string{
-		"/usr/local/bin/csv_to_cdi.py",
-		"--csv", csvPath,
-		"--dataset-pid", job.PersistentId,
-		"--dataset-uri-base", datasetURIBase,
-		"--output", outputPath,
-		"--skip-md5",
-		"--quiet",
-	}
-	if metadataPath != "" {
-		args = append(args, "--dataset-metadata-file", metadataPath)
-	}
-	if ddiErr == nil && ddiPath != "" {
-		args = append(args, "--ddi-file", ddiPath)
+		return "", cleanups, warnings, fmt.Errorf("failed to create manifest file: %w", err)
 	}
 
-	cmd := exec.CommandContext(ctx, "python3", args...)
-	cmd.Dir = workDir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(output), warnings, fmt.Errorf("csv_to_cdi execution failed: %w", err)
+	encoder := json.NewEncoder(tmpManifest)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(manifest); err != nil {
+		tmpManifest.Close()
+		os.Remove(tmpManifest.Name())
+		return "", cleanups, warnings, fmt.Errorf("failed to write manifest file: %w", err)
 	}
-	if trimmed := strings.TrimSpace(string(output)); trimmed != "" {
-		warnings = append(warnings, trimmed)
+
+	if closeErr := tmpManifest.Close(); closeErr != nil {
+		os.Remove(tmpManifest.Name())
+		return "", cleanups, warnings, fmt.Errorf("failed to close manifest file: %w", closeErr)
 	}
-	content, readErr := os.ReadFile(outputPath)
-	if readErr != nil {
-		return "", warnings, fmt.Errorf("failed to read CDI output: %w", readErr)
-	}
-	return string(content), warnings, nil
+
+	manifestPath := tmpManifest.Name()
+	cleanups = append(cleanups, func() {
+		os.Remove(manifestPath)
+	})
+
+	return manifestPath, cleanups, warnings, nil
 }
 
 func fetchDataFileDDI(ctx context.Context, job Job, node tree.Node, workDir string, nodeMap map[string]tree.Node) (string, func(), error) {
@@ -252,93 +313,6 @@ func fetchDataFileDDI(ctx context.Context, job Job, node tree.Node, workDir stri
 	return "", nil, apiErr
 }
 
-func combineTurtleOutputs(job Job, docs []string) (string, error) {
-	if len(docs) == 0 {
-		return "", fmt.Errorf("no CDI documents to merge")
-	}
-
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-	if job.Deadline.IsZero() {
-		ctx, cancel = context.WithCancel(context.Background())
-	} else {
-		ctx, cancel = context.WithDeadline(context.Background(), job.Deadline)
-	}
-	defer cancel()
-
-	script := `import sys, json
-from rdflib import Graph
-
-docs = json.load(sys.stdin)
-graph = Graph()
-for data in docs:
-	if not isinstance(data, str) or not data.strip():
-		continue
-	graph.parse(data=data, format="turtle")
-sys.stdout.write(graph.serialize(format="turtle"))`
-
-	cmd := exec.CommandContext(ctx, "python3", "-c", script)
-	payload, err := json.Marshal(docs)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal CDI fragments: %w", err)
-	}
-	cmd.Stdin = bytes.NewReader(payload)
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("failed to merge CDI outputs: %s%w", stderr.String(), err)
-		}
-		return "", fmt.Errorf("failed to merge CDI outputs: %w", err)
-	}
-	return stdout.String(), nil
-}
-
-func appendWarnings(output string, warnings []string) string {
-	trimmedWarnings := make([]string, 0, len(warnings))
-	for _, warning := range warnings {
-		w := strings.TrimSpace(warning)
-		if w != "" {
-			trimmedWarnings = append(trimmedWarnings, w)
-		}
-	}
-	if len(trimmedWarnings) == 0 {
-		return output
-	}
-
-	var builder strings.Builder
-	trimmedOutput := strings.TrimRight(output, "\n")
-	if trimmedOutput != "" {
-		builder.WriteString(trimmedOutput)
-		builder.WriteString("\n")
-	}
-	builder.WriteString("# WARNINGS")
-	for _, warning := range trimmedWarnings {
-		lines := strings.Split(warning, "\n")
-		for _, line := range lines {
-			builder.WriteString("\n# ")
-			builder.WriteString(line)
-		}
-	}
-	builder.WriteString("\n")
-	return builder.String()
-}
-
-func formatComputeError(fileName string, output string, err error) string {
-	base := fmt.Sprintf("file %s failed: %v", fileName, err)
-	extra := strings.TrimSpace(output)
-	if extra == "" {
-		return base
-	}
-	return fmt.Sprintf("%s\n%s", base, extra)
-}
-
 func formatWarningsAsConsoleOutput(warnings []string) string {
 	var filtered []string
 	for _, w := range warnings {
@@ -352,14 +326,14 @@ func formatWarningsAsConsoleOutput(warnings []string) string {
 	return "WARNINGS:\n" + strings.Join(filtered, "\n\n")
 }
 
-func joinWarnings(warnings []string) string {
-	var filtered []string
-	for _, w := range warnings {
-		if trimmed := strings.TrimSpace(w); trimmed != "" {
+func nonEmptyStrings(values []string) []string {
+	filtered := make([]string, 0, len(values))
+	for _, v := range values {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
 			filtered = append(filtered, trimmed)
 		}
 	}
-	return strings.Join(filtered, "\n\n")
+	return filtered
 }
 
 func mountDatasetForCdi(ctx context.Context, job Job) (string, map[string]tree.Node, error) {

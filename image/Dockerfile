@@ -66,9 +66,9 @@ RUN addgroup --gid ${GROUP_ID} app \
 
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 
-COPY ./image/csv_to_cdi.py /usr/local/bin/csv_to_cdi.py
+COPY ./image/cdi_generator.py /usr/local/bin/cdi_generator.py
 COPY ./xconvert /usr/local/bin/xconvert
-RUN chmod +x /usr/local/bin/csv_to_cdi.py /usr/local/bin/xconvert
+RUN chmod +x /usr/local/bin/cdi_generator.py /usr/local/bin/xconvert
 
 USER app
 

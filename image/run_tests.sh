@@ -113,7 +113,7 @@ echo -e "${GREEN}✓${NC} Python environment ready"
 echo ""
 
 # Run Python tests
-echo -e "${YELLOW}Running Python tests for csv_to_cdi.py...${NC}"
+echo -e "${YELLOW}Running Python tests for cdi_generator.py...${NC}"
 if python3 test_csv_to_cdi.py; then
     echo -e "${GREEN}✓${NC} Python tests passed"
 else
@@ -122,16 +122,16 @@ else
 fi
 echo ""
 
-# Test csv_to_cdi.py with sample data
-echo -e "${YELLOW}Testing csv_to_cdi.py with sample data...${NC}"
-if python3 csv_to_cdi.py \
+# Test cdi_generator.py with sample data
+echo -e "${YELLOW}Testing cdi_generator.py with sample data...${NC}"
+if python3 cdi_generator.py \
     --csv testdata/sample.csv \
     --dataset-pid "doi:10.123/TEST" \
     --dataset-uri-base "https://example.org/dataset" \
     --output testdata/output_sample.ttl \
     --skip-md5 \
     --quiet; then
-    echo -e "${GREEN}✓${NC} csv_to_cdi.py execution successful"
+    echo -e "${GREEN}✓${NC} cdi_generator.py execution successful"
     
     # Verify output file was created
     if [ -f "testdata/output_sample.ttl" ]; then
@@ -151,14 +151,14 @@ if python3 csv_to_cdi.py \
         FAILURES=$((FAILURES + 1))
     fi
 else
-    echo -e "${RED}✗${NC} csv_to_cdi.py execution failed"
+    echo -e "${RED}✗${NC} cdi_generator.py execution failed"
     FAILURES=$((FAILURES + 1))
 fi
 echo ""
 
 # Test with DDI metadata
-echo -e "${YELLOW}Testing csv_to_cdi.py with DDI metadata...${NC}"
-if python3 csv_to_cdi.py \
+echo -e "${YELLOW}Testing cdi_generator.py with DDI metadata...${NC}"
+if python3 cdi_generator.py \
     --csv testdata/sample.csv \
     --dataset-pid "doi:10.123/TEST-DDI" \
     --dataset-uri-base "https://example.org/dataset" \
@@ -166,7 +166,7 @@ if python3 csv_to_cdi.py \
     --output testdata/output_with_ddi.ttl \
     --skip-md5 \
     --quiet; then
-    echo -e "${GREEN}✓${NC} csv_to_cdi.py with DDI successful"
+    echo -e "${GREEN}✓${NC} cdi_generator.py with DDI successful"
     
     # Check if DDI metadata is included
     if grep -q "DDI categories:" testdata/output_with_ddi.ttl || \
@@ -176,14 +176,14 @@ if python3 csv_to_cdi.py \
         echo -e "${YELLOW}⚠${NC} No DDI metadata found in output (may be expected)"
     fi
 else
-    echo -e "${RED}✗${NC} csv_to_cdi.py with DDI failed"
+    echo -e "${RED}✗${NC} cdi_generator.py with DDI failed"
     FAILURES=$((FAILURES + 1))
 fi
 echo ""
 
 # Test with dataset metadata
-echo -e "${YELLOW}Testing csv_to_cdi.py with dataset metadata...${NC}"
-if python3 csv_to_cdi.py \
+echo -e "${YELLOW}Testing cdi_generator.py with dataset metadata...${NC}"
+if python3 cdi_generator.py \
     --csv testdata/sample.csv \
     --dataset-pid "doi:10.123/TEST-META" \
     --dataset-uri-base "https://example.org/dataset" \
@@ -191,7 +191,7 @@ if python3 csv_to_cdi.py \
     --output testdata/output_with_metadata.ttl \
     --skip-md5 \
     --quiet; then
-    echo -e "${GREEN}✓${NC} csv_to_cdi.py with metadata successful"
+    echo -e "${GREEN}✓${NC} cdi_generator.py with metadata successful"
     
     # Check if dataset title is included
     if grep -q "Test Dataset for DDI-CDI" testdata/output_with_metadata.ttl; then
@@ -200,7 +200,7 @@ if python3 csv_to_cdi.py \
         echo -e "${YELLOW}⚠${NC} Dataset title not found (may use default)"
     fi
 else
-    echo -e "${RED}✗${NC} csv_to_cdi.py with metadata failed"
+    echo -e "${RED}✗${NC} cdi_generator.py with metadata failed"
     FAILURES=$((FAILURES + 1))
 fi
 echo ""

@@ -1,0 +1,77 @@
+@prefix cdi: <http://www.ddialliance.org/Specification/DDI-CDI/1.0/RDF/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM> a cdi:DataSet ;
+    dcterms:identifier "doi:10.5072/FK2/HWBVZM" ;
+    dcterms:title "Test" ;
+    cdi:hasLogicalDataSet [ a cdi:LogicalDataSet ;
+            cdi:containsVariable <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_1>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_2>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_3>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_4>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_5>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_6> ] ;
+    cdi:hasPhysicalDataSet [ a cdi:PhysicalDataSet ;
+            dcterms:format "text/csv" ;
+            dcterms:identifier <http://localhost:8080/api/access/datafile/7> ;
+            dcterms:provenance "md5:86200861299e5aefaefc9a126f5525e1" ] ;
+    prov:wasGeneratedBy [ a cdi:ProcessStep ;
+            dcterms:description "Generated CDI from CSV via streaming profiler" ] .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_1> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_2> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_3> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_4> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_5> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_6> a cdi:Role ;
+    skos:prefLabel "dimension" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_1> a cdi:Variable ;
+    dcterms:identifier "col_1" ;
+    cdi:hasRepresentation xsd:integer ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_1> ;
+    skos:prefLabel "col_1" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_2> a cdi:Variable ;
+    dcterms:identifier "col_2" ;
+    cdi:hasRepresentation xsd:string ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_2> ;
+    skos:prefLabel "col_2" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_3> a cdi:Variable ;
+    dcterms:identifier "col_3" ;
+    cdi:hasRepresentation xsd:integer ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_3> ;
+    skos:prefLabel "col_3" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_4> a cdi:Variable ;
+    dcterms:identifier "col_4" ;
+    cdi:hasRepresentation xsd:decimal ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_4> ;
+    skos:prefLabel "col_4" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_5> a cdi:Variable ;
+    dcterms:identifier "col_5" ;
+    cdi:hasRepresentation xsd:dateTime ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_5> ;
+    skos:prefLabel "col_5" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/col_6> a cdi:Variable ;
+    dcterms:identifier "col_6" ;
+    cdi:hasRepresentation xsd:boolean ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/col_6> ;
+    skos:prefLabel "col_6" .
+

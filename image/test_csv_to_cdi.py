@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive test suite for csv_to_cdi.py
+Comprehensive test suite for cdi_generator.py
 
 Tests cover:
 - CSV parsing and type inference
@@ -20,13 +20,14 @@ import json
 import sys
 import subprocess
 import os
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from io import StringIO
 
-# Add parent directory to path to import csv_to_cdi
+# Add parent directory to path to import cdi_generator
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import csv_to_cdi
+import cdi_generator as csv_to_cdi
 
 # Path to xconvert binary
 XCONVERT_PATH = os.environ.get('XCONVERT_PATH', '/usr/local/bin/xconvert')
@@ -154,7 +155,7 @@ class TestCSVProcessing(unittest.TestCase):
         csv_file.write_text("id,name,age\n1,John,30\n2,Jane,25\n")
 
         cols, stats, info, md5, dialect = csv_to_cdi.stream_profile_csv(
-            csv_file, compute_md5=False
+            csv_file, header=True, compute_md5=False
         )
 
         self.assertEqual(len(cols), 3)
@@ -190,13 +191,27 @@ class TestCSVProcessing(unittest.TestCase):
         self.assertEqual(cols, ["col_1", "col_2", "col_3"])
         self.assertEqual(info["rows_read"], 2)
 
+    def test_header_auto_detection_on_dataverse_tab(self):
+        """Ensure auto header detection does not treat data row as header."""
+        csv_file = self.test_path / "dataverse_no_header.tab"
+        csv_file.write_text("1\t2020-01-15\t95.5\tJohn Doe\n2\t2021-03-22\t88.2\tJane Smith\n")
+
+        cols, stats, info, _, _ = csv_to_cdi.stream_profile_csv(
+            csv_file, delimiter="\t", header="auto", compute_md5=False
+        )
+
+        self.assertEqual(cols, ["col_1", "col_2", "col_3", "col_4"])
+        self.assertEqual(info["rows_read"], 2)
+        # First column should be treated as integer measure rather than identifier string
+        self.assertEqual(stats[0].xsd_datatype(), csv_to_cdi.XSD.integer)
+
     def test_custom_delimiter(self):
         """Test CSV with custom delimiter"""
         csv_file = self.test_path / "semicolon.csv"
         csv_file.write_text("id;name;age\n1;John;30\n2;Jane;25\n")
 
         cols, stats, info, _, dialect = csv_to_cdi.stream_profile_csv(
-            csv_file, delimiter=";", compute_md5=False
+            csv_file, delimiter=";", header=True, compute_md5=False
         )
 
         self.assertEqual(len(cols), 3)
@@ -367,6 +382,32 @@ class TestDDIMetadata(unittest.TestCase):
         self.assertIsNotNone(raw_xml)
         self.assertEqual(len(variables), 0)
         self.assertFalse(is_xml)
+
+    def test_load_ddi_metadata_fixture(self):
+        """Test loading the real GetDataFileDDI fixture."""
+        ddi_path = Path(__file__).parent / "testdata" / "tmp_ddi8.xml"
+        self.assertTrue(ddi_path.exists(), "Expected tmp_ddi8.xml fixture to exist")
+
+        raw_xml, variables, is_xml = csv_to_cdi.load_ddi_metadata(ddi_path)
+
+        # Raw XML should be returned and recognized as XML literal
+        self.assertIsNotNone(raw_xml)
+        root = ET.fromstring(raw_xml)
+        self.assertTrue(root.tag.endswith("codeBook"))
+        self.assertTrue(is_xml)
+
+        # Verify that key variables are captured with statistics
+        self.assertIn("id", variables)
+        self.assertIn("salary", variables)
+        self.assertIn("active", variables)
+
+        salary_stats = variables["salary"].get("statistics", {})
+        self.assertEqual(salary_stats.get("mean"), "76400.3")
+        self.assertEqual(salary_stats.get("min"), "62000.0")
+        self.assertEqual(salary_stats.get("max"), "95000.75")
+
+        # Ensure labels are preserved for nominal variables
+        self.assertEqual(variables["active"].get("label"), "active")
 
 
 class TestRDFGeneration(unittest.TestCase):
@@ -667,7 +708,7 @@ class TestXConvertIntegration(unittest.TestCase):
                            "xconvert should not produce output without input file")
 
     def test_csv_to_cdi_with_xconvert_ddi(self):
-        """Test csv_to_cdi.py integration with xconvert-generated DDI"""
+        """Test cdi_generator.py integration with xconvert-generated DDI"""
         # First, generate DDI from SPSS file using xconvert
         spss_file = self.testdata_dir / "simple_data.sps"
         ddi_file = self.test_dir / "xconvert_output.xml"
@@ -692,7 +733,7 @@ class TestXConvertIntegration(unittest.TestCase):
             "3,45,1,55000,5\n"
         )
         
-        # Now run csv_to_cdi with the xconvert-generated DDI
+        # Now run cdi_generator with the xconvert-generated DDI
         output_ttl = self.test_dir / "output.ttl"
         
         # Use csv_to_cdi module directly
@@ -700,7 +741,7 @@ class TestXConvertIntegration(unittest.TestCase):
         old_argv = sys.argv
         try:
             sys.argv = [
-                'csv_to_cdi.py',
+                'cdi_generator.py',
                 '--csv', str(csv_file),
                 '--dataset-pid', 'doi:10.123/TEST-XCONVERT',
                 '--dataset-uri-base', 'https://example.org/dataset',
@@ -714,7 +755,7 @@ class TestXConvertIntegration(unittest.TestCase):
             try:
                 csv_to_cdi.main()
             except SystemExit as e:
-                self.assertEqual(e.code, 0, "csv_to_cdi.py should succeed")
+                self.assertEqual(e.code, 0, "cdi_generator.py should succeed")
             
             # Verify output
             self.assertTrue(output_ttl.exists(), "Output TTL not created")
@@ -728,7 +769,7 @@ class TestXConvertIntegration(unittest.TestCase):
 
 
 class TestXConvertWorkflow(unittest.TestCase):
-    """Test complete workflow: statistical file -> xconvert -> DDI -> csv_to_cdi -> CDI-RDF"""
+    """Test complete workflow: statistical file -> xconvert -> DDI -> generator -> CDI-RDF"""
 
     @classmethod
     def setUpClass(cls):
@@ -814,7 +855,7 @@ SAVE OUTFILE='survey.sav'.
         output_ttl = self.test_dir / "survey_cdi.ttl"
         
         result = subprocess.run(
-            ['python3', str(Path(__file__).parent / 'csv_to_cdi.py'),
+            ['python3', str(Path(__file__).parent / 'cdi_generator.py'),
              '--csv', str(csv_file),
              '--dataset-pid', 'doi:10.123/SURVEY',
              '--dataset-uri-base', 'https://example.org/dataset',
@@ -895,7 +936,7 @@ run;
         output_ttl = self.test_dir / "experiment_cdi.ttl"
         
         result = subprocess.run(
-            ['python3', str(Path(__file__).parent / 'csv_to_cdi.py'),
+            ['python3', str(Path(__file__).parent / 'cdi_generator.py'),
              '--csv', str(csv_file),
              '--dataset-pid', 'doi:10.123/EXPERIMENT',
              '--dataset-uri-base', 'https://example.org/dataset',
@@ -916,6 +957,57 @@ run;
         self.assertIn("SUBJID", content)
 
 
+class TestManifestGeneration(unittest.TestCase):
+    """Test manifest-driven multi-file generation"""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmpdir.name)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_generate_manifest_cdi(self):
+        file_one = self.tmp_path / "one.csv"
+        file_two = self.tmp_path / "two.csv"
+        file_one.write_text("id,value\n1,10\n2,20\n", encoding="utf-8")
+        file_two.write_text("code,label\nA,Alpha\nB,Beta\n", encoding="utf-8")
+
+        manifest = {
+            "dataset_pid": "doi:10.123/manifest",
+            "dataset_uri_base": "https://example.org/dataset",
+            "dataset_title": "Example Manifest Dataset",
+            "files": [
+                {"csv_path": str(file_one)},
+                {"csv_path": str(file_two)},
+            ],
+        }
+
+        output_path = self.tmp_path / "manifest.ttl"
+        summary_path = self.tmp_path / "manifest_summary.json"
+
+        warnings, rows, file_count = csv_to_cdi.generate_manifest_cdi(
+            manifest,
+            output_path=output_path,
+            summary_json=summary_path,
+            skip_md5_default=True,
+            quiet=True,
+        )
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(file_count, 2)
+        self.assertEqual(rows, 4)
+        self.assertTrue(output_path.exists())
+        ttl_text = output_path.read_text(encoding="utf-8")
+        self.assertIn("doi:10.123/manifest", ttl_text)
+
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        self.assertEqual(summary["dataset_pid"], "doi:10.123/manifest")
+        self.assertEqual(len(summary["files"]), 2)
+        self.assertEqual(summary["files"][0]["rows_profiled"], 2)
+        self.assertEqual(summary["files"][1]["rows_profiled"], 2)
+
+
 def run_tests():
     """Run all tests"""
     # Create test suite
@@ -932,6 +1024,7 @@ def run_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestUtilityFunctions))
     suite.addTests(loader.loadTestsFromTestCase(TestXConvertIntegration))
     suite.addTests(loader.loadTestsFromTestCase(TestXConvertWorkflow))
+    suite.addTests(loader.loadTestsFromTestCase(TestManifestGeneration))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

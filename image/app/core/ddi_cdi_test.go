@@ -4,9 +4,12 @@ package core
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"integration/app/config"
 	"integration/app/testutil"
 	"integration/app/tree"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -34,47 +37,6 @@ func TestProcessCdiFile_FileNameSelection(t *testing.T) {
 	_, exists = nodeMap["file.csv"]
 	if exists {
 		t.Error("Should not find file.csv with exact match (needs basename logic)")
-	}
-}
-
-func TestFormatComputeError(t *testing.T) {
-	tests := []struct {
-		name     string
-		fileName string
-		output   string
-		err      error
-		want     string
-	}{
-		{
-			name:     "error with empty output",
-			fileName: "test.csv",
-			output:   "",
-			err:      &TestError{"test error"},
-			want:     "file test.csv failed: test error",
-		},
-		{
-			name:     "error with output",
-			fileName: "data.csv",
-			output:   "   some output   ",
-			err:      &TestError{"processing failed"},
-			want:     "file data.csv failed: processing failed\nsome output",
-		},
-		{
-			name:     "error with multiline output",
-			fileName: "file.tsv",
-			output:   "line 1\nline 2\n",
-			err:      &TestError{"failed"},
-			want:     "file file.tsv failed: failed\nline 1\nline 2",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatComputeError(tt.fileName, tt.output, tt.err)
-			if got != tt.want {
-				t.Errorf("formatComputeError() = %q, want %q", got, tt.want)
-			}
-		})
 	}
 }
 
@@ -113,126 +75,6 @@ func TestFormatWarningsAsConsoleOutput(t *testing.T) {
 				t.Errorf("formatWarningsAsConsoleOutput() = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestJoinWarnings(t *testing.T) {
-	tests := []struct {
-		name     string
-		warnings []string
-		want     string
-	}{
-		{
-			name:     "empty",
-			warnings: []string{},
-			want:     "",
-		},
-		{
-			name:     "single",
-			warnings: []string{"warning"},
-			want:     "warning",
-		},
-		{
-			name:     "multiple",
-			warnings: []string{"warn1", "warn2", "warn3"},
-			want:     "warn1\n\nwarn2\n\nwarn3",
-		},
-		{
-			name:     "with empty strings",
-			warnings: []string{"warn1", "", "  ", "warn2"},
-			want:     "warn1\n\nwarn2",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := joinWarnings(tt.warnings)
-			if got != tt.want {
-				t.Errorf("joinWarnings() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestAppendWarnings(t *testing.T) {
-	tests := []struct {
-		name     string
-		output   string
-		warnings []string
-		want     string
-	}{
-		{
-			name:     "no warnings",
-			output:   "output text",
-			warnings: []string{},
-			want:     "output text",
-		},
-		{
-			name:     "empty output with warnings",
-			output:   "",
-			warnings: []string{"warning 1"},
-			want:     "# WARNINGS\n# warning 1\n",
-		},
-		{
-			name:     "output with single warning",
-			output:   "some output",
-			warnings: []string{"warning 1"},
-			want:     "some output\n# WARNINGS\n# warning 1\n",
-		},
-		{
-			name:     "output with multiple warnings",
-			output:   "output",
-			warnings: []string{"warning 1", "warning 2"},
-			want:     "output\n# WARNINGS\n# warning 1\n# warning 2\n",
-		},
-		{
-			name:     "multiline warning",
-			output:   "output",
-			warnings: []string{"warning line 1\nwarning line 2"},
-			want:     "output\n# WARNINGS\n# warning line 1\n# warning line 2\n",
-		},
-		{
-			name:     "warnings with whitespace",
-			output:   "output",
-			warnings: []string{"  warning  ", "", "  "},
-			want:     "output\n# WARNINGS\n# warning\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := appendWarnings(tt.output, tt.warnings)
-			if got != tt.want {
-				t.Errorf("appendWarnings() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCombineTurtleOutputs_Empty(t *testing.T) {
-	job := Job{
-		Deadline: time.Time{}, // No deadline
-	}
-
-	_, err := combineTurtleOutputs(job, []string{})
-	if err == nil {
-		t.Error("Expected error for empty documents")
-	}
-	if err != nil && !strings.Contains(err.Error(), "no CDI documents to merge") {
-		t.Errorf("Expected 'no CDI documents' error, got: %v", err)
-	}
-}
-
-func TestCombineTurtleOutputs_WithDeadline(t *testing.T) {
-	job := Job{
-		Deadline: time.Now().Add(100 * time.Millisecond),
-	}
-
-	// This will fail because Python isn't available, but we're testing the deadline logic
-	_, err := combineTurtleOutputs(job, []string{"@prefix test: <http://example.org/> ."})
-	if err == nil {
-		// Only fail if we expected an error due to missing Python
-		t.Log("Note: Test may pass if Python is available")
 	}
 }
 
@@ -280,15 +122,6 @@ func TestDdiCdiGen_SortedFileNames(t *testing.T) {
 	if len(resultJob.WritableNodes) != 0 {
 		t.Errorf("Expected WritableNodes to be cleared, got %d files", len(resultJob.WritableNodes))
 	}
-}
-
-// Helper type for testing
-type TestError struct {
-	msg string
-}
-
-func (e *TestError) Error() string {
-	return e.msg
 }
 
 func TestMountDatasetForCdi_DirectoryCreation(t *testing.T) {
@@ -367,6 +200,168 @@ func TestFetchDataFileDDI_ErrorCases(t *testing.T) {
 		t.Error("Expected error when file ID is missing")
 	} else if !strings.Contains(err.Error(), "identifier missing") {
 		t.Errorf("Expected 'identifier missing' error, got: %v", err)
+	}
+}
+
+func TestCreateManifestFile_DisablesXconvertWhenDdiAvailable(t *testing.T) {
+	ctx := context.Background()
+	tempDir := t.TempDir()
+	linkedDir := filepath.Join(tempDir, "linked")
+	workspaceDir := filepath.Join(tempDir, "work")
+	if err := os.MkdirAll(linkedDir, 0o755); err != nil {
+		t.Fatalf("failed to create linked dir: %v", err)
+	}
+	if err := os.MkdirAll(workspaceDir, 0o755); err != nil {
+		t.Fatalf("failed to create workspace dir: %v", err)
+	}
+
+	fileName := "sample.csv"
+	filePath := filepath.Join(linkedDir, fileName)
+	if err := os.WriteFile(filePath, []byte("col1\nvalue"), 0o644); err != nil {
+		t.Fatalf("failed to write sample file: %v", err)
+	}
+
+	origDest := Destination
+	Destination = DestinationPlugin{}
+	t.Cleanup(func() { Destination = origDest })
+
+	Destination.GetDataFileDDI = func(ctx context.Context, token, user string, fileID int64) ([]byte, error) {
+		return []byte("<ddi>ok</ddi>"), nil
+	}
+
+	nodeMap := map[string]tree.Node{
+		fileName: {
+			Name: fileName,
+			Attributes: tree.Attributes{
+				IsFile:          true,
+				DestinationFile: tree.DestinationFile{Id: 42},
+			},
+		},
+	}
+
+	job := Job{
+		DataverseKey: "token",
+		User:         "user",
+		PersistentId: "doi:test",
+	}
+
+	manifestPath, cleanups, warnings, err := createManifestFile(ctx, job, []string{fileName}, linkedDir, nodeMap, workspaceDir)
+	if err != nil {
+		t.Fatalf("createManifestFile returned error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+	t.Cleanup(func() {
+		for _, cleanup := range cleanups {
+			cleanup()
+		}
+	})
+
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+
+	var manifest struct {
+		Files []struct {
+			AllowXconvert bool   `json:"allow_xconvert"`
+			DdiPath       string `json:"ddi_path"`
+		} `json:"files"`
+	}
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("failed to unmarshal manifest: %v", err)
+	}
+	if len(manifest.Files) != 1 {
+		t.Fatalf("expected one file entry, got %d", len(manifest.Files))
+	}
+	entry := manifest.Files[0]
+	if entry.AllowXconvert {
+		t.Errorf("expected allow_xconvert=false when DDI is available")
+	}
+	if entry.DdiPath == "" {
+		t.Errorf("expected ddi_path to be set when DDI is available")
+	}
+}
+
+func TestCreateManifestFile_AllowsXconvertWhenDdiMissing(t *testing.T) {
+	ctx := context.Background()
+	tempDir := t.TempDir()
+	linkedDir := filepath.Join(tempDir, "linked")
+	workspaceDir := filepath.Join(tempDir, "work")
+	if err := os.MkdirAll(linkedDir, 0o755); err != nil {
+		t.Fatalf("failed to create linked dir: %v", err)
+	}
+	if err := os.MkdirAll(workspaceDir, 0o755); err != nil {
+		t.Fatalf("failed to create workspace dir: %v", err)
+	}
+
+	fileName := "missing-ddi.csv"
+	filePath := filepath.Join(linkedDir, fileName)
+	if err := os.WriteFile(filePath, []byte("col1\nvalue"), 0o644); err != nil {
+		t.Fatalf("failed to write sample file: %v", err)
+	}
+
+	origDest := Destination
+	Destination = DestinationPlugin{}
+	t.Cleanup(func() { Destination = origDest })
+
+	Destination.GetDataFileDDI = func(ctx context.Context, token, user string, fileID int64) ([]byte, error) {
+		return nil, fmt.Errorf("not found")
+	}
+
+	nodeMap := map[string]tree.Node{
+		fileName: {
+			Name: fileName,
+			Attributes: tree.Attributes{
+				IsFile:          true,
+				DestinationFile: tree.DestinationFile{Id: 43},
+			},
+		},
+	}
+
+	job := Job{
+		DataverseKey: "token",
+		User:         "user",
+		PersistentId: "doi:test",
+	}
+
+	manifestPath, cleanups, warnings, err := createManifestFile(ctx, job, []string{fileName}, linkedDir, nodeMap, workspaceDir)
+	if err != nil {
+		t.Fatalf("createManifestFile returned error: %v", err)
+	}
+	if len(warnings) == 0 {
+		t.Fatalf("expected warnings when DDI retrieval fails")
+	}
+	t.Cleanup(func() {
+		for _, cleanup := range cleanups {
+			cleanup()
+		}
+	})
+
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+
+	var manifest struct {
+		Files []struct {
+			AllowXconvert bool   `json:"allow_xconvert"`
+			DdiPath       string `json:"ddi_path"`
+		} `json:"files"`
+	}
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("failed to unmarshal manifest: %v", err)
+	}
+	if len(manifest.Files) != 1 {
+		t.Fatalf("expected one file entry, got %d", len(manifest.Files))
+	}
+	entry := manifest.Files[0]
+	if !entry.AllowXconvert {
+		t.Errorf("expected allow_xconvert=true when DDI retrieval fails")
+	}
+	if entry.DdiPath != "" {
+		t.Errorf("expected ddi_path to be empty when DDI retrieval fails")
 	}
 }
 

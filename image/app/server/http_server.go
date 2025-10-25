@@ -52,6 +52,7 @@ func Start() {
 
 	// frontend config
 	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)
+	srvMux.HandleFunc("/api/frontend/shacl", frontend.GetShaclShapes)
 
 	// quit
 	if config.AllowQuit {

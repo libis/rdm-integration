@@ -124,7 +124,7 @@ Extracted and shared mock implementation for Redis operations:
 
 ### 1. Fixed CSV Processing Bug
 **Issue:** First data row was being skipped due to incorrect header-skip logic
-**Fix:** Removed redundant skip logic (lines 509-512 in `csv_to_cdi.py`)
+**Fix:** Removed redundant skip logic (lines 509-512 in `cdi_generator.py`)
 **Impact:** All Python tests now pass correctly
 
 ### 2. Shared Test Infrastructure

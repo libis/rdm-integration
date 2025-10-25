@@ -1,0 +1,173 @@
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix dcterms: <http://purl.org/dc/terms/>.
+@prefix cdi: <http://www.ddialliance.org/Specification/DDI-CDI/1.0/RDF/>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix skos: <http://www.w3.org/2004/02/skos/core#>.
+
+<urn:ddi-cdi:DatasetShape> a sh:NodeShape;
+   sh:targetNode __TARGET_NODE__;
+  sh:targetClass cdi:DataSet;
+   sh:class cdi:DataSet;
+   sh:property [
+     sh:path dcterms:identifier;
+     sh:name "Dataset identifier";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path dcterms:title;
+     sh:name "Dataset title";
+     sh:datatype xsd:string;
+     sh:minCount 0;
+     sh:minLength 1;
+   ];
+   sh:property [
+     sh:path cdi:hasLogicalDataSet;
+     sh:name "Logical data sets";
+     sh:minCount 1;
+     sh:nodeKind sh:BlankNodeOrIRI;
+     sh:node <urn:ddi-cdi:LogicalDataSetShape>;
+   ];
+   sh:property [
+     sh:path cdi:hasPhysicalDataSet;
+     sh:name "Physical data sets";
+     sh:minCount 1;
+     sh:nodeKind sh:BlankNodeOrIRI;
+     sh:node <urn:ddi-cdi:PhysicalDataSetShape>;
+   ];
+   sh:property [
+     sh:path prov:wasGeneratedBy;
+     sh:name "Generation process";
+     sh:minCount 1;
+     sh:nodeKind sh:BlankNodeOrIRI;
+     sh:node <urn:ddi-cdi:ProcessStepShape>;
+   ].
+
+<urn:ddi-cdi:PhysicalDataSetShape> a sh:NodeShape;
+   sh:targetClass cdi:PhysicalDataSet;
+   sh:property [
+     sh:path dcterms:format;
+     sh:name "File format";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path dcterms:identifier;
+     sh:name "File access URI";
+     sh:nodeKind sh:IRI;
+     sh:minCount 0;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path dcterms:provenance;
+     sh:name "File checksum";
+     sh:datatype xsd:string;
+     sh:pattern "^md5:[0-9a-f]{32}$";
+     sh:minCount 0;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path dcterms:source;
+     sh:name "Source DDI";
+     sh:nodeKind sh:Literal;
+     sh:minCount 0;
+   ].
+
+<urn:ddi-cdi:LogicalDataSetShape> a sh:NodeShape;
+   sh:targetClass cdi:LogicalDataSet;
+   sh:property [
+     sh:path cdi:containsVariable;
+     sh:name "Variables";
+     sh:minCount 1;
+     sh:nodeKind sh:IRI;
+     sh:node <urn:ddi-cdi:VariableShape>;
+   ].
+
+<urn:ddi-cdi:VariableShape> a sh:NodeShape;
+   sh:targetClass cdi:Variable;
+   sh:property [
+     sh:path skos:prefLabel;
+     sh:name "Primary label";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path skos:altLabel;
+     sh:name "Alternative label";
+     sh:datatype xsd:string;
+     sh:minCount 0;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path dcterms:identifier;
+     sh:name "Variable identifier";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path cdi:hasRepresentation;
+     sh:name "Variable datatype";
+     sh:minCount 1;
+     sh:maxCount 1;
+     sh:nodeKind sh:IRI;
+     sh:in (
+       xsd:boolean
+       xsd:dateTime
+       xsd:decimal
+       xsd:integer
+       xsd:string
+     );
+   ];
+   sh:property [
+     sh:path cdi:hasRole;
+     sh:name "Variable role";
+     sh:minCount 1;
+     sh:maxCount 1;
+     sh:nodeKind sh:IRI;
+     sh:node <urn:ddi-cdi:RoleShape>;
+   ];
+   sh:property [
+     sh:path skos:note;
+     sh:name "Variable note";
+     sh:datatype xsd:string;
+     sh:minCount 0;
+     sh:minLength 1;
+   ].
+
+<urn:ddi-cdi:RoleShape> a sh:NodeShape;
+   sh:targetClass cdi:Role;
+   sh:property [
+     sh:path skos:prefLabel;
+     sh:name "Role label";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+     sh:in (
+       "identifier"
+       "measure"
+       "dimension"
+       "attribute"
+     );
+   ].
+
+<urn:ddi-cdi:ProcessStepShape> a sh:NodeShape;
+   sh:targetClass cdi:ProcessStep;
+   sh:property [
+     sh:path dcterms:description;
+     sh:name "Generation description";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ].

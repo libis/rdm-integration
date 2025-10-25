@@ -1,0 +1,77 @@
+@prefix cdi: <http://www.ddialliance.org/Specification/DDI-CDI/1.0/RDF/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM> a cdi:DataSet ;
+    dcterms:identifier "doi:10.5072/FK2/HWBVZM" ;
+    dcterms:title "Test" ;
+    cdi:hasLogicalDataSet [ a cdi:LogicalDataSet ;
+            cdi:containsVariable <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/active>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/age>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/hired_date>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/id>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/name>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/salary> ] ;
+    cdi:hasPhysicalDataSet [ a cdi:PhysicalDataSet ;
+            dcterms:format "text/csv" ;
+            dcterms:identifier <http://localhost:8080/api/access/datafile/8> ;
+            dcterms:provenance "md5:ea94533ddfac20c9770600370bdd9572" ] ;
+    prov:wasGeneratedBy [ a cdi:ProcessStep ;
+            dcterms:description "Generated CDI from CSV via streaming profiler" ] .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/active> a cdi:Role ;
+    skos:prefLabel "dimension" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/age> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/hired_date> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/id> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/name> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/salary> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/active> a cdi:Variable ;
+    dcterms:identifier "active" ;
+    cdi:hasRepresentation xsd:boolean ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/active> ;
+    skos:prefLabel "active" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/age> a cdi:Variable ;
+    dcterms:identifier "age" ;
+    cdi:hasRepresentation xsd:integer ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/age> ;
+    skos:prefLabel "age" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/hired_date> a cdi:Variable ;
+    dcterms:identifier "hired_date" ;
+    cdi:hasRepresentation xsd:dateTime ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/hired_date> ;
+    skos:prefLabel "hired_date" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/id> a cdi:Variable ;
+    dcterms:identifier "id" ;
+    cdi:hasRepresentation xsd:integer ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/id> ;
+    skos:prefLabel "id" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/name> a cdi:Variable ;
+    dcterms:identifier "name" ;
+    cdi:hasRepresentation xsd:string ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/name> ;
+    skos:prefLabel "name" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/salary> a cdi:Variable ;
+    dcterms:identifier "salary" ;
+    cdi:hasRepresentation xsd:decimal ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/salary> ;
+    skos:prefLabel "salary" .
+

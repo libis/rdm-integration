@@ -1,0 +1,82 @@
+@prefix cdi: <http://www.ddialliance.org/Specification/DDI-CDI/1.0/RDF/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM> a cdi:DataSet ;
+    dcterms:identifier "doi:10.5072/FK2/HWBVZM" ;
+    dcterms:title "Test" ;
+    cdi:hasLogicalDataSet [ a cdi:LogicalDataSet ;
+            cdi:containsVariable <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/active>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/age>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/hired_date>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/id>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/name>,
+                <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/salary> ] ;
+    cdi:hasPhysicalDataSet [ a cdi:PhysicalDataSet ;
+            dcterms:format "text/csv" ;
+            dcterms:identifier <http://localhost:8080/api/access/datafile/8> ;
+            dcterms:provenance "md5:ea94533ddfac20c9770600370bdd9572" ;
+            dcterms:source "<ns0:codeBook xmlns:ns0=\"http://www.icpsr.umich.edu/DDI\" version=\"2.0\"><ns0:stdyDscr><ns0:citation><ns0:titlStmt><ns0:titl>Test</ns0:titl><ns0:IDNo agency=\"doi\">10.5072/FK2/HWBVZM</ns0:IDNo></ns0:titlStmt><ns0:rspStmt><ns0:AuthEnty>Admin, Dataverse</ns0:AuthEnty></ns0:rspStmt><ns0:biblCit>Admin, Dataverse, 2025, \"Test\", https://doi.org/10.5072/FK2/HWBVZM, Root, DRAFT VERSION, UNF:6:dTED82nd1ggRVHqXkBLmvA== [fileUNF]</ns0:biblCit></ns0:citation></ns0:stdyDscr><ns0:fileDscr ID=\"f8\"><ns0:fileTxt><ns0:fileName>sample.tab</ns0:fileName><ns0:dimensns><ns0:caseQnty>5</ns0:caseQnty><ns0:varQnty>6</ns0:varQnty></ns0:dimensns><ns0:fileType>text/tab-separated-values</ns0:fileType></ns0:fileTxt><ns0:notes level=\"file\" type=\"VDC:UNF\" subject=\"Universal Numeric Fingerprint\">UNF:6:jOpLbGwlMv5TdfiP4ui3zQ==</ns0:notes></ns0:fileDscr><ns0:dataDscr><ns0:var ID=\"v22\" name=\"id\" intrvl=\"discrete\"><ns0:location fileid=\"f8\"/><ns0:labl level=\"variable\">id</ns0:labl><ns0:sumStat type=\"mode\">.</ns0:sumStat><ns0:sumStat type=\"medn\">3.0</ns0:sumStat><ns0:sumStat type=\"stdev\">1.5811388300841898</ns0:sumStat><ns0:sumStat type=\"vald\">5.0</ns0:sumStat><ns0:sumStat type=\"mean\">3.0</ns0:sumStat><ns0:sumStat type=\"max\">5.0</ns0:sumStat><ns0:sumStat type=\"invd\">0.0</ns0:sumStat><ns0:sumStat type=\"min\">1.0</ns0:sumStat><ns0:varFormat type=\"numeric\"/><ns0:notes subject=\"Universal Numeric Fingerprint\" level=\"variable\" type=\"VDC:UNF\">UNF:6:zetKKa8vNPES38aPJMHrFA==</ns0:notes></ns0:var><ns0:var ID=\"v21\" name=\"name\" intrvl=\"discrete\"><ns0:location fileid=\"f8\"/><ns0:labl level=\"variable\">name</ns0:labl><ns0:varFormat type=\"character\"/><ns0:notes subject=\"Universal Numeric Fingerprint\" level=\"variable\" type=\"VDC:UNF\">UNF:6:bDG22d1VlEiVm/LxEE7BQA==</ns0:notes></ns0:var><ns0:var ID=\"v25\" name=\"age\" intrvl=\"discrete\"><ns0:location fileid=\"f8\"/><ns0:labl level=\"variable\">age</ns0:labl><ns0:sumStat type=\"mode\">.</ns0:sumStat><ns0:sumStat type=\"max\">42.0</ns0:sumStat><ns0:sumStat type=\"stdev\">5.70087712549569</ns0:sumStat><ns0:sumStat type=\"medn\">35.0</ns0:sumStat><ns0:sumStat type=\"mean\">35.0</ns0:sumStat><ns0:sumStat type=\"min\">28.0</ns0:sumStat><ns0:sumStat type=\"vald\">5.0</ns0:sumStat><ns0:sumStat type=\"invd\">0.0</ns0:sumStat><ns0:varFormat type=\"numeric\"/><ns0:notes subject=\"Universal Numeric Fingerprint\" level=\"variable\" type=\"VDC:UNF\">UNF:6:jGZeQVLnw/Llm99v/qImpA==</ns0:notes></ns0:var><ns0:var ID=\"v20\" name=\"salary\" intrvl=\"contin\"><ns0:location fileid=\"f8\"/><ns0:labl level=\"variable\">salary</ns0:labl><ns0:sumStat type=\"min\">62000.0</ns0:sumStat><ns0:sumStat type=\"vald\">5.0</ns0:sumStat><ns0:sumStat type=\"max\">95000.75</ns0:sumStat><ns0:sumStat type=\"mean\">76400.3</ns0:sumStat><ns0:sumStat type=\"medn\">75000.5</ns0:sumStat><ns0:sumStat type=\"mode\">.</ns0:sumStat><ns0:sumStat type=\"stdev\">12818.241888271963</ns0:sumStat><ns0:sumStat type=\"invd\">0.0</ns0:sumStat><ns0:varFormat type=\"numeric\"/><ns0:notes subject=\"Universal Numeric Fingerprint\" level=\"variable\" type=\"VDC:UNF\">UNF:6:idITfdLISpDXhIRyK0YLRg==</ns0:notes></ns0:var><ns0:var ID=\"v24\" name=\"hired_date\" intrvl=\"discrete\"><ns0:location fileid=\"f8\"/><ns0:labl level=\"variable\">hired_date</ns0:labl><ns0:varFormat type=\"character\" formatname=\"yyyy-MM-dd\" category=\"date\"/><ns0:notes subject=\"Universal Numeric Fingerprint\" level=\"variable\" type=\"VDC:UNF\">UNF:6:9gx4PscNclNP8iKic0VuOA==</ns0:notes></ns0:var><ns0:var ID=\"v23\" name=\"active\" intrvl=\"discrete\"><ns0:location fileid=\"f8\"/><ns0:labl level=\"variable\">active</ns0:labl><ns0:varFormat type=\"character\"/><ns0:notes subject=\"Universal Numeric Fingerprint\" level=\"variable\" type=\"VDC:UNF\">UNF:6:ZVEffaXYmTURva5eNPYa6g==</ns0:notes></ns0:var></ns0:dataDscr></ns0:codeBook>"^^rdf:XMLLiteral ] ;
+    prov:wasGeneratedBy [ a cdi:ProcessStep ;
+            dcterms:description "Generated CDI from CSV via streaming profiler" ] .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/active> a cdi:Role ;
+    skos:prefLabel "dimension" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/age> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/hired_date> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/id> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/name> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/salary> a cdi:Role ;
+    skos:prefLabel "attribute" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/active> a cdi:Variable ;
+    dcterms:identifier "active" ;
+    cdi:hasRepresentation xsd:boolean ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/active> ;
+    skos:prefLabel "active" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/age> a cdi:Variable ;
+    dcterms:identifier "age" ;
+    cdi:hasRepresentation xsd:integer ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/age> ;
+    skos:note "DDI stats: invd=0.0; max=42.0; mean=35.0; medn=35.0; min=28.0; mode=.; stdev=5.70087712549569; vald=5.0" ;
+    skos:prefLabel "age" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/hired_date> a cdi:Variable ;
+    dcterms:identifier "hired_date" ;
+    cdi:hasRepresentation xsd:dateTime ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/hired_date> ;
+    skos:prefLabel "hired_date" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/id> a cdi:Variable ;
+    dcterms:identifier "id" ;
+    cdi:hasRepresentation xsd:integer ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/id> ;
+    skos:note "DDI stats: invd=0.0; max=5.0; mean=3.0; medn=3.0; min=1.0; mode=.; stdev=1.5811388300841898; vald=5.0" ;
+    skos:prefLabel "id" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/name> a cdi:Variable ;
+    dcterms:identifier "name" ;
+    cdi:hasRepresentation xsd:string ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/name> ;
+    skos:prefLabel "name" .
+
+<http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#var/salary> a cdi:Variable ;
+    dcterms:identifier "salary" ;
+    cdi:hasRepresentation xsd:decimal ;
+    cdi:hasRole <http://localhost:8080/dataset/doi:10.5072/FK2/HWBVZM#role/salary> ;
+    skos:note "DDI stats: invd=0.0; max=95000.75; mean=76400.3; medn=75000.5; min=62000.0; mode=.; stdev=12818.241888271963; vald=5.0" ;
+    skos:prefLabel "salary" .
+
