@@ -82,6 +82,30 @@
 <urn:ddi-cdi:LogicalDataSetShape> a sh:NodeShape;
    sh:targetClass cdi:LogicalDataSet;
    sh:property [
+     sh:path dcterms:identifier;
+     sh:name "Logical dataset identifier";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path skos:prefLabel;
+     sh:name "Logical dataset label";
+     sh:datatype xsd:string;
+     sh:minCount 1;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
+     sh:path dcterms:description;
+     sh:name "Logical dataset description";
+     sh:datatype xsd:string;
+     sh:minCount 0;
+     sh:minLength 1;
+     sh:maxCount 1;
+   ];
+   sh:property [
      sh:path cdi:containsVariable;
      sh:name "Variables";
      sh:minCount 1;
