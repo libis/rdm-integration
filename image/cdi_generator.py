@@ -998,27 +998,27 @@ def run_xconvert(data_file: Path, syntax_file: Path, work_dir: Path) -> Optional
     import subprocess
     import tempfile
     
-    # Determine xconvert flag based on syntax file extension
+    # Determine xconvert format based on syntax file extension
     ext = syntax_file.suffix.lower()
-    xconvert_flag_map = {
-        ".sps": "-sps",  # SPSS
-        ".sas": "-sas",  # SAS
-        ".do": "-do",    # Stata do file
-        ".dct": "-dct",  # Stata dictionary
+    xconvert_format_map = {
+        ".sps": "spss",  # SPSS
+        ".sas": "sas",   # SAS
+        ".do": "stata",  # Stata do file
+        ".dct": "stata", # Stata dictionary
     }
     
-    if ext not in xconvert_flag_map:
+    if ext not in xconvert_format_map:
         logging.warning(f"Unsupported syntax file type: {ext}")
         return None
     
-    flag = xconvert_flag_map[ext]
+    format_name = xconvert_format_map[ext]
     
     # Create output DDI file
     ddi_output = work_dir / f"xconvert_{syntax_file.stem}.xml"
     
     try:
-        # Run xconvert: xconvert -sps <syntax_file> -ddi <output_file> <data_file>
-        cmd = ["xconvert", flag, str(syntax_file), "-ddi", str(ddi_output), str(data_file)]
+        # Run xconvert: xconvert -x <format> -y ddi -i <input_file> -o <output_file>
+        cmd = ["xconvert", "-x", format_name, "-y", "ddi", "-i", str(syntax_file), "-o", str(ddi_output)]
         logging.info(f"Running xconvert: {' '.join(cmd)}")
         
         result = subprocess.run(
