@@ -35,7 +35,7 @@ func DdiCdiGen(job Job) (Job, error) {
 
 	if len(fileNames) == 0 {
 		errorMessage = "computation failed"
-		consoleOut = "no writable files found"
+		consoleOut = "no data files found"
 	} else {
 		sort.Strings(fileNames)
 		for _, name := range fileNames {
@@ -237,10 +237,6 @@ func createManifestFile(
 		}
 
 		files = append(files, entry)
-	}
-
-	if len(files) == 0 {
-		return "", cleanups, warnings, fmt.Errorf("no writable files were eligible for CDI generation")
 	}
 
 	manifest["files"] = files
