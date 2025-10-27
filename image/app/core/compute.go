@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
+	"integration/app/logging"
 	"integration/app/tree"
 	"os"
 	"os/exec"
@@ -142,25 +143,43 @@ func mountS3Bucket(job Job) (s3Dir string, err error) {
 
 // createSymlinks creates symlinks for dataset files in the target directory
 func createSymlinks(ctx context.Context, job Job, s3Dir, targetDir string) (map[string]tree.Node, error) {
+	logging.Logger.Printf("Job [%s]: createSymlinks - cleaning target directory: %s", job.Key, targetDir)
 	if err := os.RemoveAll(targetDir); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to clean target directory %s: %w", targetDir, err)
 	}
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
 	}
+
+	logging.Logger.Printf("Job [%s]: createSymlinks - calling Destination.Query() for dataset: %s", job.Key, job.PersistentId)
+	startTime := time.Now()
 	nm, err := Destination.Query(ctx, job.PersistentId, job.DataverseKey, job.User)
+	duration := time.Since(startTime)
+
 	if err != nil {
+		logging.Logger.Printf("Job [%s]: createSymlinks - Destination.Query() failed after %v: %v", job.Key, duration, err)
 		return nil, err
 	}
+	logging.Logger.Printf("Job [%s]: createSymlinks - Destination.Query() returned %d nodes in %v", job.Key, len(nm), duration)
+
 	identifier, err := trimProtocol(job.PersistentId)
 	if err != nil {
 		return nil, err
 	}
+	logging.Logger.Printf("Job [%s]: createSymlinks - creating symlinks for identifier: %s", job.Key, identifier)
+
+	count := 0
 	for _, n := range nm {
 		storage := getStorage(n.Attributes.DestinationFile.StorageIdentifier)
 		relativePath := fmt.Sprintf("%s/%s", identifier, storage.filename)
 		sourcePath := filepath.Join(s3Dir, relativePath)
 		targetPath := filepath.Join(targetDir, n.Id)
+
+		if count < 3 || count == len(nm)-1 {
+			// Log first 3 and last symlink creation
+			logging.Logger.Printf("Job [%s]: createSymlinks - creating symlink %d/%d: %s -> %s", job.Key, count+1, len(nm), targetPath, sourcePath)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return nil, fmt.Errorf("failed to prepare target directory for %s: %w", targetPath, err)
 		}
@@ -176,7 +195,9 @@ func createSymlinks(ctx context.Context, job Job, s3Dir, targetDir string) (map[
 				return nil, fmt.Errorf("failed to create symlink %s -> %s: %w", targetPath, sourcePath, err)
 			}
 		}
+		count++
 	}
+	logging.Logger.Printf("Job [%s]: createSymlinks - completed successfully, created %d symlinks", job.Key, len(nm))
 	return nm, nil
 }
 
