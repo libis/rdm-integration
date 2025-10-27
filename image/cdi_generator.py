@@ -826,28 +826,6 @@ def safe_uri_fragment(s: str) -> str:
     return frag
 
 
-def _to_single_line(text: str) -> str:
-    """Collapse whitespace (including newlines/tabs) to single spaces.
-
-    This preserves meaning while ensuring RDFLib serializes literals as single-line
-    Turtle strings rather than triple-quoted blocks.
-    """
-    import re
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def SL(value: Any, datatype: Optional[URIRef] = None) -> Literal:
-    """Create a Literal after normalizing plain strings to a single line.
-
-    - Normalizes when 'value' is str and datatype is None or xsd:string.
-    - Leaves non-string values and non-string datatypes untouched.
-    - Do NOT use for rdf:XMLLiteral payloads; those must remain verbatim.
-    """
-    if isinstance(value, str) and (datatype is None or datatype == XSD.string):
-        value = _to_single_line(value)
-    return Literal(value, datatype=datatype)
-
-
 def add_file_to_dataset_graph(
     graph: Graph,
     dataset_uri: URIRef,
@@ -870,11 +848,11 @@ def add_file_to_dataset_graph(
 
     phys = BNode()
     graph.add((phys, RDF.type, CDI.PhysicalDataSet))
-    graph.add((phys, DCTERMS.format, SL(file_format)))
+    graph.add((phys, DCTERMS.format, Literal(file_format)))
     if file_uri:
         graph.add((phys, DCTERMS.identifier, URIRef(file_uri)))
     if file_md5:
-        graph.add((phys, DCTERMS.provenance, SL(f"md5:{file_md5}")))
+        graph.add((phys, DCTERMS.provenance, Literal(f"md5:{file_md5}")))
     if ddi_raw:
         if ddi_is_xml_literal:
             graph.add((phys, DCTERMS.source, Literal(ddi_raw, datatype=RDF.XMLLiteral)))
@@ -895,25 +873,22 @@ def add_file_to_dataset_graph(
     
     logical = URIRef(f"{dataset_uri_str}#logical/{logical_frag}")
     graph.add((logical, RDF.type, CDI.LogicalDataSet))
-    graph.add((logical, DCTERMS.identifier, SL(f"logical-dataset-{logical_frag}")))
+    graph.add((logical, DCTERMS.identifier, Literal(f"logical-dataset-{logical_frag}")))
     
     # Build a descriptive label based on file name if available
     if file_name:
-        graph.add((logical, SKOS.prefLabel, SL(f"Logical dataset: {file_name}")))
+        graph.add((logical, SKOS.prefLabel, Literal(f"Logical dataset: {file_name}")))
     else:
-        graph.add((logical, SKOS.prefLabel, SL(f"Logical dataset ({file_format})")))
+        graph.add((logical, SKOS.prefLabel, Literal(f"Logical dataset ({file_format})")))
     
     # Use dataset description if available, otherwise create file-specific description
     if dataset_description:
-        desc = (
-            f"{dataset_description} - "
-            f"Logical representation of data from file: {file_name or file_uri or 'unknown'}"
-        )
-        graph.add((logical, DCTERMS.description, SL(desc)))
+        desc = f"{dataset_description}\n\nLogical representation of data from file: {file_name or file_uri or 'unknown'}"
+        graph.add((logical, DCTERMS.description, Literal(desc)))
     elif file_uri:
-        graph.add((logical, DCTERMS.description, SL(f"Logical representation of data from {file_uri}")))
+        graph.add((logical, DCTERMS.description, Literal(f"Logical representation of data from {file_uri}")))
     elif file_name:
-        graph.add((logical, DCTERMS.description, SL(f"Logical representation of data from {file_name}")))
+        graph.add((logical, DCTERMS.description, Literal(f"Logical representation of data from {file_name}")))
     
     graph.add((dataset_uri, LINK["dataset_to_logical"], logical))
 
@@ -929,17 +904,17 @@ def add_file_to_dataset_graph(
 
         label = ddi_info.get("label") if isinstance(ddi_info, dict) else None
         if label:
-            graph.add((var, SKOS.prefLabel, SL(label)))
+            graph.add((var, SKOS.prefLabel, Literal(label)))
             if label.strip() != name:
-                graph.add((var, SKOS.altLabel, SL(name)))
+                graph.add((var, SKOS.altLabel, Literal(name)))
         else:
-            graph.add((var, SKOS.prefLabel, SL(name)))
+            graph.add((var, SKOS.prefLabel, Literal(name)))
 
-        graph.add((var, DCTERMS.identifier, SL(name)))
+        graph.add((var, DCTERMS.identifier, Literal(name)))
         graph.add((var, LINK["variable_to_repr"], st.xsd_datatype()))
 
         graph.add((role_node, RDF.type, CDI.Role))
-        graph.add((role_node, SKOS.prefLabel, SL(st.role())))
+        graph.add((role_node, SKOS.prefLabel, Literal(st.role())))
         graph.add((var, LINK["variable_to_role"], role_node))
         graph.add((logical, LINK["logical_to_variable"], var))
 
@@ -955,17 +930,17 @@ def add_file_to_dataset_graph(
                         entry = f"{value}={cat_label}"
                     cat_parts.append(entry)
                 if cat_parts:
-                    graph.add((var, SKOS.note, SL("DDI categories: " + "; ".join(cat_parts))))
+                    graph.add((var, SKOS.note, Literal("DDI categories: " + "; ".join(cat_parts))))
 
             stats_map_obj = ddi_info.get("statistics")
             if isinstance(stats_map_obj, dict) and stats_map_obj:
                 stats_parts = [f"{key}={value}" for key, value in sorted(stats_map_obj.items())]
                 if stats_parts:
-                    graph.add((var, SKOS.note, SL("DDI stats: " + "; ".join(stats_parts))))
+                    graph.add((var, SKOS.note, Literal("DDI stats: " + "; ".join(stats_parts))))
 
     step = BNode()
     graph.add((step, RDF.type, CDI.ProcessStep))
-    graph.add((step, DCTERMS.description, SL(process_description)))
+    graph.add((step, DCTERMS.description, Literal(process_description)))
     graph.add((dataset_uri, PROV.wasGeneratedBy, step))
 
 def build_cdi_rdf(
@@ -990,9 +965,9 @@ def build_cdi_rdf(
 
         dataset_uri = URIRef(dataset_uri_base.rstrip("/") + "/" + dataset_pid)
         g.add((dataset_uri, RDF.type, CDI.DataSet))
-        g.add((dataset_uri, DCTERMS.identifier, SL(dataset_pid)))
+        g.add((dataset_uri, DCTERMS.identifier, Literal(dataset_pid)))
         if dataset_title:
-            g.add((dataset_uri, DCTERMS.title, SL(dataset_title)))
+            g.add((dataset_uri, DCTERMS.title, Literal(dataset_title)))
 
         add_file_to_dataset_graph(
             graph=g,
@@ -1071,11 +1046,11 @@ def generate_manifest_cdi(
     graph = Graph()
     graph.bind("cdi", CDI); graph.bind("dcterms", DCTERMS); graph.bind("prov", PROV); graph.bind("skos", SKOS)
     graph.add((dataset_uri, RDF.type, CDI.DataSet))
-    graph.add((dataset_uri, DCTERMS.identifier, SL(dataset_pid)))
+    graph.add((dataset_uri, DCTERMS.identifier, Literal(dataset_pid)))
     if dataset_title:
-        graph.add((dataset_uri, DCTERMS.title, SL(dataset_title)))
+        graph.add((dataset_uri, DCTERMS.title, Literal(dataset_title)))
     if dataset_description:
-        graph.add((dataset_uri, DCTERMS.description, SL(dataset_description)))
+        graph.add((dataset_uri, DCTERMS.description, Literal(dataset_description)))
     
     # Add additional metadata from Dataverse
     if metadata_payload:
@@ -1085,7 +1060,7 @@ def generate_manifest_cdi(
             if "name" in author:
                 author_node = BNode()
                 graph.add((author_node, RDF.type, PROV.Agent))
-                graph.add((author_node, SKOS.prefLabel, SL(author["name"])))
+                graph.add((author_node, SKOS.prefLabel, Literal(author["name"])))
                 if "orcid" in author:
                     # ORCID as identifier
                     orcid_uri = author["orcid"]
@@ -1097,7 +1072,7 @@ def generate_manifest_cdi(
         # Keywords
         keywords = extract_keywords(metadata_payload)
         for keyword in keywords:
-            graph.add((dataset_uri, DCTERMS.subject, SL(keyword)))
+            graph.add((dataset_uri, DCTERMS.subject, Literal(keyword)))
         
         # License
         license_info = extract_license(metadata_payload)
@@ -1105,7 +1080,7 @@ def generate_manifest_cdi(
             if license_info.get("uri"):
                 graph.add((dataset_uri, DCTERMS.license, URIRef(license_info["uri"])))
             if license_info.get("name"):
-                graph.add((dataset_uri, DCTERMS.rights, SL(license_info["name"])))
+                graph.add((dataset_uri, DCTERMS.rights, Literal(license_info["name"])))
         
         # Publication date
         pub_date = extract_publication_date(metadata_payload)
@@ -1115,7 +1090,7 @@ def generate_manifest_cdi(
         # Publisher
         publisher = extract_publisher(metadata_payload)
         if publisher:
-            graph.add((dataset_uri, DCTERMS.publisher, SL(publisher)))
+            graph.add((dataset_uri, DCTERMS.publisher, Literal(publisher)))
 
     summary_payload: List[Dict[str, Any]] = []
     total_rows = 0
