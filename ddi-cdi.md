@@ -752,3 +752,92 @@ Python libraries:
 
 ## License
 
+## Appendix: cdi_generator.py deep dive
+
+This appendix gives a technical, implementation-oriented overview of the Python generator referenced throughout this document: `image/cdi_generator.py`.
+
+### What it is
+
+- A streaming CSV/TSV profiler and DDI‑CDI 1.0 RDF generator.
+- Reads one or many tabular files, infers per‑column datatype and role, optionally enriches with Dataverse metadata and DDI fragments, and emits a compact CDI graph as Turtle.
+- Scales to large files by streaming rows (no full‑file loads).
+
+### Inputs and outputs
+
+- Inputs
+  - Manifest mode: JSON manifest describing multiple files and dataset context (preferred for jobs).
+  - Single‑file mode: one CSV/TSV with dataset identifiers; optional Dataverse JSON and/or a DDI XML fragment.
+- Optional enrichments
+  - Dataverse dataset JSON: title, description, creators (+ORCID), subjects, license, issued date, publisher, per‑file URIs.
+  - DDI XML fragment (from Dataverse ingest or xconvert): variable labels, categories, summary statistics; stored as rdf:XMLLiteral when well‑formed.
+- Outputs
+  - Turtle RDF (.ttl) with DataSet, PhysicalDataSet(s), LogicalDataSet(s), Variable(s), and a provenance ProcessStep.
+  - Optional JSON summary with per‑column profiling (approx distinct counts, datatype, role).
+
+### High‑level flow
+
+1. Parse CLI, configure logging.
+2. Manifest mode
+   - Create a single DataSet node and add dataset‑level info from Dataverse JSON when available.
+   - Iterate files: profile CSV, optionally obtain DDI (native or via xconvert), then add PhysicalDataSet + LogicalDataSet + Variables.
+   - Serialize combined graph to Turtle; optionally write a summary JSON used by the job logs/UI.
+3. Single‑file mode
+   - Similar steps for one file; Dataverse JSON can fill missing title or file URI.
+
+### Key components
+
+- Namespaces and link predicates
+  - Uses native CDI predicates:
+    - DataSet → `cdi:hasLogicalDataSet` / `cdi:hasPhysicalDataSet`
+    - LogicalDataSet → `cdi:containsVariable`
+    - Variable → `cdi:hasRole`, `cdi:hasRepresentation`
+- ColumnStats (streaming inference)
+  - Determines XSD datatype (integer, decimal, boolean, dateTime, string) and approximate distinct counts (HyperLogLog).
+  - Role heuristic:
+    - identifier: ≥ ~95% distinct (for ≥ 50 non‑missing rows)
+    - measure: numeric but non‑unique
+    - dimension: boolean or low‑cardinality text
+    - attribute: everything else
+- CSV ingestion
+  - Encoding via chardet; delimiter via csv.Sniffer; header detection guarded by a “typed cell ratio” so first data rows aren’t misclassified as headers.
+- DDI handling and xconvert
+  - Parses DDI XML; extracts variable label, categories, and simple statistics.
+  - Valid XML is preserved as an `rdf:XMLLiteral` on the PhysicalDataSet `dcterms:source`.
+  - Can auto‑run UC Berkeley’s xconvert for `.sps`, `.sas`, `.do`, `.dct` to produce DDI when no fragment is supplied.
+- Dataverse metadata extraction
+  - Title, description, authors (+ORCID), subjects, license (URI/name), issued date, publisher; per‑file persistent or access URIs.
+
+### RDF emission shape
+
+- PhysicalDataSet
+  - `dcterms:format`, optional `dcterms:identifier` (file URI), `dcterms:provenance` (md5:...), and `dcterms:source` (DDI as literal/XMLLiteral).
+- LogicalDataSet
+  - IRI: `<dataset>#logical/logical_<filename>`; includes `dcterms:identifier`, `skos:prefLabel`, and `dcterms:description`.
+  - Links to Variables via `cdi:containsVariable`.
+- Variable
+  - IRI: `<dataset>#var/<column>`; `skos:prefLabel` (+ `skos:altLabel` if DDI label differs), `dcterms:identifier`.
+  - `cdi:hasRepresentation` set to inferred XSD datatype; `cdi:hasRole` points to a Role node with `skos:prefLabel`.
+  - Optional `skos:note` with “DDI categories: …” and “DDI stats: …”.
+- ProcessStep
+  - Linked via `prov:wasGeneratedBy` with a descriptive `dcterms:description`.
+
+### Noteworthy behavior: LogicalDataSet description
+
+- If the dataset has a description, the generator composes:
+  - `{dataset_description}\n\nLogical representation of data from file: <name or URI>`
+- The embedded newline can cause multi‑line Turtle literals (triple‑quoted) when serialized.
+- If only file name/URI is available (no dataset description), the description is single‑line.
+- To force single‑line descriptions for all cases, adjust `add_file_to_dataset_graph()` to join with a space or omit the dataset description in that field.
+
+### CLI at a glance
+
+- Manifest mode: `--manifest <path>` (preferred); writes `.ttl` and optional `--summary-json`.
+- Single‑file mode: `--csv <file> --dataset-pid <PID> --dataset-uri-base <base>`; optional `--dataset-metadata-file` and `--ddi-file`.
+- Useful flags: `--skip-md5`, `--limit-rows`, `--encoding`, `--delimiter`, `--no-header`.
+
+### Quick tweak tips
+
+- Switch link style (if a different profile is mandated): set `ACTIVE_LINKS = FALLBACK_LINKS`.
+- Tune inference: update `ColumnStats.xsd_datatype()` and `ColumnStats.role()`.
+
+
