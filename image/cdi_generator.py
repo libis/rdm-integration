@@ -871,7 +871,9 @@ def add_file_to_dataset_graph(
         file_id_part = file_uri.split('/')[-1] if file_uri else file_format.replace('/', '_')
         logical_frag = safe_uri_fragment(f"logical_{file_id_part}")
     
-    logical = URIRef(f"{dataset_uri_str}#logical/{logical_frag}")
+    # Keep LogicalDataSet as a blank node to mirror PhysicalDataSet handling and
+    # avoid shacl-form treating it as an external reference.
+    logical = BNode()
     graph.add((logical, RDF.type, CDI.LogicalDataSet))
     graph.add((logical, DCTERMS.identifier, Literal(f"logical-dataset-{logical_frag}")))
     

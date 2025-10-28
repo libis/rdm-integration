@@ -38,7 +38,7 @@
      sh:path cdi:hasLogicalDataSet;
      sh:name "Logical data sets";
      sh:minCount 1;
-     sh:nodeKind sh:BlankNodeOrIRI;
+     sh:nodeKind sh:BlankNode;
      sh:class cdi:LogicalDataSet;
      sh:node <urn:ddi-cdi:LogicalDataSetShape>;
    ];
@@ -46,14 +46,14 @@
      sh:path cdi:hasPhysicalDataSet;
      sh:name "Physical data sets";
      sh:minCount 1;
-     sh:nodeKind sh:BlankNodeOrIRI;
+     sh:nodeKind sh:BlankNode;
      sh:node <urn:ddi-cdi:PhysicalDataSetShape>;
    ];
    sh:property [
      sh:path prov:wasGeneratedBy;
      sh:name "Generation process";
      sh:minCount 1;
-     sh:nodeKind sh:BlankNodeOrIRI;
+     sh:nodeKind sh:BlankNode;
      sh:node <urn:ddi-cdi:ProcessStepShape>;
    ].
 

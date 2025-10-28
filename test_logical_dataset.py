@@ -8,7 +8,8 @@ from pathlib import Path
 # Add image directory to path
 sys.path.insert(0, str(Path(__file__).parent / "image"))
 
-import cdi_generator
+import cdi_generator  # type: ignore
+from rdflib import BNode, Graph, Namespace, RDF, URIRef
 
 def test_logical_dataset_metadata():
     """Test that LogicalDataSet gets proper URI, identifier, label, and description."""
@@ -59,46 +60,62 @@ def test_logical_dataset_metadata():
     # Check the output
     output = output_path.read_text()
     
-    checks = [
-        ("LogicalDataSet type", "a cdi:LogicalDataSet"),
-        ("LogicalDataSet URI (not blank node)", "#logical/"),
-        ("LogicalDataSet identifier", "dcterms:identifier"),
-        ("LogicalDataSet label", "skos:prefLabel"),
-        ("LogicalDataSet description", "dcterms:description"),
-        ("Dataset description in output", title if title else "Test Dataset"),
-    ]
-    
+    graph = Graph()
+    graph.parse(data=output, format="turtle")
+
+    cdi_ns = Namespace("http://www.ddialliance.org/Specification/DDI-CDI/1.0/RDF/")
+    dcterms_ns = Namespace("http://purl.org/dc/terms/")
+    skos_ns = Namespace("http://www.w3.org/2004/02/skos/core#")
+    dataset_uri = URIRef("https://example.org/dataset/" + manifest["dataset_pid"])
+
+    logical_links = list(graph.triples((dataset_uri, cdi_ns.hasLogicalDataSet, None)))
+    physical_links = list(graph.triples((dataset_uri, cdi_ns.hasPhysicalDataSet, None)))
+
+    if not logical_links:
+        print("❌ No LogicalDataSet links found")
+        return 1
+
+    if not physical_links:
+        print("❌ No PhysicalDataSet links found")
+        return 1
+
+    print(f"✓ Found {len(logical_links)} LogicalDataSet link(s)")
+    print(f"✓ Found {len(physical_links)} PhysicalDataSet link(s)")
+
     all_passed = True
-    for check_name, pattern in checks:
-        if pattern in output:
-            print(f"✓ {check_name}: found '{pattern}'")
-        else:
-            print(f"✗ {check_name}: missing '{pattern}'")
+    for idx, (_, _, logical_node) in enumerate(logical_links, start=1):
+        if not isinstance(logical_node, BNode):
+            print(f"✗ LogicalDataSet {idx} is not a blank node: {logical_node}")
             all_passed = False
-    
-    # Print a snippet of the LogicalDataSet section
-    print("\n--- LogicalDataSet snippet ---")
-    lines = output.split('\n')
-    in_logical = False
-    snippet_lines = []
-    for line in lines:
-        if '#logical/' in line:
-            in_logical = True
-        if in_logical:
-            snippet_lines.append(line)
-            if line.strip() == '' or (line.strip() and not line.startswith(' ')):
-                if len(snippet_lines) > 1:
-                    break
-    
-    print('\n'.join(snippet_lines[:15]))
-    print("--- End snippet ---\n")
-    
+            continue
+
+        has_type = (logical_node, RDF.type, cdi_ns.LogicalDataSet) in graph
+        identifier = graph.value(logical_node, dcterms_ns.identifier)
+        label = graph.value(logical_node, skos_ns.prefLabel)
+        description = graph.value(logical_node, dcterms_ns.description)
+
+        if has_type and identifier and label and description:
+            print(
+                f"✓ LogicalDataSet {idx}: typed, has identifier '{identifier}', label '{label}', description present"
+            )
+        else:
+            print(f"✗ LogicalDataSet {idx} is missing required metadata")
+            print(f"  type: {has_type}, identifier: {identifier}, label: {label}, description: {description}")
+            all_passed = False
+
+    for idx, (_, _, physical_node) in enumerate(physical_links, start=1):
+        if not isinstance(physical_node, BNode):
+            print(f"✗ PhysicalDataSet {idx} is not a blank node: {physical_node}")
+            all_passed = False
+        else:
+            print(f"✓ PhysicalDataSet {idx} is a blank node")
+
     if all_passed:
         print("✅ All checks passed!")
         return 0
-    else:
-        print("❌ Some checks failed")
-        return 1
+
+    print("❌ Some checks failed")
+    return 1
 
 if __name__ == "__main__":
     sys.exit(test_logical_dataset_metadata())

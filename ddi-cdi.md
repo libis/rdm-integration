@@ -812,7 +812,7 @@ This appendix gives a technical, implementation-oriented overview of the Python 
 - PhysicalDataSet
   - `dcterms:format`, optional `dcterms:identifier` (file URI), `dcterms:provenance` (md5:...), and `dcterms:source` (DDI as literal/XMLLiteral).
 - LogicalDataSet
-  - IRI: `<dataset>#logical/logical_<filename>`; includes `dcterms:identifier`, `skos:prefLabel`, and `dcterms:description`.
+  - Blank node: carries `dcterms:identifier` (`logical-dataset-<slug>`), `skos:prefLabel`, and `dcterms:description` derived from dataset/file context.
   - Links to Variables via `cdi:containsVariable`.
 - Variable
   - IRI: `<dataset>#var/<column>`; `skos:prefLabel` (+ `skos:altLabel` if DDI label differs), `dcterms:identifier`.
