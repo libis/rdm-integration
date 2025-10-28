@@ -79,7 +79,7 @@ func DdiCdi(w http.ResponseWriter, r *http.Request) {
 		Plugin:             "ddi_cdi",
 		SendEmailOnSuccess: req.SendEmailOnSuccess,
 		Key:                key,
-		Queue:              req.Queue,
+		Queue:              "", // ddi_cdi jobs go to default queue
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
