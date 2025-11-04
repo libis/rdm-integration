@@ -1,5 +1,55 @@
 # DDI-CDI Metadata Generation
 
+## Table of Contents
+
+### 📚 Getting Started
+- [Overview](#overview)
+- [Quick Start](#dataverse-external-tool-quick-start)
+- [What is DDI-CDI?](#what-is-ddi-cdi)
+- [What Does This Feature Do?](#what-does-this-feature-do)
+
+### 🔧 How It Works
+- [The Processing Pipeline](#how-it-works-the-processing-pipeline)
+  - [Step 1: Job Submission](#step-1-job-submission)
+  - [Step 2: Data Access and Preparation](#step-2-data-access-and-preparation)
+  - [Step 3: File Analysis](#step-3-file-analysis)
+  - [Step 4: Metadata Enrichment](#step-4-metadata-enrichment)
+  - [Step 5: CDI Generation](#step-5-cdi-generation)
+  - [Step 6: Presentation](#step-6-presentation)
+
+### 📁 File Formats
+- [Supported File Formats](#supported-file-formats)
+  - [CSV and TSV Files](#csv-and-tsv-files)
+  - [Statistical Data Files](#statistical-data-files)
+  - [File Filtering](#file-filtering)
+
+### 👤 User Guide
+- [Using the Feature](#using-the-feature)
+  - [Accessing the Generator](#accessing-the-ddi-cdi-generator)
+  - [Step-by-Step Workflow](#step-by-step-workflow)
+  - [Understanding the Results](#understanding-the-results)
+  - [The Interactive Form (SHACL Form)](#the-interactive-form-shacl-form)
+  - [Console Output](#console-output)
+  - [Caching and Performance](#caching-and-performance)
+  - [Common Scenarios and Tips](#common-scenarios-and-tips)
+
+### 🛠️ Technical Reference
+- [Technical Details](#technical-details)
+  - [Architecture](#architecture)
+  - [The cdi_generator.py Script](#the-cdi_generatorpy-script)
+  - [SHACL Shapes Hosting](#shacl-shapes-hosting)
+  - [Testing](#testing)
+- [Performance and Scalability](#performance-and-scalability)
+- [Limitations and Future Enhancements](#limitations-and-future-enhancements)
+- [Metadata Standards and Compliance](#metadata-standards-and-compliance)
+
+### 📖 Additional Resources
+- [Getting Help and Contributing](#getting-help-and-contributing)
+- [Credits and Acknowledgments](#credits-and-acknowledgments)
+- [Appendix: cdi_generator.py Deep Dive](#appendix-cdi_generatorpy-deep-dive)
+
+---
+
 ## Overview
 
 This document describes the DDI-CDI (Data Documentation Initiative - Cross-Domain Integration) metadata generation feature for Dataverse datasets. This feature automatically creates rich, standardized metadata descriptions of your tabular data files, making your research data more discoverable, reusable, and interoperable across different systems and domains.
@@ -46,6 +96,8 @@ All of this happens in the background, requiring minimal effort from you as a re
 ---
 
 ## How It Works: The Processing Pipeline
+
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [→ Supported File Formats](#supported-file-formats) | [→ User Guide](#using-the-feature) | [→ Technical Details](#technical-details)
 
 The DDI-CDI generation follows a multi-step pipeline that transforms your data files into rich metadata descriptions:
 
@@ -138,6 +190,8 @@ The generated metadata is:
 ---
 
 ## Supported File Formats
+
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Processing Pipeline](#how-it-works-the-processing-pipeline) | [→ User Guide](#using-the-feature) | [→ Technical Details](#technical-details)
 
 ### CSV and TSV Files
 
@@ -245,6 +299,8 @@ The frontend will automatically recognize files with the new extension once the 
 ---
 
 ## Using the Feature
+
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Supported File Formats](#supported-file-formats) | [← Processing Pipeline](#how-it-works-the-processing-pipeline) | [→ Technical Details](#technical-details)
 
 ### Accessing the DDI-CDI Generator
 
@@ -532,6 +588,8 @@ The DDI-CDI feature includes intelligent caching to improve user experience:
 
 ## Technical Details
 
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← User Guide](#using-the-feature) | [← Processing Pipeline](#how-it-works-the-processing-pipeline) | [→ Standards & Compliance](#metadata-standards-and-compliance)
+
 ### Architecture
 
 The feature uses a hybrid architecture:
@@ -634,6 +692,8 @@ All tests are automatically skipped if required tools (like xconvert) are not av
 
 ## Performance and Scalability
 
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Technical Details](#technical-details) | [→ Limitations & Future](#limitations-and-future-enhancements)
+
 ### Memory Efficiency
 
 The pipeline is designed to handle large datasets:
@@ -662,6 +722,8 @@ Results are cached for quick retrieval:
 
 ## Limitations and Future Enhancements
 
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Performance](#performance-and-scalability) | [→ Standards & Compliance](#metadata-standards-and-compliance)
+
 ### Current Limitations
 
 - **Dataverse ingest required for binary formats**: Binary statistical files (SPSS `.sav`, Stata `.dta`, R `.RData`, Excel `.xlsx`) must be ingested by Dataverse first. Files exceeding the configured `TabularIngestSizeLimit` (typically 2GB) cannot be processed through native ingest.
@@ -687,6 +749,8 @@ Future versions may include:
 ---
 
 ## Metadata Standards and Compliance
+
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Limitations & Future](#limitations-and-future-enhancements) | [→ Getting Help & Contributing](#getting-help-and-contributing)
 
 ### DDI-CDI Specification
 
@@ -718,6 +782,8 @@ Generated metadata follows:
 
 ## Getting Help and Contributing
 
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Standards & Compliance](#metadata-standards-and-compliance) | [→ Credits & Acknowledgments](#credits-and-acknowledgments)
+
 ### Documentation Resources
 
 - **This document**: Overview and user guide
@@ -748,6 +814,8 @@ The Python codebase is designed to be accessible - basic Python knowledge is suf
 
 ## Credits and Acknowledgments
 
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Getting Help & Contributing](#getting-help-and-contributing) | [→ Appendix](#appendix-cdi_generatorpy-deep-dive)
+
 This feature integrates several open-source tools and standards:
 
 - **xconvert**: Statistical file converter from UC Berkeley SDA project ([https://sda.berkeley.edu/ddi/tools/xconvert.html](https://sda.berkeley.edu/ddi/tools/xconvert.html))
@@ -768,6 +836,8 @@ Python libraries:
 ## License
 
 ## Appendix: cdi_generator.py deep dive
+
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Credits & Acknowledgments](#credits-and-acknowledgments) | [↑ Back to Top](#ddi-cdi-metadata-generation)
 
 This appendix gives a technical, implementation-oriented overview of the Python generator referenced throughout this document: `image/cdi_generator.py`.
 
