@@ -8,7 +8,7 @@ This document describes the DDI-CDI (Data Documentation Initiative - Cross-Domai
 
 ## Dataverse External Tool Quick Start
 
-Run `make up` from the repository root to start the full demo stack (Docker with the Compose plugin and GNU Make are required). Once the containers are ready, sign in via Keycloak using the default `admin / admin` credentials to access Dataverse and open any dataset. Supporting services are exposed on loopback-friendly hostnames (`keycloak.localhost`, `localstack.localhost`, `minio.localhost`), so no `/etc/hosts` adjustments are needed.
+Run `make up` from the repository root to start the full demo stack (Docker with the Compose plugin and GNU Make are required). Once the containers are ready, sign in via Keycloak using the default `admin / admin` credentials to access Dataverse. After the initial setup, Dataverse is empty: create a dataset and upload a few supported files (CSV/TSV/TAB or statistical syntax such as `.sps`, `.sas`, `.dct`) so you can try the tool. Supporting services are exposed on loopback-friendly hostnames (`keycloak.localhost`, `localstack.localhost`, `minio.localhost`), so no `/etc/hosts` adjustments are needed.
 
 The `make up` flow verifies whether the Dataverse container has already been bootstrapped. On the first run it executes `dataverse/setup.sh`, which registers all shipped external tools—including **Generate DDI-CDI** - via `conf/dataverse/external-tools/03-rdm-integration-ddi-cdi.json`. As a result, the dataset page already exposes the DDI-CDI button and launches the frontend with the dataset PID (and API token when available) pre-populated.
 
@@ -19,7 +19,7 @@ If you ever need to re-register the tool manually (for example after deleting it
 superAdmin datafile 'admin/externalTools' '/conf/external-tools/03-rdm-integration-ddi-cdi.json'
 ```
 
-Refer back to [README.md](README.md) for broader environment setup details, credentials, and troubleshooting tips beyond this quick start.
+Refer back to [README.md](README.md) for broader environment setup details, credentials, and troubleshooting tips beyond this quick start. Once your dataset exists and contains supported files, the dataset page will show the "Generate DDI-CDI" external tool button, which launches the frontend pre-populated with the dataset PID.
 
 ### What is DDI-CDI?
 
@@ -594,7 +594,7 @@ python3 test_csv_to_cdi.py
 
 #### What the Tests Cover
 
-The test suite includes 43 tests covering:
+The test suite includes dozens of tests covering:
 
 1. **CSV Processing Tests**:
    - Type inference (integers, decimals, booleans, dates, strings)
