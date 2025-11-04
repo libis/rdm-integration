@@ -28,7 +28,7 @@ Support for different repositories is implemented as plugins. More plugins will 
 
 ## Getting started
 
-Prerequisite: ensure that Docker (with the Compose plugin) is installed and available on your PATH - the `make up` target spins up the full stack via `docker compose`. The stack exposes supporting services on loopback-friendly hostnames (`keycloak.localhost`, `localstack.localhost`, `minio.localhost`), so no `/etc/hosts` edits are required.
+Prerequisite: ensure that Docker (with the Compose plugin) **and** GNU Make are installed and available on your PATH - the `make up` target spins up the full stack via `docker compose`. The stack exposes supporting services on loopback-friendly hostnames (`keycloak.localhost`, `localstack.localhost`, `minio.localhost`), so no `/etc/hosts` edits are required.
 
 You can start the demo with the following command (requires Docker):
 

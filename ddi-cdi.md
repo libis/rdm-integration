@@ -8,7 +8,7 @@ This document describes the DDI-CDI (Data Documentation Initiative - Cross-Domai
 
 ## Dataverse External Tool Quick Start
 
-Run `make up` from the repository root to start the full demo stack (Docker with the Compose plugin is required). Once the containers are ready, sign in via Keycloak using the default `admin / admin` credentials to access Dataverse and open any dataset. Supporting services are exposed on loopback-friendly hostnames (`keycloak.localhost`, `localstack.localhost`, `minio.localhost`), so no `/etc/hosts` adjustments are needed.
+Run `make up` from the repository root to start the full demo stack (Docker with the Compose plugin and GNU Make are required). Once the containers are ready, sign in via Keycloak using the default `admin / admin` credentials to access Dataverse and open any dataset. Supporting services are exposed on loopback-friendly hostnames (`keycloak.localhost`, `localstack.localhost`, `minio.localhost`), so no `/etc/hosts` adjustments are needed.
 
 The `make up` flow verifies whether the Dataverse container has already been bootstrapped. On the first run it executes `dataverse/setup.sh`, which registers all shipped external tools—including **Generate DDI-CDI** - via `conf/dataverse/external-tools/03-rdm-integration-ddi-cdi.json`. As a result, the dataset page already exposes the DDI-CDI button and launches the frontend with the dataset PID (and API token when available) pre-populated.
 
