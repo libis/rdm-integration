@@ -14,12 +14,12 @@ Automatically generate rich, standardized metadata descriptions for your tabular
 Need the external Dataverse tool or a quick start? The dedicated guide in [ddi-cdi.md](ddi-cdi.md#dataverse-external-tool-quick-start) covers the `make up` bootstrapping flow, demo credentials, and manual re-registration, while this README dives into the broader environment setup.
 
 ## Available plugins
-Support for different repositories is implemented as plugins. More plugins will be added in the feature. At this moment, the following plugins are provided with the latest version:
+Support for different repositories is implemented as plugins. More plugins will be added in the future. At this moment, the following plugins are provided with the latest version:
 - [GitHub](https://github.com/)
 - [GitLab](https://about.gitlab.com/)
 - [IRODS](https://irods.org/)
 - [Dataverse](https://dataverse.org/) (use other Dataverse as source to import the data)
-- [Mircrosoft OneDrive](https://www.microsoft.com/en/microsoft-365/onedrive/online-cloud-storage)
+- [Microsoft OneDrive](https://www.microsoft.com/en/microsoft-365/onedrive/online-cloud-storage)
 - [Microsoft SharePoint Online](https://www.microsoft.com/en/microsoft-365/sharepoint/collaboration)
 - [OSF](https://osf.io/)
 - [SFTP](https://en.wikipedia.org/wiki/SSH_File_Transfer_Protocol)
@@ -36,7 +36,21 @@ You can start the demo with the following command (requires Docker):
 make up
 ```
 
-Wait until everything is initialized and started (follow the status in the terminal output). Then you can start testing, for example, go to the main page of the newly created Dataverse: [http://localhost:8080](http://localhost:8080), and click on the `Log In` button. Choose the `OpenID Connect` option at the button. On the `Log In` page, click on the `Log In with OpenID Connect`. Log in with the default Keycloak administrator account (`admin` / `admin`):
+Once services are up (watch the terminal output), you can use the application directly — no Dataverse external‑tool setup required:
+
+- Visit the web app: http://localhost:4180
+- Jump straight to the DDI‑CDI generator: http://localhost:4180/#/ddi-cdi
+- You can also create datasets, synchronize files, and explore plugins from the app’s UI.
+
+Key URLs during local development:
+
+- http://localhost:4180 — RDM‑integration web app (behind OAuth2 Proxy)
+- http://localhost:8080 — Dataverse UI
+- http://localhost:8090 — Keycloak admin console (realm `test`, admin user `kcadmin` / `kcpassword`)
+
+### Use from Dataverse (optional)
+
+Wait until everything is initialized and started (follow the status in the terminal output). Then open [http://localhost:8080](http://localhost:8080) and click `Log In`. Choose `OpenID Connect`, then click `Log In with OpenID Connect`. Sign in with the demo user (`admin` / `admin`):
 ![image](https://github.com/user-attachments/assets/f44acb6c-f3f5-40b3-8a59-f32c591de084)
 
 Complete the new user form by choosing a username and by agreeing to the terms:
@@ -44,7 +58,8 @@ Complete the new user form by choosing a username and by agreeing to the terms:
 
 ### Default credentials
 
-- **Keycloak (OIDC)**: `admin / admin` (used for the initial login flow described above)
+- **Application login via OIDC (realm user)**: `admin / admin` (use this to sign in to the app and Dataverse via OpenID Connect)
+- **Keycloak admin console**: `kcadmin / kcpassword` (for managing the `test` realm at http://localhost:8090)
 - **Dataverse built-in admin user**: username `dataverseAdmin`, password `secret-admin-password` (value stored in `docker-volumes/dataverse/secrets/password`)
 - **Dataverse built-in admin API key**: available inside the container at `/run/secrets/api/adminkey` after startup
 
@@ -55,7 +70,7 @@ After creating that new account, go to the `API Token` menu option:
 Create a new token and go back to the main page to create a new dataset:
 ![image](https://github.com/user-attachments/assets/2eef1e50-859e-4d76-aec5-d4049a7c00cb)
 
-Fill out the form and click on `Save Dataset`. In the new dataset choose `RDM-integration upload` option from `Edit Dataset` menu:
+Fill out the form and click on `Save Dataset`. In the new dataset choose the `RDM-integration upload` option from the `Edit Dataset` menu (the stack auto-registers this external tool for convenience):
 ![image](https://github.com/user-attachments/assets/d1fb48b9-045b-4ee3-b691-9cea3256f0b1)
 
 Agree to the popups from the localhost, you will be redirected to log in:
@@ -64,6 +79,36 @@ Agree to the popups from the localhost, you will be redirected to log in:
 After logging in, you can test different plugins and scenarios. You can also go directly to the RDM-integration tool [http://localhost:4180](http://localhost:4180) to initiate different use-cases, e.g., creating new empty dataset with the `Create new dataset` button:
 ![image](https://github.com/user-attachments/assets/f1eda2d9-146c-46da-a617-5edc09d32072)
 
+### Stop and reset
+
+- Stop the stack:
+
+```shell
+make down
+```
+
+- Reset local volumes (removes data) and re-initialize:
+
+```shell
+make clean
+make init
+```
+
+## Configuration overview
+
+The application loads its runtime configuration from two files, passed via environment variables and mounted by Docker Compose:
+
+- Backend: `BACKEND_CONFIG_FILE` → `/config/backend_config.json`
+- Frontend: `FRONTEND_CONFIG_FILE` → `/config/frontend_config.json`
+
+Source templates for both live in `conf/`:
+
+- `conf/backend_config.json`
+- `conf/frontend_config.json`
+
+The `make init` target copies these files into `docker-volumes/integration/conf/`, which is mounted into the container at `/config` by `docker-compose.yml`. It also stages related configs like `conf/oauth2-proxy.cfg` to `docker-volumes/integration/conf/oauth2-proxy.cfg`, which the container uses at runtime.
+
+To customize settings, either edit the files under `conf/` and run `make init` (fresh volumes), or change the copies in `docker-volumes/integration/conf/` and restart the stack (`make down && make up`).
 
 ## Prerequisites
 For building the frontend, you need to have [Angular CLI](https://github.com/angular/angular-cli) installed. You will need to have the latest [Go](https://go.dev/) installed for compiling the code. If you wish to build the application's container, you will need to have the [Docker](https://www.docker.com) installed. Finally, the state of the application (calculated hashes, scheduled jobs, etc.) is maintained by a [Redis](https://redis.io/) data store. When running this application on the server, you will need either access to an external Redis server, or one run by you locally. The stand-alone tool does not require any Redis server (or any other tool or library installed on your system), and can be simply run by executing a binary built for your operating system.
