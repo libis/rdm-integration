@@ -6,6 +6,21 @@ This document describes the DDI-CDI (Data Documentation Initiative - Cross-Domai
 
 **Note**: This feature complements Dataverse's native [tabular data ingest](https://guides.dataverse.org/en/latest/user/tabulardataingest/index.html) by leveraging the DDI metadata it generates and extending it to the DDI-CDI format. For files already ingested by Dataverse, the feature uses the existing metadata; for other formats or non-ingested files, it provides comprehensive analysis.
 
+## Dataverse External Tool Quick Start
+
+Run `make up` from the repository root to start the full demo stack (Docker with the Compose plugin is required). Once the containers are ready, sign in via Keycloak using the default `admin / admin` credentials to access Dataverse and open any dataset.
+
+The `make up` flow verifies whether the Dataverse container has already been bootstrapped. On the first run it executes `dataverse/setup.sh`, which registers all shipped external tools—including **Generate DDI-CDI** - via `conf/dataverse/external-tools/03-rdm-integration-ddi-cdi.json`. As a result, the dataset page already exposes the DDI-CDI button and launches the frontend with the dataset PID (and API token when available) pre-populated.
+
+If you ever need to re-register the tool manually (for example after deleting it), run the following inside the Dataverse container:
+
+```bash
+. /scripts/setup-tools
+superAdmin datafile 'admin/externalTools' '/conf/external-tools/03-rdm-integration-ddi-cdi.json'
+```
+
+Refer back to [README.md](README.md) for broader environment setup details, credentials, and troubleshooting tips beyond this quick start.
+
 ### What is DDI-CDI?
 
 DDI-CDI is an international standard for describing research data. It provides a common vocabulary and structure for documenting datasets, making it easier to:

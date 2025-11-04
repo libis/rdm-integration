@@ -11,6 +11,7 @@ Synchronize files from various repositories into Dataverse with background proce
 
 ### DDI-CDI Metadata Generation
 Automatically generate rich, standardized metadata descriptions for your tabular data files following the DDI-CDI (Data Documentation Initiative - Cross-Domain Integration) specification. The feature analyzes CSV, TSV, SPSS, SAS, and Stata files to create comprehensive documentation including variable types, roles, statistics, and relationships. See [ddi-cdi.md](ddi-cdi.md) for complete documentation.
+Need the external Dataverse tool or a quick start? The dedicated guide in [ddi-cdi.md](ddi-cdi.md#dataverse-external-tool-quick-start) covers the `make up` bootstrapping flow, demo credentials, and manual re-registration, while this README dives into the broader environment setup.
 
 ## Available plugins
 Support for different repositories is implemented as plugins. More plugins will be added in the feature. At this moment, the following plugins are provided with the latest version:
@@ -27,6 +28,8 @@ Support for different repositories is implemented as plugins. More plugins will 
 
 ## Getting started
 
+Prerequisite: ensure that Docker (with the Compose plugin) is installed and available on your PATH - the `make up` target spins up the full stack via `docker compose`.
+
 Add the included Keyclok (for OIDC flow) and S3 implementations (for upload and download redirects using S3 storage) to your `/etc/hosts` or equivalent configuration, for example:
 ```shell
 127.0.0.1    keycloak.mydomain.com
@@ -34,17 +37,23 @@ Add the included Keyclok (for OIDC flow) and S3 implementations (for upload and 
 127.0.0.1    minio.mydomain.com
 ```
 
-You can start the demo with the following command:
+You can start the demo with the following command (requires Docker):
 
 ```shell
 make up
 ```
 
-Wait until everything is initialized and started (follow the status in the terminal output). Then you can start testing, for example, go to the main page of the newly created Dataverse: [http://localhost:8080](http://localhost:8080), and click on the `Log In` button. Choose the `OpenID Connect` option at the button. On the `Log In` page, click on the `Log In with OpenID Connect`. Log-in with admin/admin credentials:
+Wait until everything is initialized and started (follow the status in the terminal output). Then you can start testing, for example, go to the main page of the newly created Dataverse: [http://localhost:8080](http://localhost:8080), and click on the `Log In` button. Choose the `OpenID Connect` option at the button. On the `Log In` page, click on the `Log In with OpenID Connect`. Log in with the default Keycloak administrator account (`admin` / `admin`):
 ![image](https://github.com/user-attachments/assets/f44acb6c-f3f5-40b3-8a59-f32c591de084)
 
 Complete the new user form by choosing a username and by agreeing to the terms:
 ![image](https://github.com/user-attachments/assets/9b850bf2-c977-48cb-909a-1a93866e623e)
+
+### Default credentials
+
+- **Keycloak (OIDC)**: `admin / admin` (used for the initial login flow described above)
+- **Dataverse built-in admin user**: username `dataverseAdmin`, password `secret-admin-password` (value stored in `docker-volumes/dataverse/secrets/password`)
+- **Dataverse built-in admin API key**: available inside the container at `/run/secrets/api/adminkey` after startup
 
 After creating that new account, go to the `API Token` menu option:
 
