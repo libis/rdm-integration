@@ -88,7 +88,7 @@ services:
         -Ddataverse.files.localfs1.directory=/filestore
         -Ddataverse.files.localstack1.type=s3
         -Ddataverse.files.localstack1.label=LocalStack
-        -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack.mydomain.com:4566
+        -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack.localhost:4566
         -Ddataverse.files.localstack1.custom-endpoint-region=us-east-2
         -Ddataverse.files.localstack1.bucket-name=mybucket
         -Ddataverse.files.localstack1.path-style-access=true
@@ -99,7 +99,7 @@ services:
         -Ddataverse.files.localstack1.upload-out-of-band=true
         -Ddataverse.files.minio1.type=s3
         -Ddataverse.files.minio1.label=MinIO
-        -Ddataverse.files.minio1.custom-endpoint-url=http://minio.mydomain.com:9000
+        -Ddataverse.files.minio1.custom-endpoint-url=http://minio.localhost:9000
         -Ddataverse.files.minio1.custom-endpoint-region=us-east-1
         -Ddataverse.files.minio1.bucket-name=mybucket
         -Ddataverse.files.minio1.path-style-access=true
@@ -122,7 +122,7 @@ services:
         -Ddataverse.auth.oidc.enabled=1
         -Ddataverse.auth.oidc.client-id=test
         -Ddataverse.auth.oidc.client-secret=94XHrfNRwXsjqTqApRrwWmhDLDHpIYV8
-        -Ddataverse.auth.oidc.auth-server-url=http://keycloak.mydomain.com:8090/realms/test
+        -Ddataverse.auth.oidc.auth-server-url=http://keycloak.localhost:8090/realms/test
         -Ddataverse.spi.exporters.directory=/dv/exporters
         -Ddataverse.oai.server.maxidentifiers=2
         -Ddataverse.oai.server.maxrecords=2
@@ -215,7 +215,7 @@ services:
     networks:
       dataverse:
         aliases:
-          - keycloak.mydomain.com #create a DNS alias within the network (add the same alias to your /etc/hosts to get a working OIDC flow)
+          - keycloak.localhost #DNS alias within the network; .localhost domains resolve to 127.0.0.1 on the host
     command: start-dev --import-realm --http-port=8090  # change port to 8090, so within the network and external the same port is used
     ports:
       - "8090:8090"
@@ -232,12 +232,12 @@ services:
       - "127.0.0.1:4566:4566"
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - LOCALSTACK_HOST=localstack.mydomain.com
+      - LOCALSTACK_HOST=localstack.localhost
       - EXTRA_CORS_ALLOWED_ORIGINS=http://localhost:8080
     networks:
       dataverse:
         aliases:
-          - localstack.mydomain.com #create a DNS alias within the network (add the same alias to your /etc/hosts to get a working s3 redirects flow)
+          - localstack.localhost #DNS alias within the network; .localhost domains resolve to 127.0.0.1 on the host
     volumes:
       - ./docker-volumes/localstack/conf:/etc/localstack/init/ready.d
       - ./docker-volumes/localstack/data:/var/lib/localstack
@@ -253,7 +253,7 @@ services:
     networks:
       dataverse:
         aliases:
-          - minio.mydomain.com #create a DNS alias within the network (add the same alias to your /etc/hosts to get a working s3 redirects flow)
+          - minio.localhost #DNS alias within the network; .localhost domains resolve to 127.0.0.1 on the host
     volumes:
       - ./docker-volumes/minio/data:/data
     environment:

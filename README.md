@@ -28,14 +28,7 @@ Support for different repositories is implemented as plugins. More plugins will 
 
 ## Getting started
 
-Prerequisite: ensure that Docker (with the Compose plugin) is installed and available on your PATH - the `make up` target spins up the full stack via `docker compose`.
-
-Add the included Keyclok (for OIDC flow) and S3 implementations (for upload and download redirects using S3 storage) to your `/etc/hosts` or equivalent configuration, for example:
-```shell
-127.0.0.1    keycloak.mydomain.com
-127.0.0.1    localstack.mydomain.com
-127.0.0.1    minio.mydomain.com
-```
+Prerequisite: ensure that Docker (with the Compose plugin) is installed and available on your PATH - the `make up` target spins up the full stack via `docker compose`. The stack exposes supporting services on loopback-friendly hostnames (`keycloak.localhost`, `localstack.localhost`, `minio.localhost`), so no `/etc/hosts` edits are required.
 
 You can start the demo with the following command (requires Docker):
 
