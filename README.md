@@ -48,6 +48,7 @@ Once services are up (watch the terminal output), you can use the application di
 Key URLs during local development:
 
 - http://localhost:4180 — RDM‑integration web app (behind OAuth2 Proxy)
+- http://localhost:4180/#/download - Globus download component (dedicated large‑file download flow)
 - http://localhost:8080 — Dataverse UI
 - http://localhost:8090 — Keycloak admin console (realm `test`, admin user `kcadmin` / `kcpassword`)
 
@@ -81,6 +82,20 @@ Agree to the popups from the localhost, you will be redirected to log in:
 
 After logging in, you can test different plugins and scenarios. You can also go directly to the RDM-integration tool [http://localhost:4180](http://localhost:4180) to initiate different use-cases, e.g., creating new empty dataset with the `Create new dataset` button:
 ![image](https://github.com/user-attachments/assets/f1eda2d9-146c-46da-a617-5edc09d32072)
+
+### Dataverse external tools
+
+The stack includes Dataverse external tool configurations that point to dedicated routes in the application. These are copied from `conf/dataverse/external-tools/` during bootstrap and can be adapted to your environment:
+
+- RDM‑integration download (type: `explore`, scope: `dataset`) — dedicated Globus download component
+    - Route: `/#/download`
+    - Config: `conf/dataverse/external-tools/01-rdm-integration-download.json`
+- RDM‑integration upload (type: `configure`, scope: `dataset`) — connect/sync workflow
+    - Route: `/#/connect`
+    - Config: `conf/dataverse/external-tools/02-rdm-integration-upload.json`
+- Generate DDI‑CDI (type: `configure`, scope: `dataset`) — launch the DDI‑CDI generator
+    - Route: `/#/ddi-cdi`
+    - Config: `conf/dataverse/external-tools/03-rdm-integration-ddi-cdi.json`
 
 ### Stop and reset
 
