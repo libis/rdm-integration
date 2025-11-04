@@ -13,18 +13,21 @@ Synchronize files from various repositories into Dataverse with background proce
 Automatically generate rich, standardized metadata descriptions for your tabular data files following the DDI-CDI (Data Documentation Initiative - Cross-Domain Integration) specification. The feature analyzes CSV, TSV, SPSS, SAS, and Stata files to create comprehensive documentation including variable types, roles, statistics, and relationships. See [ddi-cdi.md](ddi-cdi.md) for complete documentation.
 Need the external Dataverse tool or a quick start? The dedicated guide in [ddi-cdi.md](ddi-cdi.md#dataverse-external-tool-quick-start) covers the `make up` bootstrapping flow, demo credentials, and manual re-registration, while this README dives into the broader environment setup.
 
+### High‑performance Globus transfers
+Move data reliably and at scale using Globus. The built‑in Globus plugin supports both uploads and downloads via managed Globus transfers for S3‑backed storage, making it easy to bring large datasets into Dataverse or export them out of S3 storage. A dedicated download component provides a streamlined flow for large file retrieval via Globus and can be wired as a separate Dataverse external tool; it uses the same backend Globus integration.
+
 ## Available plugins
 Support for different repositories is implemented as plugins. More plugins will be added in the future. At this moment, the following plugins are provided with the latest version:
 - [GitHub](https://github.com/)
 - [GitLab](https://about.gitlab.com/)
 - [IRODS](https://irods.org/)
 - [Dataverse](https://dataverse.org/) (use other Dataverse as source to import the data)
-- [Microsoft OneDrive](https://www.microsoft.com/en/microsoft-365/onedrive/online-cloud-storage)
-- [Microsoft SharePoint Online](https://www.microsoft.com/en/microsoft-365/sharepoint/collaboration)
+- [Microsoft OneDrive / SharePoint Online](https://learn.microsoft.com/graph/overview) — same Microsoft Graph integration; SharePoint is enabled via configuration of the OneDrive plugin (no separate plugin needed)
 - [OSF](https://osf.io/)
 - [SFTP](https://en.wikipedia.org/wiki/SSH_File_Transfer_Protocol)
 - [REDCap](https://projectredcap.org/)
-- [Globus](https://www.globus.org/) (this plugin is not yet released)
+- [Globus](https://www.globus.org/) — upload and download using Globus transfers (S3‑backed storage)
+- Local filesystem — synchronize from a local folder accessible to the server
 
 ## Getting started
 
