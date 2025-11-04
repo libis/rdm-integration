@@ -1,0 +1,12 @@
+{
+  "displayName": "Generate DDI-CDI",
+  "description": "Launch the DDI-CDI generator in the integration UI",
+  "toolName": "generateDdiCdi",
+  "scope": "dataset",
+  "types": ["configure"],
+  "toolUrl": "http://localhost:4180/#/ddi-cdi",
+  "httpMethod": "GET",
+  "toolParameters": {
+    "queryParameters": [{ "datasetPid": "{datasetPid}" }]
+  }
+}
