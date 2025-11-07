@@ -9,7 +9,7 @@
         "storageId": "minio1",
         "pathToApiKey": "/run/secrets/api/adminkey",
         "pathToUnblockKey": "/run/secrets/api/key",
-        "pathToOauthSecrets": "/dsdata/example_oath_secrets.json",
+        "pathToOauthSecrets": "/dsdata/example_oauth_secrets.json",
         "s3Config": {
             "awsEndpoint": "http://minio:9000",
             "awsRegion": "us-east-1",

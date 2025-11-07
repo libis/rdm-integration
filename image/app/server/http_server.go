@@ -14,6 +14,7 @@ import (
 	"integration/app/plugin/funcs/options"
 	"integration/app/plugin/funcs/search"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -71,6 +72,16 @@ func Start() {
 	// allow bad certificates
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
+	timeoutHandler := http.TimeoutHandler(srvMux, timeout, fmt.Sprintf("processing the request took longer than %v: cancelled", timeout))
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isWebSocketRequest(r) {
+			srvMux.ServeHTTP(w, r)
+			return
+		}
+		timeoutHandler.ServeHTTP(w, r)
+	})
+
 	srv := &http.Server{
 		Addr:              ":7788",
 		ReadTimeout:       timeout,
@@ -78,7 +89,14 @@ func Start() {
 		IdleTimeout:       timeout,
 		ReadHeaderTimeout: timeout,
 		TLSConfig:         tlsConfig,
-		Handler:           http.TimeoutHandler(srvMux, timeout, fmt.Sprintf("processing the request took longer than %v: cancelled", timeout)),
+		Handler:           handler,
 	}
 	srv.ListenAndServe()
+}
+
+func isWebSocketRequest(r *http.Request) bool {
+	if !strings.Contains(strings.ToLower(r.Header.Get("Connection")), "upgrade") {
+		return false
+	}
+	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }

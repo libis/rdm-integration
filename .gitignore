@@ -24,3 +24,4 @@ image/__pycache__
 test_output.log
 XCONVERT.LST
 XCONVERT.MSG
+.dev_up_active

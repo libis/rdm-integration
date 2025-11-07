@@ -1,0 +1,43 @@
+# Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
+ARG OAUTH2_POXY_VERSION=v7.6.0
+ARG NODE_VERSION=22-alpine
+
+FROM quay.io/oauth2-proxy/oauth2-proxy:${OAUTH2_POXY_VERSION}-alpine
+
+RUN apk update && apk add --no-cache \
+    ca-certificates bash python3 py3-pip gzip fuse fuse3 s3fs-fuse \
+    nodejs npm go git build-base \
+    && rm -rf /var/cache/apk/*
+COPY ./image/USERTrust_RSA_Certification_Authority.pem /usr/local/share/ca-certificates/USERTrust_RSA_Certification_Authority.pem
+RUN update-ca-certificates
+
+RUN python3 -m pip install --no-cache-dir --break-system-packages --upgrade pip && \
+    python3 -m pip install --no-cache-dir --break-system-packages rdflib==7.0.0 chardet==5.2.0 datasketch==1.5.9 python-dateutil==2.9.0.post0
+
+ARG USER_ID
+ARG GROUP_ID
+RUN addgroup --gid ${GROUP_ID} app \
+ && adduser --disabled-password --uid ${USER_ID} --ingroup app --gecos '' app
+
+COPY ./image/cdi_generator.py /usr/local/bin/cdi_generator.py
+COPY ./xconvert /usr/local/bin/xconvert
+RUN chmod +x /usr/local/bin/cdi_generator.py /usr/local/bin/xconvert
+
+ENV GOPATH=/home/app/go
+ENV GO111MODULE=on
+ENV PATH="$GOPATH/bin:/home/app/go/bin:/root/go/bin:$PATH"
+
+RUN mkdir -p /home/app/go/bin /home/app/go/pkg /home/app/.cache/go-build \
+    && chown -R app:app /home/app/go /home/app/.cache
+
+WORKDIR /workspace/backend
+COPY ./image /workspace/backend
+
+COPY ./image/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+
+USER app
+
+ENV DEV="true"
+
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint.sh"]

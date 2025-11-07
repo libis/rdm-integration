@@ -112,6 +112,17 @@ make clean
 make init
 ```
 
+## Fast redeploy targets
+
+When you are working with the development stack started via `make dev_up`, you can rebuild individual services without repeating the full bootstrap. The `make frd-integration` and `make frd-dataverse` targets handle those focused redeploys and include safety checks to ensure the dev stack is running (the `make dev_up` command drops a sentinel file that the redeploy targets verify before proceeding). Make sure the sibling repositories are cloned beside this project:
+
+- `https://github.com/IQSS/dataverse` → `../dataverse`
+- `https://github.com/libis/rdm-integration-frontend` → `../rdm-integration-frontend`
+
+Once the stack is up, the integration container runs `ng serve` against `../rdm-integration-frontend`; saving Angular files triggers live recompiles that are served through the OAuth proxy on `http://localhost:4180/`, so UI changes appear without additional targets. Use `make frd-integration` when the Go backend or container config needs a restart.
+
+Then follow [FAST_REDEPLOY.md](FAST_REDEPLOY.md) for the full workflow.
+
 ## Configuration overview
 
 The application loads its runtime configuration from two files, passed via environment variables and mounted by Docker Compose:

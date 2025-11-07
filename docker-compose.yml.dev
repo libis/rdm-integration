@@ -1,0 +1,54 @@
+# Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
+
+services:
+  dataverse:
+    build:
+      dockerfile: ./dataverse/Dockerfile.dev
+      args:
+        - BASE_VERSION=${BASE_VERSION:-6.8-noble}
+        - PAYARA_TAG=${PAYARA_TAG:-6.2025.9-jdk17}
+        - USER_ID=${USER_ID:-1000}
+        - GROUP_ID=${GROUP_ID:-1000}
+    environment:
+      ENABLE_JDWP: "1"
+      ENABLE_RELOAD: "1"
+      SKIP_DEPLOY: "${SKIP_DEPLOY}"
+      MP_CONFIG_PROFILE: dev
+      DATAVERSE_JSF_PROJECT_STAGE: Development
+      DATAVERSE_JSF_REFRESH_PERIOD: "0"
+    volumes:
+      - ./docker-volumes/dataverse/data:/dv
+      - ./docker-volumes/dataverse/conf:/conf
+      - ./docker-volumes/dataverse/secrets:/run/secrets
+      - ./docker-volumes/filestore:/filestore
+      - ./dataverse/init_dv.sh:/opt/payara/scripts/init.d/init_dv.sh
+      - ./dataverse/setup.sh:/scripts/setup.sh
+      - ./dataverse/setup-tools:/scripts/setup-tools
+      - ./dataverse/update-fields.sh:/scripts/update-fields.sh
+      - ./docker-volumes/solr:/solr
+      - ./docker-volumes/dataverse/applications:/opt/payara/appserver/glassfish/domains/domain1/applications
+
+  integration:
+    build:
+      dockerfile: ./image/Dockerfile.dev
+    entrypoint: /usr/local/bin/dev-entrypoint.sh 100 oidc --config /oauth2-proxy.cfg
+    environment:
+      DEV: "true"
+      FRONTEND_DEV_DIR: /workspace/rdm-integration-frontend
+      FRONTEND_DEV_PORT: "4200"
+      FRONTEND_DEV_URL: http://localhost:4200
+    ports:
+      - "7788:7788"
+    volumes:
+      - ./docker-volumes/integration/data:/dsdata
+      - ./docker-volumes/integration/conf:/config
+      - ./docker-volumes/dataverse/secrets:/run/secrets:ro
+      - ./docker-volumes/integration/conf/oauth2-proxy.cfg:/oauth2-proxy.cfg
+      - ./image:/workspace/backend
+      - ../rdm-integration-frontend:/workspace/rdm-integration-frontend
+      - go-mod-cache:/home/app/go/pkg/mod
+      - go-build-cache:/home/app/.cache/go-build
+
+volumes:
+  go-mod-cache:
+  go-build-cache:

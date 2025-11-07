@@ -14,6 +14,13 @@ SHELL = /bin/bash
 USER_ID ?= $(shell id -u)
 GROUP_ID ?= $(shell id -g)
 
+DEV_SENTINEL := .dev_up_active
+DEV_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.yml.dev
+DATAVERSE_EXPLODED := docker-volumes/dataverse/applications/dataverse.war
+DATAVERSE_CLASSES_DST := $(DATAVERSE_EXPLODED)/WEB-INF/classes
+DATAVERSE_CLASSES_SRC := ../dataverse/target/classes
+DATAVERSE_WEBAPP_SRC := ../dataverse/src/main/webapp
+
 build: fmt ## Build Docker image
 	docker build \
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
@@ -38,7 +45,7 @@ solr_latest_config: ## update solr config files with latest version from github
 	@chmod +x dataverse/update-fields.sh
 
 init: ## initialize docker volumes before running the server locally
-	@echo "Initializing Docker volumes..."
+	@echo -n "Initializing Docker volumes..."
 	docker compose -f docker-compose.yml down || true
 	rm -rf docker-volumes
 	mkdir -p docker-volumes/{cache/data,dataverse/{data/{docroot,temp,uploads,exporters},secrets/api,conf},integration/{aws,conf,data},solr/{conf,data},postgresql/data,keycloak/conf,localstack/{conf,data},minio/data/mybucket}
@@ -64,10 +71,12 @@ init: ## initialize docker volumes before running the server locally
 
 clean: ## delete docker volumes
 	rm -rf docker-volumes
+	rm -f $(DEV_SENTINEL)
 
 up: ## Run the server locally
+	rm -f $(DEV_SENTINEL)
 	if [ ! -f docker-volumes/dataverse/data/initialized ]; then \
-    	$(MAKE) init; \
+		$(MAKE) init; \
 	fi
 	docker compose -f docker-compose.yml up -d --build
 	@echo -n "Waiting for Dataverse ready "
@@ -75,24 +84,80 @@ up: ## Run the server locally
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo	' OK.'
 
+frd-dataverse:
+	@if [ ! -f $(DEV_SENTINEL) ]; then \
+		echo "Error: frd-dataverse requires the dev stack (run 'make dev_up' first)." >&2; \
+		exit 1; \
+	fi
+	@echo -n "frd-dataverse: compiling Dataverse sources "
+	cd ../dataverse && mvn -T 1C -DskipTests=true -DskipUnitTests=true -DskipIntegrationTests=true compile >/dev/null
+	@echo 'OK.'
+	@if [ ! -d "$(DATAVERSE_CLASSES_SRC)" ]; then \
+		echo "ERROR: $(DATAVERSE_CLASSES_SRC) missing after compile." >&2; \
+		exit 1; \
+	fi
+	rsync -a --delete --exclude 'META-INF/persistence.xml' "$(DATAVERSE_CLASSES_SRC)/" "$(DATAVERSE_CLASSES_DST)/"
+	@if [ -d "$(DATAVERSE_WEBAPP_SRC)" ]; then \
+		rsync -a --delete \
+			--exclude 'WEB-INF/classes' --exclude 'WEB-INF/classes/**' \
+			--exclude 'WEB-INF/lib' --exclude 'WEB-INF/lib/**' \
+		"$(DATAVERSE_WEBAPP_SRC)/" "$(DATAVERSE_EXPLODED)/"; \
+	fi
+	@echo -n "Deploying updated dataverse.war ... "
+	docker exec dataverse bash -lc '\
+		printf "AS_ADMIN_PASSWORD=%s\n" admin > /tmp/pwdfile; \
+		output=$$(asadmin --user admin --passwordfile /tmp/pwdfile deploy --force=true --upload=false /opt/payara/appserver/glassfish/domains/domain1/applications/dataverse.war 2>&1); \
+		status=$$?; \
+		rm /tmp/pwdfile; \
+		printf "%s\n" "$$output" | awk '\''!/PER0100[03]/ && !/Command deploy completed with warnings./ {print}'\''; \
+		exit $$status'
+
+frd-integration:
+	@if [ ! -f $(DEV_SENTINEL) ]; then \
+		echo "Error: frd-integration requires the dev stack (run 'make dev_up' first)." >&2; \
+		exit 1; \
+	fi
+	$(DEV_COMPOSE) restart integration
+	@echo -n "Waiting for dev rdm-integration ready "
+	@while [ "$$(curl -sk -m 1 -o /dev/null -w '%{http_code}' http://localhost:7788/)" != "200" ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo '\t OK.'
+
 dev_up: ## Run the development frontend version locally
-	echo "Building integration frontend..."
-	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz \
-		--prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ \
-		$$(if [[ $$(git stash create) ]]; then git stash create; else git rev-parse HEAD; fi)
+	if [ ! -f docker-volumes/dataverse/data/initialized ]; then \
+		$(MAKE) init; \
+	fi
+	docker compose -f docker-compose.yml -f docker-compose.yml.dev rm -sf dataverse
+	rm -rf docker-volumes/dataverse/applications/*
 	echo "Building dataverse..."
-	cd ../dataverse && mvn -DskipTests=true clean package
-	cp ../dataverse/target/dataverse-$(DATAVERSE_VERSION).war dataverse-$(DATAVERSE_VERSION).war
-	$(MAKE) up FRONTEND_TAR_GZ=$(FRONTEND_VERSION).tar.gz DATAVERSE_WAR_URL=dataverse-$(DATAVERSE_VERSION).war
-	rm $(FRONTEND_VERSION).tar.gz
-	rm dataverse-$(DATAVERSE_VERSION).war
+	cd ../dataverse && mvn -T 1C -DskipTests=true -DskipUnitTests=true -DskipIntegrationTests=true clean package
+	mkdir -p $(DATAVERSE_EXPLODED)
+	unzip -oq ../dataverse/target/dataverse-$(DATAVERSE_VERSION).war -d $(DATAVERSE_EXPLODED)
+	rsync -a "../dataverse/target/dataverse/" $(DATAVERSE_EXPLODED)/
+	# Disable JPA DDL generation in dev to avoid sequence conflicts during redeploys.
+	sed -i 's/\(eclipselink.ddl-generation" value="\)create-tables/\1none/' \
+		$(DATAVERSE_CLASSES_DST)/META-INF/persistence.xml
+	docker compose -f docker-compose.yml -f docker-compose.yml.dev up -d --build
+	@echo -n "Waiting for server ready "
+	@while [ "$$(curl -sk -m 1 -o /dev/null -w '%{http_code}' http://localhost:8080/)" != "200" ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
+	@echo -n "Deploying updated dataverse.war ... "
+	docker exec dataverse bash -lc '\
+		printf "AS_ADMIN_PASSWORD=%s\n" admin > /tmp/pwdfile; \
+		output=$$(asadmin --user admin --passwordfile /tmp/pwdfile deploy --upload=false /opt/payara/appserver/glassfish/domains/domain1/applications/dataverse.war 2>&1); \
+		status=$$?; \
+		rm /tmp/pwdfile; \
+		printf "%s\n" "$$output" | awk '\''!/PER0100[03]/ && !/Command deploy completed with warnings./ {print}'\''; \
+		exit $$status'
+	@touch $(DEV_SENTINEL)
 
 dev_build: fmt ## Build Docker image using local frontend (like dev_up but only builds; respects STAGE)
-	echo "Building integration frontend..."
+	@echo -n "Building integration frontend... "
 	cd ../rdm-integration-frontend && git archive --format=tar.gz -o ../rdm-integration/$(FRONTEND_VERSION).tar.gz \
 		--prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ \
 		$$(if [[ $$(git stash create) ]]; then git stash create; else git rev-parse HEAD; fi)
-	@echo "Building Docker image (STAGE=$(STAGE)) using local frontend..."
+	@echo -n "Building Docker image (STAGE=$(STAGE)) using local frontend... "
 	docker build \
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
 		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
@@ -100,10 +165,11 @@ dev_build: fmt ## Build Docker image using local frontend (like dev_up but only 
 		--build-arg NODE_ENV=$(NODE_ENV) \
 		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
 		--tag "$(IMAGE_TAG)" --file image/Dockerfile .
-	@echo "Cleaning up local frontend archive..."
+	@echo -n "Cleaning up local frontend archive... "
 	@rm -f $(FRONTEND_VERSION).tar.gz
 
 down: ## Stop the server locally
+	rm -f $(DEV_SENTINEL)
 	docker compose -f docker-compose.yml down
 
 fmt: ## Format the go code
@@ -131,4 +197,4 @@ benchmark: ## Run benchmarks
 coverage: ## Run tests with coverage
 	cd image && go test -coverprofile=coverage.out ./app/...
 	cd image && go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: image/coverage.html"
+	@echo -n "Coverage report generated: image/coverage.html "

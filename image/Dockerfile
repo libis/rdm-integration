@@ -13,14 +13,14 @@ RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
 
 # Install packages with better caching
 WORKDIR /app/rdm-integration-frontend-${FRONTEND_VERSION}
-RUN --mount=type=cache,target=/root/.yarn/cache \
-    yarn install --network-timeout 300000
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --progress=false
 
 # Build
 ARG NODE_ENV=production
 ARG BASE_HREF=/
-RUN --mount=type=cache,target=/root/.yarn/cache \
-    yarn run build --configuration=${NODE_ENV} --base-href=${BASE_HREF}
+RUN --mount=type=cache,target=/root/.npm \
+    npm run build -- --configuration=${NODE_ENV} --base-href=${BASE_HREF}
 
 # Customize
 ARG CUSTOMIZATIONS=./conf/kul_customizations
