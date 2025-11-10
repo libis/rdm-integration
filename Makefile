@@ -48,7 +48,7 @@ init: ## initialize docker volumes before running the server locally
 	@echo -n "Initializing Docker volumes..."
 	docker compose -f docker-compose.yml down || true
 	rm -rf docker-volumes
-	mkdir -p docker-volumes/{cache/data,dataverse/{data/{docroot,temp,uploads,exporters},secrets/api,conf},integration/{aws,conf,data},solr/{conf,data},postgresql/data,keycloak/conf,localstack/{conf,data},minio/data/mybucket}
+	mkdir -p docker-volumes/{cache/data,dataverse/{data/{filestore,uploads,exporters},secrets/api,conf},integration/{aws,conf,data,go-mod-cache,go-build-cache},solr/{conf,data},postgresql/data,keycloak/conf,localstack/{conf,data},minio/data/mybucket}
 	echo -n 'secret-admin-password' > docker-volumes/dataverse/secrets/password
 	echo -n 'secret-unblock-key' > docker-volumes/dataverse/secrets/api/key
 	echo AWS_ACCESS_KEY_ID=4cc355_k3y > docker-volumes/integration/aws/aws.env

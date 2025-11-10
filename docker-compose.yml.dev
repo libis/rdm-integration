@@ -20,7 +20,6 @@ services:
       - ./docker-volumes/dataverse/data:/dv
       - ./docker-volumes/dataverse/conf:/conf
       - ./docker-volumes/dataverse/secrets:/run/secrets
-      - ./docker-volumes/filestore:/filestore
       - ./dataverse/init_dv.sh:/opt/payara/scripts/init.d/init_dv.sh
       - ./dataverse/setup.sh:/scripts/setup.sh
       - ./dataverse/setup-tools:/scripts/setup-tools
@@ -46,8 +45,8 @@ services:
       - ./docker-volumes/integration/conf/oauth2-proxy.cfg:/oauth2-proxy.cfg
       - ./image:/workspace/backend
       - ../rdm-integration-frontend:/workspace/rdm-integration-frontend
-      - go-mod-cache:/home/app/go/pkg/mod
-      - go-build-cache:/home/app/.cache/go-build
+      - ./docker-volumes/integration/go-mod-cache:/home/app/go/pkg/mod
+      - ./docker-volumes/integration/go-build-cache:/home/app/.cache/go-build
 
 volumes:
   go-mod-cache:

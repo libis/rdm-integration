@@ -82,10 +82,11 @@ services:
         -XX:+UseG1GC
         -XX:+UseStringDeduplication
         -XX:+DisableExplicitGC
+        -Ddataverse.files.uploads=/dv/uploads
         -Ddataverse.files.storage-driver-id=minio1
         -Ddataverse.files.localfs1.type=file
         -Ddataverse.files.localfs1.label=LocalFilesystem
-        -Ddataverse.files.localfs1.directory=/filestore
+        -Ddataverse.files.localfs1.directory=/dv/filestore
         -Ddataverse.files.localstack1.type=s3
         -Ddataverse.files.localstack1.label=LocalStack
         -Ddataverse.files.localstack1.custom-endpoint-url=http://localstack.localhost:4566
@@ -144,7 +145,6 @@ services:
       - ./docker-volumes/dataverse/data:/dv
       - ./docker-volumes/dataverse/conf:/conf
       - ./docker-volumes/dataverse/secrets:/run/secrets
-      - ./docker-volumes/filestore:/filestore
       - ./dataverse/init_dv.sh:/opt/payara/scripts/init.d/init_dv.sh
       - ./dataverse/setup.sh:/scripts/setup.sh
       - ./dataverse/setup-tools:/scripts/setup-tools
