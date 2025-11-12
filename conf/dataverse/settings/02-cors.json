@@ -4,6 +4,22 @@
     {
       "name": ":CorsAllowedOrigins",
       "value": "*"
+    },
+    {
+      "name": ":CorsAllowedMethods",
+      "value": "GET, POST, PUT, DELETE, OPTIONS"
+    },
+    {
+      "name": ":CorsAllowedHeaders",
+      "value": "Content-Type, X-Requested-With, Accept, Authorization, X-Dataverse-Key"
+    },
+    {
+      "name": ":CorsExposeHeaders",
+      "value": "Location"
+    },
+    {
+      "name": ":CorsMaxAge",
+      "value": "3600"
     }
   ]
 }
