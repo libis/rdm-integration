@@ -1,0 +1,46 @@
+{
+  "displayName": "Show NcML (XML)",
+  "description": "Metadata from NetCDF files.",
+  "toolName": "ncmlPreviewer",
+  "scope": "file",
+  "types": ["preview"],
+  "toolUrl": "https://gdcc.github.io/dataverse-previewers/previewers/v1.5/NcmlPreview.html",
+  "toolParameters": {
+    "queryParameters": [
+      {"fileid": "{fileId}"},
+      {"siteUrl": "{siteUrl}"},
+      {"datasetid": "{datasetId}"},
+      {"datasetversion": "{datasetVersion}"},
+      {"locale": "{localeCode}"}
+    ]
+  },
+  "requirements": {
+    "auxFilesExist": [
+      {
+        "formatTag": "NcML",
+        "formatVersion": "0.1"
+      }
+    ]
+  },
+  "contentType": "application/netcdf",
+  "allowedApiCalls": [
+    {
+      "name": "retrieveFileContents",
+      "httpMethod": "GET",
+      "urlTemplate": "/api/v1/access/datafile/{fileId}?gbrecs=true",
+      "timeOut": 3600
+    },
+    {
+      "name": "downloadFile",
+      "httpMethod": "GET",
+      "urlTemplate": "/api/v1/access/datafile/{fileId}?gbrecs=false",
+      "timeOut": 3600
+    },
+    {
+      "name": "getDatasetVersionMetadata",
+      "httpMethod": "GET",
+      "urlTemplate": "/api/v1/datasets/{datasetId}/versions/{datasetVersion}",
+      "timeOut": 3600
+    }
+  ]
+}

@@ -67,6 +67,8 @@ init: ## initialize docker volumes before running the server locally
 	@while [ ! -f docker-volumes/dataverse/data/initialized ]; do \
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo	' OK.'
+	@make install-cdi-exporter
+	@echo -n "Shutting down initialized Dataverse..."
 	docker compose -f docker-compose.yml down
 
 clean: ## delete docker volumes
@@ -83,6 +85,38 @@ up: ## Run the server locally
 	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo	' OK.'
+	@echo -n "Restarting Dataverse to activate CORS..."
+	docker compose restart dataverse
+	@echo -n "Waiting for Dataverse ready "
+	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
+
+install-cdi-exporter: ## Install CDI exporter
+	@if [ ! -f docker-volumes/dataverse/data/initialized ]; then \
+		echo "Error: Dataverse not initialized. Run 'make up' first." >&2; \
+		exit 1; \
+	fi
+	@echo "Installing CDI support for Dataverse..."
+	@SERVER_URL="http://localhost:8080"; \
+	EXPORTERS_DIR="docker-volumes/dataverse/data/exporters"; \
+	echo ""; \
+	echo "1. Installing CDI Exporter..."; \
+	if [ ! -d "$$EXPORTERS_DIR" ]; then \
+		echo "   Creating exporters directory..."; \
+		docker exec dataverse mkdir -p /dv/exporters; \
+		docker exec dataverse bash -c "curl -X PUT -d '/dv/exporters' http://localhost:8080/api/admin/settings/:dataverse-spi-exporters-directory?unblock-key=$$(cat docker-volumes/dataverse/secrets/api/key)" >/dev/null 2>&1; \
+	fi; \
+	if [ ! -f "$$EXPORTERS_DIR/exporter-transformer-1.0.10-jar-with-dependencies.jar" ]; then \
+		echo "   Downloading exporter-transformer JAR..."; \
+		docker exec dataverse bash -c "cd /dv/exporters && wget -q https://repo1.maven.org/maven2/io/gdcc/export/exporter-transformer/1.0.10/exporter-transformer-1.0.10-jar-with-dependencies.jar"; \
+	fi; \
+	echo "   Installing CDI exporter configuration..."; \
+	docker exec dataverse mkdir -p /dv/exporters/cdi-exporter; \
+	docker exec dataverse bash -c "cd /dv/exporters/cdi-exporter && wget -q -O config.json https://raw.githubusercontent.com/gdcc/exporter-transformer/main/examples/cdi-exporter/config.json"; \
+	docker exec dataverse bash -c "cd /dv/exporters/cdi-exporter && wget -q -O transformer.py https://raw.githubusercontent.com/gdcc/exporter-transformer/main/examples/cdi-exporter/transformer.py"; \
+	echo "   ✓ CDI Exporter installed"; \
+	echo "";
 
 frd-dataverse:
 	@if [ ! -f $(DEV_SENTINEL) ]; then \

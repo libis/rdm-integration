@@ -1,0 +1,9 @@
+{
+  "title": "CORS settings",
+  "data": [
+    {
+      "name": ":CorsAllowedOrigins",
+      "value": "*"
+    }
+  ]
+}

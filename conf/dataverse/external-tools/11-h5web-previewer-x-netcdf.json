@@ -1,0 +1,18 @@
+{
+  "displayName": "H5Web",
+  "description": "Explore and visualize NetCDF files",
+  "toolName": "NetCDFPreview",
+  "scope": "file",
+  "types": ["preview"],
+  "toolUrl": "https://gdcc.github.io/dataverse-previewers/previewers/v1.5/HDF5Preview.html",
+  "toolParameters": {
+    "queryParameters": [
+      {"fileid": "{fileId}"},
+      {"siteUrl": "{siteUrl}"},
+      {"datasetid": "{datasetId}"},
+      {"datasetversion": "{datasetVersion}"},
+      {"locale": "{localeCode}"}
+    ]
+  },
+  "contentType": "application/x-netcdf"
+}

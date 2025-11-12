@@ -1,0 +1,16 @@
+{
+  "displayName": "Add CDI Test Files",
+  "description": "Testing tool: Add example DDI-CDI files to this dataset.",
+  "toolName": "cdiTestUploadTool",
+  "scope": "dataset",
+  "types": ["configure"],
+  "toolUrl": "https://erykkul.github.io/dataverse-previewers/examples/cdi/cdi-upload-tool.html",
+  "toolParameters": {
+    "queryParameters": [
+      {"datasetid": "{datasetPid}"},
+      {"datasetversion": "{datasetVersion}"},
+      {"siteUrl": "{siteUrl}"},
+      {"key": "{apiToken}"}
+    ]
+  }
+}

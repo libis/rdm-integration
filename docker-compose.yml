@@ -134,6 +134,7 @@ services:
         -Ddataverse.ui.allow-review-for-incomplete=false
         -Ddataverse.ui.show-validity-filter=true
         -Ddataverse.feature.api-bearer-auth=true
+        -Ddataverse.netcdf.geo-extract-s3-direct-upload=true
     ports:
       - "8080:8080" # HTTP (Dataverse Application)
     networks:
