@@ -70,6 +70,17 @@ init: ## initialize docker volumes before running the server locally
 	@make install-cdi-exporter
 	@echo -n "Shutting down initialized Dataverse..."
 	docker compose -f docker-compose.yml down
+	docker compose -f docker-compose.yml up -d --build
+	@echo -n "Waiting for Dataverse ready "
+	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
+	@echo -n "Restarting Dataverse to activate CORS..."
+	docker compose restart dataverse
+	@echo -n "Waiting for Dataverse ready "
+	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
+		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
+	@echo	' OK.'
 
 clean: ## delete docker volumes
 	rm -rf docker-volumes
@@ -81,12 +92,6 @@ up: ## Run the server locally
 		$(MAKE) init; \
 	fi
 	docker compose -f docker-compose.yml up -d --build
-	@echo -n "Waiting for Dataverse ready "
-	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
-		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
-	@echo	' OK.'
-	@echo -n "Restarting Dataverse to activate CORS..."
-	docker compose restart dataverse
 	@echo -n "Waiting for Dataverse ready "
 	@while [ "$$(curl -sk -m 1 -I http://localhost:8080/api/info/version | head -n 1 | cut -d$$' ' -f2)" != "200" ]; do \
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
