@@ -11,8 +11,13 @@ RUN apt-get -y update; apt-get -y install curl jq ed bc sed gawk
 # Change application user and group id
 ARG USER_ID=1000
 ARG GROUP_ID=1000
-RUN usermod -u ${USER_ID} payara \
- && groupmod -g ${GROUP_ID} payara
+# Handle macOS case where GID 20 is the staff group
+RUN if getent group ${GROUP_ID} >/dev/null && [ "$(getent group ${GROUP_ID} | cut -d: -f1)" != "payara" ]; then \
+        echo "Group ID ${GROUP_ID} already exists as $(getent group ${GROUP_ID} | cut -d: -f1), keeping payara group as is"; \
+    else \
+        groupmod -g ${GROUP_ID} payara; \
+    fi \
+ && usermod -u ${USER_ID} payara
 RUN chown -R -h payara:payara ${HOME_DIR} &>/dev/null || true
 
 # The rest needs to run as application user

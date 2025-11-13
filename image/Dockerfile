@@ -61,8 +61,16 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --upgrade pip 
 
 ARG USER_ID
 ARG GROUP_ID
-RUN addgroup --gid ${GROUP_ID} app \
- && adduser --disabled-password --uid ${USER_ID} --ingroup app --gecos '' app
+# Create group if it doesn't exist (handles macOS GID 20 = staff group)
+RUN if ! getent group ${GROUP_ID} >/dev/null; then \
+        addgroup --gid ${GROUP_ID} app; \
+    else \
+        GROUP_NAME=$(getent group ${GROUP_ID} | cut -d: -f1); \
+        if [ "$GROUP_NAME" != "app" ]; then \
+            addgroup app && GROUP_ID=$(getent group app | cut -d: -f3); \
+        fi; \
+    fi \
+ && adduser --disabled-password --uid ${USER_ID} --ingroup $(getent group ${GROUP_ID} | cut -d: -f1) --gecos '' app
 
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 
