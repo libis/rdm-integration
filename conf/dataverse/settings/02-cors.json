@@ -20,6 +20,10 @@
     {
       "name": ":CorsMaxAge",
       "value": "3600"
+    },
+    {
+      "name": ":AllowCors",
+      "value": "true"
     }
   ]
 }
