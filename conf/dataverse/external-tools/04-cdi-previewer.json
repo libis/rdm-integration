@@ -14,7 +14,7 @@
       {"locale": "{localeCode}"}
     ]
   },
-  "contentType": "application/ld+json; profile=\"http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://ddialliance.org/specification/ddi-cdi/1.0\"",
+  "contentType": "application/ld+json;profile=\"http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://ddialliance.org/specification/ddi-cdi/1.0\"",
   "allowedApiCalls": [
     {"name": "retrieveFileContents", "httpMethod": "GET", "urlTemplate": "/api/v1/access/datafile/{fileId}?gbrecs=true", "timeOut": 3600},
     {"name": "downloadFile", "httpMethod": "GET", "urlTemplate": "/api/v1/access/datafile/{fileId}?gbrecs=false", "timeOut": 3600},
