@@ -4,7 +4,7 @@
   "toolName": "HDF5Preview",
   "scope": "file",
   "types": ["preview"],
-  "toolUrl": "https://gdcc.github.io/dataverse-previewers/previewers/v1.5/HDF5Preview.html",
+  "toolUrl": "https://libis.github.io/dataverse-previewers/previewers/v1.5/HDF5Preview.html",
   "toolParameters": {
     "queryParameters": [
       {"fileid": "{fileId}"},

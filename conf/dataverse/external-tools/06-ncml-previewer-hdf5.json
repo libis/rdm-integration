@@ -4,7 +4,7 @@
   "toolName": "ncmlPreviewer",
   "scope": "file",
   "types": ["preview"],
-  "toolUrl": "https://gdcc.github.io/dataverse-previewers/previewers/v1.5/NcmlPreview.html",
+  "toolUrl": "https://libis.github.io/dataverse-previewers/previewers/v1.5/NcmlPreview.html",
   "toolParameters": {
     "queryParameters": [
       {"fileid": "{fileId}"},
