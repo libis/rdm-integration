@@ -3,7 +3,11 @@
   "data": [
     {
       "name": ":UploadMethods",
-      "value": "native/http"
+      "value": "native/http,dvwebloader"
+    },
+    {
+      "name": ":WebloaderUrl",
+      "value": "http://localhost:8888/dvwebloader/dvwebloaderV2.html"
     }
   ]
 }

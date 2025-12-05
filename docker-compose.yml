@@ -135,7 +135,9 @@ services:
         -Ddataverse.ui.show-validity-filter=true
         -Ddataverse.feature.api-bearer-auth=true
         -Ddataverse.netcdf.geo-extract-s3-direct-upload=true
-        -Ddataverse.cors.origin=https://libis.github.io
+        -Ddataverse.cors.origin=*
+        -Ddataverse.files.minio1.disable-tagging=true
+        -Ddataverse.feature.embed-webloader-v2=true
     ports:
       - "8080:8080" # HTTP (Dataverse Application)
     networks:
@@ -262,6 +264,18 @@ services:
       MINIO_ROOT_USER: 4cc355_k3y
       MINIO_ROOT_PASSWORD: s3cr3t_4cc355_k3y
     command: server /data
+
+  previewers:
+    container_name: "previewers"
+    hostname: "previewers"
+    image: rdm/dataverse-previewers:1.9
+    restart: unless-stopped
+    ports:
+      - "8888:80"
+    networks:
+      - dataverse
+    environment:
+      PREVIEWERS_PROVIDER_URL: "http://localhost:8888"
 
 networks:
   dataverse:
