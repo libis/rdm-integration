@@ -44,7 +44,16 @@ func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("500 - getting files failed"))
 		return
 	}
-	if hasRestricted || hasEmbargoed {
+
+	// Check if user can download all files in this dataset.
+	// We only proceed if the user has access to all files to avoid partial/failed transfers.
+	canDownloadAll, err := dataverse.CanUserDownloadAllFiles(r.Context(), req.PersistentId, req.DataverseKey, user, hasRestricted, hasEmbargoed)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - checking permissions failed"))
+		return
+	}
+	if !canDownloadAll {
 		reasons := []string{}
 		if hasRestricted {
 			reasons = append(reasons, "restricted files")
@@ -59,7 +68,7 @@ func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 			reasonText = strings.Join(reasons, " and ")
 		}
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(fmt.Sprintf("403 - dataset cannot be downloaded because it has %s. This applies to all users.", reasonText)))
+		w.Write([]byte(fmt.Sprintf("403 - dataset cannot be downloaded because it has %s and you do not have permission to access all files. Dataset owners and curators can download restricted content.", reasonText)))
 		return
 	}
 	data := []tree.Node{}

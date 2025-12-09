@@ -375,3 +375,64 @@ func GetDatasetVersion(ctx context.Context, datasetDbId, token, userName string)
 	err := api.Do(ctx, req, &res)
 	return res.Data.DatasetPersistentId, err
 }
+
+// DatasetUserPermissions represents the permissions a user has on a dataset
+type DatasetUserPermissions struct {
+	CanViewUnpublishedDataset   bool `json:"canViewUnpublishedDataset"`
+	CanEditDataset              bool `json:"canEditDataset"`
+	CanPublishDataset           bool `json:"canPublishDataset"`
+	CanManageDatasetPermissions bool `json:"canManageDatasetPermissions"`
+	CanDeleteDatasetDraft       bool `json:"canDeleteDatasetDraft"`
+}
+
+type datasetUserPermissionsResponse struct {
+	Status string                 `json:"status"`
+	Data   DatasetUserPermissions `json:"data"`
+}
+
+// GetDatasetUserPermissions retrieves the user's permissions on a dataset
+// This uses /api/datasets/{id}/userPermissions endpoint
+func GetDatasetUserPermissions(ctx context.Context, persistentId, token, user string) (DatasetUserPermissions, error) {
+	shortContext, cancel := context.WithTimeout(ctx, dvContextDuration)
+	defer cancel()
+
+	path := "/api/v1/datasets/:persistentId/userPermissions?persistentId=" + url.QueryEscape(persistentId)
+	res := datasetUserPermissionsResponse{}
+	req := GetRequest(path, "GET", user, token, nil, nil)
+	err := api.Do(shortContext, req, &res)
+	if err != nil {
+		return DatasetUserPermissions{}, err
+	}
+	if res.Status != "OK" {
+		return DatasetUserPermissions{}, fmt.Errorf("getting user permissions for %s failed", persistentId)
+	}
+	return res.Data, nil
+}
+
+// CanUserDownloadAllFiles checks if a user can download all files in a dataset.
+// This is used to filter datasets in the download UI - we only show datasets
+// where the user can download all files, as a convenience to avoid failed transfers.
+// Returns true if:
+// - The dataset has no restricted/embargoed files, OR
+// - The user has EditDataset permission (owners, curators can access all files)
+func CanUserDownloadAllFiles(ctx context.Context, persistentId, token, user string, hasRestricted, hasEmbargoed bool) (bool, error) {
+	// If no restrictions, anyone can download all files
+	if !hasRestricted && !hasEmbargoed {
+		return true, nil
+	}
+
+	// Check if user has elevated permissions on the dataset
+	permissions, err := GetDatasetUserPermissions(ctx, persistentId, token, user)
+	if err != nil {
+		return false, err
+	}
+
+	// Users who can edit the dataset (owners, curators) have access to all files
+	// This includes the ability to download restricted/embargoed files
+	if permissions.CanEditDataset {
+		return true, nil
+	}
+
+	// User doesn't have elevated permissions and dataset has restricted/embargoed files
+	return false, nil
+}
