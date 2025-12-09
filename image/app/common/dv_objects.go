@@ -11,10 +11,11 @@ import (
 )
 
 type DvObjectsRequest struct {
-	Token      string `json:"token"`
-	Collection string `json:"collectionId"`
-	ObjectType string `json:"objectType"`
-	SearchTerm string `json:"searchTerm"`
+	Token       string `json:"token"`
+	Collection  string `json:"collectionId"`
+	ObjectType  string `json:"objectType"`
+	SearchTerm  string `json:"searchTerm"`
+	ForDownload bool   `json:"forDownload"`
 }
 
 func DvObjects(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +36,15 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("500 - bad request"))
 		return
 	}
-	res, err := core.Destination.Options(r.Context(), req.ObjectType, req.Collection, req.SearchTerm, req.Token, user)
+
+	// Use DownloadableOptions for download context (includes public datasets)
+	// Use Options for upload context (only user's datasets with write access)
+	var res interface{}
+	if req.ForDownload && core.Destination.DownloadableOptions != nil {
+		res, err = core.Destination.DownloadableOptions(r.Context(), req.ObjectType, req.Collection, req.SearchTerm, req.Token, user)
+	} else {
+		res, err = core.Destination.Options(r.Context(), req.ObjectType, req.Collection, req.SearchTerm, req.Token, user)
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))

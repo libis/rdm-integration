@@ -23,6 +23,7 @@ type DestinationPlugin struct {
 	CleanupLeftOverFiles  func(ctx context.Context, persistentId, token, user string) error
 	DeleteFile            func(ctx context.Context, token, user string, id int64) error
 	Options               func(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error)
+	DownloadableOptions   func(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error)
 	GetStream             func(ctx context.Context, token, user string, id int64) (io.ReadCloser, error)
 	Query                 func(ctx context.Context, persistentId, token, user string) (map[string]tree.Node, error)
 	GetUserEmail          func(ctx context.Context, token, user string) (string, error)

@@ -205,10 +205,31 @@ func DownloadFile(ctx context.Context, token, user string, id int64) (io.ReadClo
 }
 
 func DvObjects(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error) {
+	return dvObjectsInternal(ctx, objectType, collection, searchTerm, token, user, false)
+}
+
+func DownloadableDvObjects(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error) {
+	return dvObjectsInternal(ctx, objectType, collection, searchTerm, token, user, true)
+}
+
+func dvObjectsInternal(ctx context.Context, objectType, collection, searchTerm, token, user string, includePublic bool) ([]types.SelectItem, error) {
+	// Get user's own datasets (drafts, unpublished, and published they have roles on)
 	dvObjects, err := listDvObjects(ctx, objectType, collection, searchTerm, token, user)
 	if err != nil {
 		return nil, err
 	}
+
+	// For download context, also include public datasets
+	if includePublic && objectType == "Dataset" {
+		publicDatasets, err := searchPublicDatasets(ctx, searchTerm, token, user)
+		if err != nil {
+			// Log but don't fail - user's own datasets are still valid
+			fmt.Printf("Warning: failed to search public datasets: %v\n", err)
+		} else {
+			dvObjects = append(dvObjects, publicDatasets...)
+		}
+	}
+
 	res := []types.SelectItem{}
 	added := map[string]bool{}
 	for _, v := range dvObjects {
@@ -269,6 +290,55 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber && page < config.GetMaxDvObjectPages()
 	}
 	return res, nil
+}
+
+// searchPublicDatasets searches for publicly accessible datasets using the /api/search endpoint.
+// This returns all published datasets matching the search term, regardless of user roles.
+func searchPublicDatasets(ctx context.Context, searchTerm, token, user string) ([]api.Item, error) {
+	// Build search query
+	query := "*"
+	if searchTerm != "" {
+		query = url.QueryEscape(searchTerm)
+	}
+
+	res := []api.Item{}
+	perPage := 100
+	maxPages := config.GetMaxDvObjectPages()
+
+	for start := 0; ; start += perPage {
+		path := fmt.Sprintf("/api/v1/search?q=%s&type=dataset&per_page=%d&start=%d", query, perPage, start)
+
+		searchResponse := searchAPIResponse{}
+		req := GetRequest(path, "GET", user, token, nil, nil)
+		err := api.Do(ctx, req, &searchResponse)
+		if err != nil {
+			return nil, err
+		}
+
+		if searchResponse.Status != "OK" {
+			return nil, fmt.Errorf("search API failed: status %s", searchResponse.Status)
+		}
+
+		res = append(res, searchResponse.Data.Items...)
+
+		// Check if we have more pages
+		if len(searchResponse.Data.Items) < perPage || (start/perPage)+1 >= maxPages {
+			break
+		}
+	}
+	return res, nil
+}
+
+// searchAPIResponse wraps the /api/search response format
+type searchAPIResponse struct {
+	Status string        `json:"status"`
+	Data   searchAPIData `json:"data"`
+}
+
+type searchAPIData struct {
+	Items      []api.Item `json:"items"`
+	TotalCount int        `json:"total_count"`
+	Start      int        `json:"start"`
 }
 
 func GetUser(ctx context.Context, token, user string) (res api.User, err error) {
