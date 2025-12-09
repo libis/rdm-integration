@@ -19,6 +19,7 @@ func SetDataverseAsDestination() {
 		CleanupLeftOverFiles:  dataverse.CleanupLeftOverFiles,
 		DeleteFile:            dataverse.DeleteFile,
 		Options:               dataverse.DvObjects,
+		DownloadableOptions:   dataverse.DownloadableDvObjects,
 		GetStream:             dataverse.DownloadFile,
 		Query:                 dataverse.GetNodeMap,
 		GetUserEmail:          dataverse.GetUserEmail,
