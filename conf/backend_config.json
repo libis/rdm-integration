@@ -37,6 +37,8 @@
                 "queue": ["default", "r"]
             }
         ],
-        "globusWebAppUrl": "https://app.globus.org/activity"
+        "globusWebAppUrl": "https://app.globus.org/activity",
+        "globusGuestDownloadUserName": "GlobusDownloadOpenFiles",
+        "loginRedirectUrl": "http://localhost:4180/oauth2/sign_in?rd=http://localhost:4180/"
     }
 }
