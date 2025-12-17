@@ -52,7 +52,7 @@ type OptionalConfig struct {
 	ComputationAccessConfig      []QueueAccess `json:"computationAccessConfig"`
 	DisableDdiCdi                bool          `json:"disableDdiCdi,omitempty"` // set to true to disable DDI-CDI generation feature
 	GlobusWebAppUrl              string        `json:"globusWebAppUrl,omitempty"`
-	WorkspaceRoot                string        `json:"workspaceRoot,omitempty"`              // base directory for job workspaces (default: /dsdata)
+	WorkspaceRoot                string        `json:"workspaceRoot,omitempty"`               // base directory for job workspaces (default: /dsdata)
 	GlobusGuestDownloadUserName  string        `json:"globusGuestDownloadUserName,omitempty"` // when set, enables guest access for globus download (e.g., "GlobusDownloadOpenFiles")
 	LoginRedirectUrl             string        `json:"loginRedirectUrl,omitempty"`            // URL to redirect unauthenticated users to login
 }
