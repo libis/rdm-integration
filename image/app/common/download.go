@@ -43,6 +43,9 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := core.GetUserFromHeader(r.Header)
+	if user == "" {
+		user = config.GetConfig().Options.GlobusGuestDownloadUserName
+	}
 	if req.StreamParams.User == "" {
 		req.StreamParams.User = user
 	}
