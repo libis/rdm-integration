@@ -39,36 +39,17 @@ func Frontend(w http.ResponseWriter, r *http.Request) {
 
 	// Check if user is authenticated
 	user := core.GetUserFromHeader(r.Header)
-	isDownloadPage := strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/connect/download")
-	// Also allow OAuth callback for download flow (state parameter contains "download":true)
-	isDownloadOAuthCallback := r.URL.Query().Get("code") != "" && strings.Contains(r.URL.Query().Get("state"), `"download":true`)
+	isDownloadPage := strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/download/")
 	guestDownloadEnabled := config.GetConfig().Options.GlobusGuestDownloadUserName != ""
 	loginRedirectUrl := config.GetConfig().Options.LoginRedirectUrl
 
 	// Redirect to login if not authenticated, except for download page when guest download is enabled
-	if user == "" && loginRedirectUrl != "" && !((isDownloadPage || isDownloadOAuthCallback) && guestDownloadEnabled) {
+	if user == "" && loginRedirectUrl != "" && !(isDownloadPage && guestDownloadEnabled) {
 		http.Redirect(w, r, loginRedirectUrl, http.StatusSeeOther)
 		return
 	}
 
-	// Handle OAuth callback for download flow - redirect to /#/download with the OAuth params
-	if isDownloadOAuthCallback {
-		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/download")
-		if r.URL.ForceQuery || r.URL.RawQuery != "" {
-			url += "?" + r.URL.RawQuery
-		}
-		http.Redirect(w, r, url, http.StatusSeeOther)
-		return
-	}
-
-	// Handle /connect/download first (before /connect)
-	if strings.HasPrefix(r.URL.Path, "/connect/download") {
-		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/download")
-		if r.URL.ForceQuery || r.URL.RawQuery != "" {
-			url += "?" + r.URL.RawQuery
-		}
-		http.Redirect(w, r, url, http.StatusSeeOther)
-	} else if strings.HasPrefix(r.URL.Path, "/connect") || strings.HasPrefix(r.URL.Path, "/connect/") || r.URL.Path == "" {
+	if strings.HasPrefix(r.URL.Path, "/connect") || strings.HasPrefix(r.URL.Path, "/connect/") || r.URL.Path == "" {
 		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/connect")
 		if r.URL.ForceQuery || r.URL.RawQuery != "" {
 			url += "?" + r.URL.RawQuery
