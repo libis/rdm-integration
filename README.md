@@ -326,41 +326,6 @@ Backend configuration (`backend_config.json`):
 }
 ```
 
-### Creating the guest user
-
-The guest user (`GlobusDownloadOpenFiles`) must exist in Dataverse for the feature to work. 
-
-**For new installations**: The user is automatically created during initial setup via `setup.sh`.
-
-**For existing installations**: Create the user manually by running these commands from within the Dataverse container:
-
-```bash
-# Enter the Dataverse container
-docker exec -it dataverse bash
-
-# Create the builtin user (from inside the container)
-curl -s -X POST "http://localhost:8080/api/admin/authenticatedUsers" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "identifier": "@GlobusDownloadOpenFiles",
-    "firstName": "Globus Download",
-    "lastName": "Open Files",
-    "email": "globusdownload@localhost",
-    "superuser": false,
-    "authenticationProviderId": "builtin",
-    "persistentUserId": "GlobusDownloadOpenFiles"
-  }'
-```
-
-Alternatively, if you're using rdm-integration's Makefile:
-
-```bash
-# From the host, you can run:
-docker exec dataverse curl -s -X POST "http://localhost:8080/api/admin/authenticatedUsers" \
-  -H "Content-Type: application/json" \
-  -d '{"identifier":"@GlobusDownloadOpenFiles","firstName":"Globus Download","lastName":"Open Files","email":"globusdownload@localhost","superuser":false,"authenticationProviderId":"builtin","persistentUserId":"GlobusDownloadOpenFiles"}'
-```
-
 ### Security considerations
 
 - The guest username should be a dedicated service account with minimal permissions (read-only access to public datasets)

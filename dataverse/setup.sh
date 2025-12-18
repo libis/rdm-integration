@@ -21,10 +21,6 @@ datafile "builtin-users?password=${ADMIN_PASSWORD}&key=temporary-password" "$(da
 adminKey="$(echo "${REPLY}" | jq .data.apiToken | tr -d \")"
 echo $adminKey > /run/secrets/api/adminkey
 api POST "admin/superuser/$(jq -r '.userName' $(data_file user-admin.json))"
-
-# service account for guest Globus downloads (read-only access to public datasets)
-datafile "builtin-users?password=${ADMIN_PASSWORD}&key=temporary-password" "$(data_file user-globus-download.json)"
-
 api DELETE 'admin/settings/BuiltinUsers.KEY'
 api PUT 'admin/settings/:BlockedApiKey' -d "${API_KEY}"
 api PUT 'admin/settings/:BlockedApiPolicy' -d 'unblock-key'
