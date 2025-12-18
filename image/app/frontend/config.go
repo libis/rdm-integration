@@ -45,8 +45,6 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 			Config.CollectionOptionsHidden = true
 		}
 		Config.Queues = config.GetComputationQueues()
-		Config.LoginRedirectUrl = config.GetConfig().Options.LoginRedirectUrl
-		Config.GlobusGuestDownloadEnabled = config.GetConfig().Options.GlobusGuestDownloadUserName != ""
 	}
 	b, err := json.Marshal(Config)
 	if err != nil {

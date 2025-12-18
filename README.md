@@ -187,8 +187,6 @@ Additionally, the configuration can contain the following fields in the optional
 "pathToSmtpPassword": "/path/to/password/file"
 ```
 - pathToSmtpPassword: path to the file containing the password needed to authenticate with the SMTP server
-- globusGuestDownloadUserName: when set to a Dataverse username (e.g., `GlobusDownloadOpenFiles`), enables anonymous/guest access for Globus downloads of public datasets. Users who are not logged in can access the download page and transfer publicly accessible files. See the [Anonymous Globus Transfers](#anonymous-globus-transfers-for-public-datasets) section for details.
-- loginRedirectUrl: URL to redirect unauthenticated users for login. When set, users accessing pages other than the download page (or the download page when `globusGuestDownloadUserName` is not configured) will be redirected to this URL to authenticate.
 
 ### Dataverse file system drivers
 When running this tool on the server, you can take the advantage of directly uploading files to the file system where Dataverse files are stored (assuming that you have direct access to that file system from the location where this application is running). The most generic way is simply mounting the file system as a volume and configuring the application (in the backend configuration file) to use the "file" driver pointing to the mounted volume. For example:
@@ -246,8 +244,6 @@ The configuration file can contain the following options for the frontend:
 - redirect_uri: when using OAuth, this option should be set to the ``redirect_uri`` as configured in the OAuth application setting (e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps)). The redirect URI must point to the ``/connect`` page of this application.
 - storeDvToken: set it to ``true`` to allow storing Dataverse API token in the browser of the user.
 - sendMails: set it to ``true`` to enable sending mails to the user (you need to configure smtp settings in the backend configuration).
-- loginRedirectUrl: (populated from backend) URL where users are redirected for authentication when not logged in.
-- globusGuestDownloadEnabled: (populated from backend) when ``true``, the download page allows guest access for public datasets.
 - plugins: contains one entry for each repository instance, as described below.
 
 Having multiple instances for plugin types is useful when certain features, e.g., OAuth authentication, can be configured for specific installations of a given repository type. It is perfectly possible to have at most one instance for each plugin type, as it is the case in the [default_frontend_config.json](image/app/frontend/default_frontend_config.json). Plugins that er not configured will not be shown in the UI. The repository instance, configured as an entry in ``plugins`` setting of the frontend configuration, can contain the following fields:
@@ -294,43 +290,6 @@ Additionally, the plugins can implement the following functions:
 - Search: when implemented, this function can be used for searching repositories by name, based on the search term provided by the user. It makes the selection of the repository process easier for the users.
 
 After implementing the above-mentioned functions on the backend, the plugin needs to be configured at the frontend. It becomes then selectable by the user, with the possibility of different configurations for the specific repositories instances. See the section on frontend configuration for further details.
-
-## Anonymous Globus Transfers for Public Datasets
-
-The application supports anonymous (guest) access for Globus downloads of publicly accessible datasets. This feature allows unauthenticated users to download public files via Globus without requiring them to log in to the application.
-
-### How it works
-
-1. **Guest user configuration**: Set `globusGuestDownloadUserName` in the backend configuration to a Dataverse username that will be used for permission checks when anonymous users request downloads. This user should have appropriate permissions to access public datasets.
-
-2. **Login redirect**: Set `loginRedirectUrl` to your authentication endpoint. Users accessing other pages (connect, DDI-CDI, etc.) will be redirected to log in, while the download page remains accessible to guests.
-
-3. **User choice**: When an unauthenticated user visits the download page, a popup dialog presents two options:
-   - **Continue as guest**: Proceed without authentication to download publicly accessible files
-   - **Log in**: Redirect to the login page to access restricted files
-
-4. **Permission enforcement**: Even with guest access enabled, the application still enforces Dataverse permissions. Files that are restricted or under embargo cannot be downloaded by guest users.
-
-### Configuration example
-
-Backend configuration (`backend_config.json`):
-```json
-{
-    "dataverseServer": "http://dataverse:8080",
-    "redisHost": "cache:6379",
-    "options": {
-        "globusGuestDownloadUserName": "GlobusDownloadOpenFiles",
-        "loginRedirectUrl": "https://your-app.example.com/Shibboleth.sso/Login",
-        ...
-    }
-}
-```
-
-### Security considerations
-
-- The guest username should be a dedicated service account with minimal permissions (read-only access to public datasets)
-- Restricted files and embargoed content remain protected regardless of guest access settings
-- The login redirect ensures that authenticated workflows (upload, DDI-CDI generation, etc.) still require proper authentication
 
 ## Appendix: sequence diagrams
 

@@ -4,8 +4,6 @@ package frontend
 
 import (
 	"embed"
-	"integration/app/config"
-	"integration/app/core"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -36,19 +34,6 @@ func Frontend(w http.ResponseWriter, r *http.Request) {
 		devProxy.ServeHTTP(w, r)
 		return
 	}
-
-	// Check if user is authenticated
-	user := core.GetUserFromHeader(r.Header)
-	isDownloadPage := strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/download/")
-	guestDownloadEnabled := config.GetConfig().Options.GlobusGuestDownloadUserName != ""
-	loginRedirectUrl := config.GetConfig().Options.LoginRedirectUrl
-
-	// Redirect to login if not authenticated, except for download page when guest download is enabled
-	if user == "" && loginRedirectUrl != "" && !(isDownloadPage && guestDownloadEnabled) {
-		http.Redirect(w, r, loginRedirectUrl, http.StatusSeeOther)
-		return
-	}
-
 	if strings.HasPrefix(r.URL.Path, "/connect") || strings.HasPrefix(r.URL.Path, "/connect/") || r.URL.Path == "" {
 		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/connect")
 		if r.URL.ForceQuery || r.URL.RawQuery != "" {

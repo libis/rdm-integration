@@ -34,21 +34,19 @@ type TokenGetter struct {
 }
 
 type Configuration struct {
-	DataverseHeader            string       `json:"dataverseHeader"`
-	CollectionOptionsHidden    bool         `json:"collectionOptionsHidden"`
-	CreateNewDatasetEnabled    bool         `json:"createNewDatasetEnabled"`
-	DatasetFieldEditable       bool         `json:"datasetFieldEditable"`
-	CollectionFieldEditable    bool         `json:"collectionFieldEditable"`
-	ExternalURL                string       `json:"externalURL"`
-	ShowDvTokenGetter          bool         `json:"showDvTokenGetter"`
-	ShowDvToken                bool         `json:"showDvToken"`
-	RedirectUri                string       `json:"redirect_uri,omitempty"`
-	StoreDvToken               bool         `json:"storeDvToken,omitempty"`
-	SendMails                  bool         `json:"sendMails"`
-	Plugins                    []RepoPlugin `json:"plugins"`
-	Queues                     []Queue      `json:"queues"`
-	LoginRedirectUrl           string       `json:"loginRedirectUrl,omitempty"`
-	GlobusGuestDownloadEnabled bool         `json:"globusGuestDownloadEnabled,omitempty"`
+	DataverseHeader         string       `json:"dataverseHeader"`
+	CollectionOptionsHidden bool         `json:"collectionOptionsHidden"`
+	CreateNewDatasetEnabled bool         `json:"createNewDatasetEnabled"`
+	DatasetFieldEditable    bool         `json:"datasetFieldEditable"`
+	CollectionFieldEditable bool         `json:"collectionFieldEditable"`
+	ExternalURL             string       `json:"externalURL"`
+	ShowDvTokenGetter       bool         `json:"showDvTokenGetter"`
+	ShowDvToken             bool         `json:"showDvToken"`
+	RedirectUri             string       `json:"redirect_uri,omitempty"`
+	StoreDvToken            bool         `json:"storeDvToken,omitempty"`
+	SendMails               bool         `json:"sendMails"`
+	Plugins                 []RepoPlugin `json:"plugins"`
+	Queues                  []Queue      `json:"queues"`
 }
 
 type Queue struct {

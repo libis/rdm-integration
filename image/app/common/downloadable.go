@@ -38,9 +38,6 @@ func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 
 	//get files and write response
 	user := core.GetUserFromHeader(r.Header)
-	if user == "" {
-		user = config.GetConfig().Options.GlobusGuestDownloadUserName
-	}
 	nm, hasRestricted, hasEmbargoed, err := dataverse.GetDatasetNodesWithAccessInfo(r.Context(), req.PersistentId, req.DataverseKey, user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
