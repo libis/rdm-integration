@@ -4,7 +4,7 @@
   "toolName": "rdmIntegrationDownload",
   "scope": "dataset",
   "types":["explore"],
-  "toolUrl": "http://localhost:4180/#/download",
+  "toolUrl": "http://localhost:4180/download",
   "httpMethod":"GET",
   "toolParameters": {
       "queryParameters":[

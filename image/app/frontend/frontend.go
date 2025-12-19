@@ -34,22 +34,36 @@ func Frontend(w http.ResponseWriter, r *http.Request) {
 		devProxy.ServeHTTP(w, r)
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/connect") || strings.HasPrefix(r.URL.Path, "/connect/") || r.URL.Path == "" {
-		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/connect")
-		if r.URL.ForceQuery || r.URL.RawQuery != "" {
-			url += "?" + r.URL.RawQuery
+
+	// Handle legacy hash-based URLs: redirect /#/path to /path
+	if strings.HasPrefix(r.URL.Path, "/#/") {
+		newPath := strings.TrimPrefix(r.URL.Path, "/#")
+		if r.URL.RawQuery != "" {
+			newPath += "?" + r.URL.RawQuery
 		}
-		http.Redirect(w, r, url, http.StatusSeeOther)
-	} else if strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/download/") {
-		url := strings.ReplaceAll(Config.RedirectUri, "/connect", "/#/download")
-		if r.URL.ForceQuery || r.URL.RawQuery != "" {
-			url += "?" + r.URL.RawQuery
-		}
-		http.Redirect(w, r, url, http.StatusSeeOther)
-	} else {
-		r.URL.Path = "/dist/datasync" + r.URL.Path
-		fs.ServeHTTP(w, r)
+		http.Redirect(w, r, newPath, http.StatusMovedPermanently)
+		return
 	}
+
+	// Try to serve static file first
+	staticPath := "/dist/datasync" + r.URL.Path
+	if file, err := content.Open(staticPath[1:]); err == nil {
+		file.Close()
+		// File exists, serve it
+		r.URL.Path = staticPath
+		fs.ServeHTTP(w, r)
+		return
+	}
+
+	// File doesn't exist - serve index.html for Angular routing
+	// This handles /connect, /download, /ddi-cdi, etc.
+	indexFile, err := content.ReadFile("dist/datasync/index.html")
+	if err != nil {
+		http.Error(w, "index.html not found", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(indexFile)
 }
 
 func setupDevProxy() {
