@@ -213,10 +213,23 @@ func DownloadableDvObjects(ctx context.Context, objectType, collection, searchTe
 }
 
 func dvObjectsInternal(ctx context.Context, objectType, collection, searchTerm, token, user string, includePublic bool) ([]types.SelectItem, error) {
-	// Get user's own datasets (drafts, unpublished, and published they have roles on)
-	dvObjects, err := listDvObjects(ctx, objectType, collection, searchTerm, token, user)
-	if err != nil {
-		return nil, err
+	var dvObjects []api.Item
+	var err error
+
+	// Only try to get user's own datasets if they are authenticated
+	// The mydata/retrieve API requires authentication
+	if user != "" || token != "" {
+		dvObjects, err = listDvObjects(ctx, objectType, collection, searchTerm, token, user)
+		if err != nil {
+			// For download context with includePublic, don't fail on mydata error
+			// The user might be a guest and only needs public datasets
+			if !includePublic {
+				return nil, err
+			}
+			// Log the error but continue to search public datasets
+			fmt.Printf("Warning: failed to list user's datasets (may be guest user): %v\n", err)
+			dvObjects = []api.Item{}
+		}
 	}
 
 	// For download context, also include public datasets

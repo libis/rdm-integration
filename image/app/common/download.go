@@ -8,6 +8,7 @@ import (
 	"integration/app/config"
 	"integration/app/core"
 	"integration/app/core/oauth"
+	"integration/app/logging"
 	"integration/app/plugin/impl/globus"
 	"integration/app/tree"
 	"io"
@@ -46,9 +47,14 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	if req.StreamParams.User == "" {
 		req.StreamParams.User = user
 	}
-	req.StreamParams.SessionId = core.GetSessionId(r.Header)
+	// For OAuth plugins, req.StreamParams.Token contains the OAuth session ID
+	// For logged-in users with SSO, core.GetSessionId returns Shibboleth session, not OAuth session
+	// So use req.StreamParams.Token as the lookup key for OAuth tokens
+	oauthSessionId := req.StreamParams.Token
+	req.StreamParams.SessionId = req.StreamParams.Token
 	req.StreamParams.PersistentId = req.PersistentId
-	req.StreamParams.Token = oauth.GetTokenFromCache(r.Context(), req.StreamParams.Token, req.StreamParams.SessionId, "globus")
+	logging.Logger.Printf("Download: user=%s, oauthSessionId=%s, dvToken=%v", user, oauthSessionId, req.DataverseKey != "")
+	req.StreamParams.Token = oauth.GetTokenFromCache(r.Context(), req.StreamParams.Token, oauthSessionId, "globus")
 	res := ""
 	res, err = globus.Download(r.Context(), req.StreamParams, selected)
 	if err != nil {
@@ -86,8 +92,13 @@ func GlobusTransferStatus(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("400 - taskId is required"))
 		return
 	}
-	sessionId := core.GetSessionId(r.Header)
-	token := oauth.GetTokenFromCache(r.Context(), "", sessionId, "globus")
+	// For OAuth plugins, try to get oauthSessionId from query params first (guest/OAuth flow)
+	// Fall back to session from headers (SSO flow)
+	oauthSessionId := r.URL.Query().Get("oauthSessionId")
+	if oauthSessionId == "" {
+		oauthSessionId = core.GetSessionId(r.Header)
+	}
+	token := oauth.GetTokenFromCache(r.Context(), "", oauthSessionId, "globus")
 	if token == "" {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 - globus session expired"))

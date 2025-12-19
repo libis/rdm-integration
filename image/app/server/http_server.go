@@ -50,6 +50,7 @@ func Start() {
 	srvMux.HandleFunc("/api/common/globus/status", common.GlobusTransferStatus)
 	srvMux.HandleFunc("/api/common/metadata", common.GetMetadata)
 	srvMux.HandleFunc("/api/common/useremail", common.GetUserEmail)
+	srvMux.HandleFunc("/api/common/userinfo", common.GetUserInfo)
 
 	// frontend config
 	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)
