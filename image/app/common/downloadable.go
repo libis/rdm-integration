@@ -68,7 +68,14 @@ func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 			reasonText = strings.Join(reasons, " and ")
 		}
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(fmt.Sprintf("403 - dataset cannot be downloaded because it has %s and you do not have permission to access all files. Dataset owners and curators can download restricted content.", reasonText)))
+		// Provide a more helpful message for guests vs logged-in users
+		var helpText string
+		if user == "" {
+			helpText = "If you have access, please log in first."
+		} else {
+			helpText = "Dataset owners and curators can download restricted content."
+		}
+		w.Write([]byte(fmt.Sprintf("403 - dataset cannot be downloaded because it has %s and you do not have permission to access all files. %s", reasonText, helpText)))
 		return
 	}
 	data := []tree.Node{}
