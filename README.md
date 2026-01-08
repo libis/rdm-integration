@@ -16,6 +16,145 @@ Need the external Dataverse tool or a quick start? The dedicated guide in [ddi-c
 ### High‑performance Globus transfers
 Move data reliably and at scale using Globus. The built‑in Globus plugin supports both uploads and downloads via managed Globus transfers for S3‑backed storage, making it easy to bring large datasets into Dataverse or export them out of S3 storage. A dedicated download component provides a streamlined flow for large file retrieval via Globus and can be wired as a separate Dataverse external tool; it uses the same backend Globus integration.
 
+## Globus Integration Details
+
+This section provides a technical overview of the Globus integration, including capabilities, limitations, and how it differs from the official `dataverse-globus` app.
+
+### Feature Comparison
+
+| Feature | rdm-integration | dataverse-globus app |
+|---------|-----------------|----------------------|
+| **Authentication** | | |
+| Globus uploads to S3 storage | ✅ | ✅ |
+| Globus downloads from S3 storage | ✅ | ✅ |
+| Preview URL support (General) | ✅ **Unique** | ❌ |
+| Preview URL support (Anonymous) | ❌ (Dataverse limitation) | ❌ |
+| Guest download (public datasets) | ✅ | ❌ |
+| Authenticated user download | ✅ | ✅ |
+| Globus OAuth | Redirect with client secret | PKCE (v2 branch) |
+| Dataverse auth | Shibboleth / OIDC | Signed URLs |
+| **Scoped Institutional Login** | | |
+| `session_required_single_domain` support | ✅ | ❌ |
+| Access to institutional endpoints (e.g., HPC) | ✅ (for logged-in users) | ❌ |
+| Scope removal for guest/preview access | ✅ (automatic) | N/A |
+| **Transfer Monitoring** | | |
+| Real-time transfer progress polling | ✅ | ❌ |
+| Progress percentage display | ✅ | ❌ |
+| Transfer status in UI | ✅ (ACTIVE/SUCCEEDED/FAILED) | ❌ |
+| Link to Globus web app for monitoring | ✅ | ✅ |
+| **User Interface** | | |
+| Hierarchical tree view for files | ✅ (PrimeNG TreeTable) | Flat list |
+| Color-coded file selection | ✅ (CSS variables for light/dark) | ❌ |
+| Folder selection (select all children) | ✅ | ❌ |
+| Toggle all files at once | ✅ | ✅ (checkbox) |
+| Destination folder tree navigation | ✅ (expandable tree) | ✅ (list navigation) |
+| Multiple endpoint search tabs | ❌ | ✅ (Personal/Recent/Search) |
+| DOI dropdown with search | ✅ | ❌ (passed via callback) |
+| **Maintenance** | | |
+| Active development | ✅ | ⚠️ (last commit 2+ years ago) |
+| Latest Angular version | ✅ (Angular 19+) | Angular 17 (v2 branch) |
+| Regular security updates | ✅ | ❌ |
+
+### Preview URL Support
+
+This integration supports **General Preview URLs** for Globus downloads from draft datasets. This enables:
+- Reviewers to download draft dataset files via Globus
+- Collaborators without Dataverse accounts to access data
+- External validators to retrieve files before publication
+
+**Important**: **Anonymous Preview URLs are NOT supported** due to Dataverse's `ApiKeyAuthMechanism` which blocks anonymized tokens from accessing Globus APIs. This is a Dataverse security feature for blind peer review.
+
+See [preview_urls.md](preview_urls.md) for complete technical documentation.
+
+### Scoped Institutional Login
+
+When configured with `session_required_single_domain` (e.g., `kuleuven.be`), logged-in users are required to authenticate with their institutional identity at Globus. This enables access to institutional Globus endpoints such as:
+
+- HPC storage endpoints
+- Research group shared storage
+- Institutional data repositories
+
+**For guest and preview URL users**, the scope restriction is automatically removed, allowing them to use any Globus identity (personal or institutional) to complete the transfer.
+
+```
+Globus OAuth URL for logged-in users:
+https://auth.globus.org/v2/oauth2/authorize?scope=...&session_required_single_domain=kuleuven.be
+
+Globus OAuth URL for guest/preview users (scope stripped):
+https://auth.globus.org/v2/oauth2/authorize?scope=...
+```
+
+### Transfer Progress Monitoring
+
+The download component includes real-time transfer progress monitoring:
+
+- **Automatic polling**: Status checked every 5 seconds while transfer is active
+- **Progress bar**: Shows percentage complete based on bytes transferred
+- **Status display**: ACTIVE → SUCCEEDED/FAILED/CANCELED
+- **External link**: Direct link to Globus web app for detailed monitoring
+- **Completion callback**: UI updates automatically when transfer finishes
+
+### How It Works
+
+Unlike the official `dataverse-globus` app which relies on Dataverse's signed URL mechanism, this integration:
+
+1. **Extracts** the preview token from the URL provided by the user
+2. **Passes** the token to the backend as a Dataverse API key
+3. **Calls** Dataverse APIs directly with `X-Dataverse-key: {previewToken}`
+
+This bypasses the signed URL limitation where preview users (who are virtual `PrivateUrlUser` objects not stored in the database) cannot have signed URLs generated for them.
+
+### Authentication Flow
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  1. User clicks "Globus Download" in Dataverse                       │
+│     └─→ Callback URL contains datasetDbId and downloadId             │
+│                                                                      │
+│  2. User sees login options popup:                                   │
+│     ├─ "Continue as guest" (public files only)                       │
+│     ├─ "Continue with preview URL" ← pastes General Preview URL      │
+│     └─ "Log in" (institutional SSO)                                  │
+│                                                                      │
+│  3. Token extracted from preview URL and preserved in OAuth state    │
+│                                                                      │
+│  4. User authenticates with Globus (OAuth redirect)                  │
+│                                                                      │
+│  5. Backend receives: Globus token + Dataverse preview token         │
+│     └─→ Calls Dataverse APIs with preview token                      │
+│     └─→ Initiates Globus transfer with Globus token                  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Limitations
+
+| Limitation | Reason | Workaround |
+|------------|--------|------------|
+| Anonymous Preview URLs don't work | Dataverse blocks anonymized tokens for Globus APIs | Use General Preview URL |
+| Preview users can't use signed URLs | `PrivateUrlUser` not in database, no `ApiToken` | Direct API calls with token |
+| Requires Globus app registration | OAuth flow needs client ID and secret | Register at auth.globus.org |
+
+### Configuration
+
+Globus plugin configuration in `backend_config.json`:
+
+```json
+{
+  "plugins": [
+    {
+      "id": "globus",
+      "plugin": "globus",
+      "tokenGetter": {
+        "authURL": "https://auth.globus.org/v2/oauth2/authorize",
+        "oauth_client_id": "YOUR_GLOBUS_CLIENT_ID"
+      }
+    }
+  ]
+}
+```
+
+The client secret is stored separately in the OAuth secrets file (see `pathToOauthSecrets` in backend configuration).
+
 ## Available plugins
 Support for different repositories is implemented as plugins. More plugins will be added in the future. At this moment, the following plugins are provided with the latest version:
 - [GitHub](https://github.com/)
