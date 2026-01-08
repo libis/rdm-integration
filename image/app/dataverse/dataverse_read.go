@@ -427,7 +427,8 @@ func GetDatasetUserPermissions(ctx context.Context, persistentId, token, user st
 // where the user can download all files, as a convenience to avoid failed transfers.
 // Returns true if:
 // - The dataset has no restricted/embargoed files, OR
-// - The user has EditDataset permission (owners, curators can access all files)
+// - The user has EditDataset permission (owners, curators can access all files), OR
+// - The user has CanViewUnpublishedDataset permission (preview URL users)
 func CanUserDownloadAllFiles(ctx context.Context, persistentId, token, user string, hasRestricted, hasEmbargoed bool) (bool, error) {
 	// If no restrictions, anyone can download all files
 	if !hasRestricted && !hasEmbargoed {
@@ -443,6 +444,14 @@ func CanUserDownloadAllFiles(ctx context.Context, persistentId, token, user stri
 	// Users who can edit the dataset (owners, curators) have access to all files
 	// This includes the ability to download restricted/embargoed files
 	if permissions.CanEditDataset {
+		return true, nil
+	}
+
+	// Preview URL users (CanViewUnpublishedDataset) have access to all files
+	// in the draft version, including restricted/embargoed files.
+	// This is how Dataverse's private URL feature works - it grants full
+	// download access to reviewers.
+	if permissions.CanViewUnpublishedDataset {
 		return true, nil
 	}
 

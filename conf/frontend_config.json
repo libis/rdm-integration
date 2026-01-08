@@ -7,7 +7,6 @@
     "showDvTokenGetter": false,
     "showDvToken": false,
     "redirect_uri": "http://localhost:4180/connect",
-    "storeDvToken": false,
     "sendMails": true,
     "plugins": [
         {

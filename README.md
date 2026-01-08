@@ -242,7 +242,6 @@ The configuration file can contain the following options for the frontend:
 - showDvTokenGetter: set it to ``true`` to show the "Get token" button next to the Dataverse token field.
 - showDvToken: set it to ``true`` to show the token field (set it to ``false`` when using URL signing).
 - redirect_uri: when using OAuth, this option should be set to the ``redirect_uri`` as configured in the OAuth application setting (e.g., GitHub application settings as described in this [guide](https://docs.github.com/en/developers/apps/building-github-apps/identifying-and-authorizing-users-for-github-apps)). The redirect URI must point to the ``/connect`` page of this application.
-- storeDvToken: set it to ``true`` to allow storing Dataverse API token in the browser of the user.
 - sendMails: set it to ``true`` to enable sending mails to the user (you need to configure smtp settings in the backend configuration).
 - plugins: contains one entry for each repository instance, as described below.
 

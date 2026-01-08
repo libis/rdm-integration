@@ -43,7 +43,6 @@ type Configuration struct {
 	ShowDvTokenGetter       bool         `json:"showDvTokenGetter"`
 	ShowDvToken             bool         `json:"showDvToken"`
 	RedirectUri             string       `json:"redirect_uri,omitempty"`
-	StoreDvToken            bool         `json:"storeDvToken,omitempty"`
 	LoginRedirectUrl        string       `json:"loginRedirectUrl,omitempty"`
 	SendMails               bool         `json:"sendMails"`
 	Plugins                 []RepoPlugin `json:"plugins"`
