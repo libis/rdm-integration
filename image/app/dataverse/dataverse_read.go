@@ -29,7 +29,7 @@ func GetRequest(path, method, user, token string, body io.Reader, header http.He
 	client.User = user
 	client.Token = token
 	if urlSigning == "true" {
-		client.AdminApiKey = config.ApiKey
+		client.AdminApiKey = config.ApiKey()
 		client.UnblockKey = config.UnblockKey
 	}
 	return client.NewRequest(path, method, body, header)

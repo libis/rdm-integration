@@ -223,7 +223,7 @@ func getGlobusEndpoint() string {
 func RequestGlobusUploadPaths(ctx context.Context, persistentId, token, user, principal string, nbFiles int) ([]Path, error) {
 	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/requestGlobusUploadPaths?persistentId=" + persistentId
 	data, _ := json.Marshal(map[string]interface{}{"principal": principal, "numberOfFiles": nbFiles})
-	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey(), config.UnblockKey)
 	client.Token = token
 	req := client.NewRequest(path, "POST", bytes.NewReader(data), api.JsonContentHeader())
 	type Response struct {
@@ -251,7 +251,7 @@ func addGlobusFiles(ctx context.Context, persistentId, token, user string, reque
 	reqHeader := http.Header{}
 	reqHeader.Add("Content-Type", formDataContentType)
 	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/addGlobusFiles?persistentId=" + persistentId
-	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey(), config.UnblockKey)
 	client.Token = token
 	req := client.NewRequest(path, "POST", body, reqHeader)
 	res := map[string]interface{}{}
@@ -340,7 +340,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 func requestGlobusDownload(ctx context.Context, persistentId, token, user, principal string, fileIds []int64) (map[string]string, error) {
 	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/requestGlobusDownload?persistentId=" + persistentId
 	data, _ := json.Marshal(map[string]interface{}{"principal": principal, "fileIds": fileIds})
-	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey(), config.UnblockKey)
 	client.Token = token
 	req := client.NewRequest(path, "POST", bytes.NewReader(data), api.JsonContentHeader())
 	res := map[string]interface{}{}
@@ -366,7 +366,7 @@ func requestGlobusDownload(ctx context.Context, persistentId, token, user, princ
 func monitorGlobusDownloadAtDV(persistentId, taskId string, token, user string, ctx context.Context) error {
 	path := config.GetConfig().DataverseServer + "/api/v1/datasets/:persistentId/monitorGlobusDownload?persistentId=" + persistentId
 	data, _ := json.Marshal(map[string]interface{}{"taskIdentifier": taskId})
-	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey, config.UnblockKey)
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey(), config.UnblockKey)
 	client.Token = token
 	req := client.NewRequest(path, "POST", bytes.NewReader(data), api.JsonContentHeader())
 	res := map[string]interface{}{}

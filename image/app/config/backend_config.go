@@ -96,7 +96,6 @@ var queueAccess = map[string]map[string]bool{}
 
 // static vars
 var rdb RedisClient    // redis client singleton
-var ApiKey = ""        // will be read from pathToApiKey
 var UnblockKey = ""    // will be read from pathToUnblockKey
 var redisPassword = "" // will be read from pathToRedisPassword
 var SmtpPassword = ""  // will be read from pathToSmtpPassword
@@ -123,12 +122,6 @@ func init() {
 	if err == nil {
 		logging.Logger.Println("unblock key is read from file " + config.Options.PathToUnblockKey)
 		UnblockKey = strings.TrimSpace(string(b))
-	}
-
-	b, err = os.ReadFile(config.Options.PathToApiKey)
-	if err == nil {
-		logging.Logger.Println("API key is read from file " + config.Options.PathToApiKey)
-		ApiKey = strings.TrimSpace(string(b))
 	}
 
 	b, err = os.ReadFile(config.Options.PathToRedisPassword)
@@ -183,6 +176,15 @@ func init() {
 			queueAccess[qa.UserEmail][q] = true
 		}
 	}
+}
+
+func ApiKey() string {
+	b, err := os.ReadFile(config.Options.PathToApiKey)
+	if err != nil {
+		logging.Logger.Printf("API key could not be read from file %s: %v", config.Options.PathToApiKey, err)
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 type RedisClient interface {
