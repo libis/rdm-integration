@@ -10,6 +10,9 @@ export
 .SILENT:
 SHELL = /bin/bash
 
+# Staticcheck binary location: prefer GOBIN, fall back to GOPATH/bin
+STATICCHECK_BIN := $(or $(shell go env GOBIN 2>/dev/null),$(shell go env GOPATH)/bin)/staticcheck
+
 # Set USER_ID and GROUP_ID to current user's uid and gid if not set
 USER_ID ?= $(shell id -u)
 GROUP_ID ?= $(shell id -g)
@@ -204,7 +207,7 @@ fmt: ## Format the go code
 	cd image && go fmt ./app/...
 
 staticcheck: ## staticcheck the go code
-	cd image && $(shell go env GOPATH)/bin/staticcheck ./app/...
+	cd image && $(STATICCHECK_BIN) ./app/...
 
 upgrade_dependencies: ## upgrade all go dependencies
 	cd image && go get -u ./app/...
