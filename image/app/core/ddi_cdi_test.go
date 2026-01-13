@@ -108,13 +108,6 @@ func TestDdiCdiGen_SortedFileNames(t *testing.T) {
 		DataverseKey: "test-key",
 	}
 
-	// This will fail during actual processing, but we can verify the order
-	// by checking that files are sorted before processing
-	fileNames := make([]string, 0, len(job.WritableNodes))
-	for name := range job.WritableNodes {
-		fileNames = append(fileNames, name)
-	}
-
 	// After DdiCdiGen, files should have been processed in sorted order
 	resultJob, _ := DdiCdiGen(job)
 
