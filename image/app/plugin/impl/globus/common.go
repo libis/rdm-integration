@@ -27,16 +27,16 @@ type Response struct {
 }
 
 type Data struct {
-	DisplayName  string `json:"display_name"`
-	EntityType   string `json:"entity_type"`
-	GCPConnected bool   `json:"gcp_connected"`
-	Id           string `json:"id"`
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	LinkTarget   string `json:"link_target"`
-	LastModified string `json:"last_modified"`
-	Size         int64  `json:"size"`
-	AbsolutePath string `json:"absolute_path"`
+	DisplayName  string      `json:"display_name"`
+	EntityType   string      `json:"entity_type"`
+	GCPConnected bool        `json:"gcp_connected"`
+	Id           interface{} `json:"id"` // Can be string or number in Globus API response
+	Name         string      `json:"name"`
+	Type         string      `json:"type"`
+	LinkTarget   string      `json:"link_target"`
+	LastModified string      `json:"last_modified"`
+	Size         int64       `json:"size"`
+	AbsolutePath string      `json:"absolute_path"`
 }
 
 type Entry struct {
@@ -50,53 +50,6 @@ type Entry struct {
 	Size     int64
 }
 
-// isDriveLetter checks if a string is a single letter (A-Z, case insensitive)
-func isDriveLetter(name string) bool {
-	if len(name) != 1 {
-		return false
-	}
-	c := name[0]
-	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
-}
-
-// isWindowsDriveEnvironment detects if we're on a Windows endpoint by looking for
-// typical Windows characteristics: multiple drive letters or standard Windows system folders
-func isWindowsDriveEnvironment(entries []Data) bool {
-	// Standard Windows system folders that indicate a Windows system
-	windowsFolders := map[string]bool{
-		"windows":       true,
-		"users":         true,
-		"program files": true,
-		"programdata":   true,
-	}
-
-	driveLetters := 0
-	windowsIndicators := 0
-
-	for _, entry := range entries {
-		if entry.Type != "dir" {
-			continue
-		}
-
-		// Count drive letters at root
-		if isDriveLetter(entry.Name) {
-			driveLetters++
-		}
-
-		// Count Windows system folders (case-insensitive)
-		if windowsFolders[strings.ToLower(entry.Name)] {
-			windowsIndicators++
-		}
-	}
-
-	// Windows endpoint: has multiple drive letters OR has Windows system folders
-	isWindows := driveLetters >= 2 || windowsIndicators > 0
-	if isWindows {
-		logging.Logger.Printf("[globus] Detected Windows endpoint: driveLetters=%d, windowsIndicators=%d", driveLetters, windowsIndicators)
-	}
-	return isWindows
-}
-
 func listItems(ctx context.Context, path, theUrl, token, user string, recursive bool) ([]Entry, error) {
 	urlString := theUrl + "?path=" + url.QueryEscape(path)
 	response, err := getResponse(ctx, urlString, token)
@@ -104,27 +57,14 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 		return nil, err
 	}
 
-	// Detect if we're on a Windows endpoint at root level
-	isWindows := false
-	if path == "/" {
-		isWindows = isWindowsDriveEnvironment(response)
-	}
-
 	res := []Entry{}
 	for _, v := range response {
 		isDir := v.Type == "dir"
 
-		// Smart path construction: detect Windows drive roots and convert accordingly
-		var id string
-		if isWindows && v.AbsolutePath == "/" && isDriveLetter(v.Name) {
-			// Windows drive root: single letter at root becomes C:/
-			id = v.Name + ":/"
-			logging.Logger.Printf("[globus] [PATH] Windows drive: '%s' → ID: '%s'", v.Name, id)
-		} else {
-			// All other cases: concatenate path + name + /
-			id = v.AbsolutePath + v.Name + "/"
-			logging.Logger.Printf("[globus] [PATH] Normal path: '%s' + '%s' → ID: '%s'", v.AbsolutePath, v.Name, id)
-		}
+		// Simple path construction: concatenate path + name + /
+		// Globus API handles Windows paths correctly (e.g., C/ for drives)
+		id := v.AbsolutePath + v.Name + "/"
+		logging.Logger.Printf("[globus] [PATH] path: '%s' + '%s' → ID: '%s'", v.AbsolutePath, v.Name, id)
 
 		if recursive && isDir {
 			folderEntries, err := listItems(ctx, id, theUrl, token, user, true)
