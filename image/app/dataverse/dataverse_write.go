@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
@@ -19,6 +20,29 @@ import (
 
 	"github.com/libis/rdm-dataverse-go-api/api"
 )
+
+// addReplaceFileResponse is a flexible response type that handles both string and object message formats
+// from Dataverse. The message field can be a string for errors or an object like {"message":"..."} for warnings.
+type addReplaceFileResponse struct {
+	Status  string                 `json:"status"`
+	Message interface{}            `json:"message"`
+	Data    api.AddReplaceFileData `json:"data"`
+}
+
+// getMessageString extracts a string representation from the Message field
+func (r *addReplaceFileResponse) getMessageString() string {
+	if r.Message == nil {
+		return ""
+	}
+	switch v := r.Message.(type) {
+	case string:
+		return v
+	default:
+		// For object messages (e.g., {"message":"..."}), marshal back to JSON string
+		b, _ := json.Marshal(v)
+		return string(b)
+	}
+}
 
 // AddFileWithMimeType adds a file to a dataset with a specific MIME type and returns the file ID.
 // This is a simplified, synchronous function for adding single files (like DDI-CDI metadata).
@@ -63,14 +87,29 @@ func AddFileWithMimeType(ctx context.Context, persistentId, token, user, fileNam
 	requestHeader.Add("Content-Type", writer.FormDataContentType())
 	req := GetRequest(path, "POST", user, token, body, requestHeader)
 
-	res := api.AddReplaceFileResponse{}
-	err = api.Do(ctx, req, &res)
+	// Use DoStream to get raw response for logging
+	stream, err := api.DoStream(ctx, req)
 	if err != nil {
+		logging.Logger.Printf("AddFileWithMimeType request failed: %v", err)
+		return 0, fmt.Errorf("API request failed: %w", err)
+	}
+	defer stream.Close()
+
+	rawBody, err := io.ReadAll(stream)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read response body: %w", err)
+	}
+	logging.Logger.Printf("AddFileWithMimeType raw response: %s", string(rawBody))
+
+	res := addReplaceFileResponse{}
+	err = json.Unmarshal(rawBody, &res)
+	if err != nil {
+		logging.Logger.Printf("AddFileWithMimeType JSON unmarshal error: %v", err)
 		return 0, fmt.Errorf("API request failed: %w", err)
 	}
 
 	if res.Status != "OK" {
-		return 0, fmt.Errorf("adding file failed: %s", res.Message)
+		return 0, fmt.Errorf("adding file failed: %s", res.getMessageString())
 	}
 
 	// Extract file ID from response
@@ -165,7 +204,7 @@ func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persi
 		return err
 	}
 	body, formDataContentType := requestBody(data)
-	res := api.AddReplaceFileResponse{}
+	res := addReplaceFileResponse{}
 	reqHeader := http.Header{}
 	reqHeader.Add("Content-Type", formDataContentType)
 	req := GetRequest(path, "POST", user, token, body, reqHeader)
@@ -175,7 +214,7 @@ func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persi
 	}
 
 	if res.Status != "OK" {
-		return fmt.Errorf("writing file failed: %+v", res)
+		return fmt.Errorf("writing file failed: %s", res.getMessageString())
 	}
 	return nil
 }
@@ -225,7 +264,7 @@ func ApiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persist
 	go func(req *api.Request) {
 		defer wg.Done()
 		defer pr.Close()
-		res := api.AddReplaceFileResponse{}
+		res := addReplaceFileResponse{}
 		err := api.Do(ctx, request, &res)
 		if err != nil {
 			if async_err != nil {
@@ -235,7 +274,7 @@ func ApiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persist
 		}
 		if res.Status != "OK" {
 			if async_err != nil {
-				async_err.Err = fmt.Errorf("adding file failed: %+v", res)
+				async_err.Err = fmt.Errorf("adding file failed: %s", res.getMessageString())
 			}
 		}
 	}(request)
