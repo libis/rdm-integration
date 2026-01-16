@@ -183,9 +183,10 @@ Within this manifest-driven run, the generator:
 The generated metadata is:
 
 - Cached for quick retrieval
-- Displayed in the interactive **cdi-viewer** (embedded via iframe)
+- Displayed as a **JSON-LD preview** in the interface
+- Available to open in the **cdi-viewer** (new browser window) for editing and saving to Dataverse
 - Validated against official DDI-CDI SHACL shapes from ddi-cdi.github.io
-- Made available for download or further processing
+- Made available for download as a `.jsonld` file
 
 ---
 
@@ -369,44 +370,53 @@ After starting generation:
 
 When generation completes (either by waiting or returning later):
 
-- The **cdi-viewer** appears on the right side of the interface (embedded iframe)
-- The viewer displays your DDI-CDI metadata in an **interactive, editable format**
+- The generated DDI-CDI JSON-LD is displayed in a **read-only preview** on the right side
+- The preview shows the raw JSON-LD content for quick verification
 - Console output shows on the left (or can be hidden)
 - A success notification confirms: "DDI-CDI generated successfully!"
 
-#### 7. Edit Metadata (Optional)
+#### 7. Download or Open in Viewer
 
-Using the cdi-viewer:
+After generation, you have two options:
+
+**Option A: Download**
+- Click the **"Download"** button to save the JSON-LD file locally
+- File is named `ddi-cdi-[timestamp].jsonld`
+- Useful for archiving or sharing outside of Dataverse
+
+**Option B: Open in Viewer (Recommended)**
+- Click the **"Open in Viewer"** button to open the **cdi-viewer** in a new browser window
+- The viewer automatically loads your generated metadata
+- The Dataverse URL field is pre-populated with your dataset's location
+- You can edit the metadata using the viewer's full feature set
+
+#### 8. Edit and Save to Dataverse (via cdi-viewer)
+
+When you click "Open in Viewer", the cdi-viewer opens with:
+
+- Your generated DDI-CDI metadata already loaded
+- The **Dataverse URL field pre-populated** with your dataset (e.g., `https://your-dataverse/dataset.xhtml?persistentId=doi:10.1234/ABC`)
+- This allows you to save directly to your dataset after editing
+
+In the cdi-viewer:
 
 - **Review** the automatically generated metadata in a hierarchical tree view
 - **Edit** any fields to add or correct information (click "Enable Editing" button)
-- **Validate** changes (the viewer validates against official DDI-CDI SHACL shapes)
-- Changes are captured in the viewer but not yet saved to Dataverse
-
-#### 8. Add File to Dataset
-
-To save the generated (or edited) metadata back to Dataverse:
-
-- Click the **"Add to Dataset"** button (appears after successful generation)
-- A confirmation dialog appears:
-  - Shows the filename that will be created: **`ddi-cdi-[timestamp].jsonld`**
-  - Explains the file will be added to your dataset
-- Click **"Add File"** to confirm
-- A success notification confirms the file was added to your dataset
+- **Validate** changes against official DDI-CDI SHACL shapes
+- Click **"Save to Dataverse"** to upload the file to your dataset
 
 **File Management**:
-- Each save creates a **new file** with a unique timestamp in the filename
-- This preserves version history - you can keep multiple DDI-CDI versions
-- The system uses Dataverse's standard file upload API
-- Files are added to the dataset like any other file upload
+- The cdi-viewer creates files with the correct DDI-CDI MIME type
+- Files are added to your dataset like any other file upload
+- You can keep multiple versions by saving with different filenames
 
 #### 9. Refresh or Start Over
 
 At any time after generation:
 
-- Click **"Reload viewer"** to reload the last cached output from Redis
-- This discards any unsaved edits in the cdi-viewer
-- Useful if you want to start over with the original generated metadata
+- Click **"Reload viewer"** (if displayed) to reload the last cached output from Redis
+- This refreshes the preview with the original generated metadata
+- Useful if you want to start over with unmodified output
 
 ### Understanding the Results
 
@@ -447,7 +457,7 @@ The system enriches the output by combining:
 
 ### The Interactive Viewer (CDI Viewer)
 
-The interface uses the **cdi-viewer** application (developed at KU Leuven, [https://github.com/libis/cdi-viewer](https://github.com/libis/cdi-viewer)) embedded via iframe, which provides:
+The **cdi-viewer** application (developed at KU Leuven, [https://github.com/libis/cdi-viewer](https://github.com/libis/cdi-viewer)) opens in a **new browser window** when you click "Open in Viewer". It provides:
 
 #### Visual Interface Features
 - **Hierarchical tree display** of your DDI-CDI metadata
@@ -465,13 +475,21 @@ The interface uses the **cdi-viewer** application (developed at KU Leuven, [http
 - **Direct editing** of generated metadata values
 - **Add or remove** properties and nodes
 - **Changes tracked** and highlighted in the interface
-- All edits are captured when you click "Add to Dataset"
 
 #### Export and Save
 - **JSON-LD format**: Standard linked data serialization with DDI-CDI 1.0 context
 - **Export button**: Download the current metadata as a `.jsonld` file
-- **Save to Dataverse**: Click "Add to Dataset" to upload as `.jsonld` file
+- **Save to Dataverse**: Click "Save to Dataverse" to upload as `.jsonld` file with correct MIME type
 - The saved file can be downloaded, versioned, and shared with your dataset
+
+#### Pre-populated Dataset Information
+When opened from rdm-integration, the viewer receives:
+- Your generated DDI-CDI metadata (via localStorage)
+- The dataset persistent ID (DOI)
+- The Dataverse server URL
+- (Optionally) Your API token for authentication
+
+The Dataverse URL field is automatically filled in, making it easy to save directly to your dataset.
 
 ### Console Output
 
@@ -535,8 +553,8 @@ The DDI-CDI feature includes intelligent caching to improve user experience:
 **Solution**:
 - Click the link in the email - it includes your dataset's persistent ID
 - The page loads with your dataset pre-selected
-- Cached metadata appears automatically
-- Review and edit as needed, then click "Add to Dataset" to save
+- Cached metadata appears automatically in the preview
+- Click "Open in Viewer" to edit, then use cdi-viewer's "Save to Dataverse" button
 
 **Note**: If you didn't opt in for success emails, you won't receive a notification when generation completes successfully. Simply return to the DDI-CDI page and select your dataset - cached results will load automatically.
 
@@ -579,9 +597,10 @@ The DDI-CDI feature includes intelligent caching to improve user experience:
 **Problem**: The generated metadata has incorrect or missing information.
 
 **Solution**:
-- Use the cdi-viewer to **edit** the metadata directly (click "Enable Editing")
+- Click "Open in Viewer" to open the cdi-viewer
+- Use the viewer to **edit** the metadata directly (click "Enable Editing")
 - Add missing fields or correct errors
-- Click "Add to Dataset" to save your corrections
+- Click "Save to Dataverse" in the viewer to save your corrections
 - Consider improving source metadata in Dataverse for better future results
 
 ---
@@ -597,7 +616,8 @@ The feature uses a hybrid architecture:
 - **Go backend**: Handles job orchestration, authentication, file system access, and caching
 - **Python script**: Performs data profiling and JSON-LD generation (`cdi_generator_jsonld.py`)
 - **Redis queue**: Manages background job processing
-- **cdi-viewer**: Provides interactive metadata viewing and editing (embedded via iframe)
+- **cdi-viewer**: Provides interactive metadata viewing and editing (opens in new browser window)
+- **Angular frontend**: Displays preview, handles generation requests, and passes data to cdi-viewer via localStorage
 
 ### The cdi_generator_jsonld.py Script
 

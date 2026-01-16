@@ -1,8 +1,8 @@
 # DDI-CDI Update Plan: Migration to cdi-viewer
 
-## ✅ IMPLEMENTATION COMPLETED
+## ✅ IMPLEMENTATION COMPLETED (Updated January 2026)
 
-This migration has been successfully implemented. Below is the summary of changes made.
+This migration has been successfully implemented and later simplified. Below is the summary of changes made.
 
 ---
 
@@ -25,31 +25,117 @@ This migration has been successfully implemented. Below is the summary of change
 - **Deleted**: `image/app/frontend/default_shacl_shapes.ttl` - Using official shapes via cdi-viewer
 
 ### 3. Angular Frontend Updates (rdm-integration-frontend)
+
+#### Initial Implementation (Embedded Iframe)
+Initially, the frontend used an embedded iframe with postMessage communication.
+
+#### Simplified Implementation (January 2026)
+The embedded iframe approach was replaced with a simpler standalone viewer workflow:
+
 - **Modified**: `src/app/ddi-cdi/ddi-cdi.component.ts`
-  - Replaced SHACL form with cdi-viewer iframe
-  - Added postMessage communication with iframe
-  - Removed n3.js imports (no more Turtle parsing)
-  - Removed 200+ line SHACL template
-  - Updated file extension from `.ttl` to `.jsonld`
+  - Removed embedded iframe and postMessage communication
+  - Removed `DomSanitizer`, `SafeResourceUrl`, `ElementRef`, `ViewChild` imports
+  - Removed `AddFileRequest` import (no longer adding files from frontend)
+  - Removed iframe state variables (`cdiViewerUrl`, `cdiViewerReady`, `pendingJsonLd`, `messageListener`, `cdiViewerFrame`)
+  - Removed `addFilePopup` and `cdiViewerError` state
+  - Removed all postMessage-related methods
+  - **Added**: `downloadDdiCdi()` - Downloads generated JSON-LD as a file
+  - **Added**: `openInViewer()` - Opens cdi-viewer in new window with data via localStorage
+  - Renamed `resetCdiViewerState()` → `resetOutputState()` (simplified)
+
 - **Modified**: `src/app/ddi-cdi/ddi-cdi.component.html`
-  - Replaced `<shacl-form>` element with `<iframe>` pointing to cdi-viewer
-  - Updated dialog text to mention JSON-LD instead of Turtle
-- **Modified**: `src/app/data.service.ts`
-  - Removed `getShaclTemplate()` method
-  - Removed SHACL URL constant
+  - Replaced "Add to Dataset" button with "Download" and "Open in Viewer" buttons
+  - Removed "Add File to Dataset" dialog
+  - Replaced embedded iframe section with simple JSON-LD text preview
+
 - **Deleted**: `src/app/shacl-form-patch.ts` - No longer needed
 
 ### 4. CDI Viewer Updates (cdi-viewer)
+
+#### PostMessage Handler (for embedded mode - still available)
 - **Created**: `src/jsonld-editor/postmessage-handler.js`
   - Handles `loadJsonLd`, `getJsonLd`, `getChanges`, `setEditMode` messages
   - Enables iframe embedding with postMessage API
   - Automatic handshake with parent window
-- **Modified**: `src/index.js`
-  - Added import for postmessage-handler.js
+
+#### Standalone Mode Enhancements (January 2026)
+- **Modified**: `src/jsonld-editor/core.js`
+  - Added support for `storageKey` URL parameter to load data from localStorage
+  - Added support for `dataverseUrl` and `datasetPid` URL parameters
+  - Pre-populates Dataverse URL field when parameters are provided
+  - Automatically cleans up localStorage after reading data
+  - URL format for dataset: `{dataverseUrl}/dataset.xhtml?persistentId={datasetPid}`
 
 ---
 
-## Architecture After Migration
+## Architecture After Simplification (January 2026)
+
+The simplified architecture removes the embedded iframe in favor of opening the cdi-viewer in a new window:
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                    rdm-integration-frontend                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ DDI-CDI Component                                           │   │
+│  │                                                             │   │
+│  │  [Download]  [Open in Viewer]                               │   │
+│  │       │              │                                      │   │
+│  │       ▼              ▼                                      │   │
+│  │  .jsonld file   localStorage + window.open()                │   │
+│  │                      │                                      │   │
+│  │  ┌───────────────────────────────────────────────────────┐  │   │
+│  │  │ JSON-LD Preview (read-only text display)              │  │   │
+│  │  └───────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────────┘
+
+         When user clicks "Open in Viewer":
+         1. Store JSON-LD in localStorage with unique key
+         2. Build URL: cdi-viewer/?storageKey=xxx&datasetPid=yyy&dataverseUrl=zzz
+         3. Open in new browser window
+
+┌────────────────────────────────────────────────────────────────────┐
+│                    cdi-viewer (new window)                         │
+│                                                                    │
+│  On load with storageKey parameter:                                │
+│  1. Read JSON-LD from localStorage                                 │
+│  2. Clean up localStorage entry                                    │
+│  3. Pre-populate Dataverse URL field (for save functionality)      │
+│  4. Display data for editing                                       │
+│                                                                    │
+│  User can then:                                                    │
+│  - Edit the DDI-CDI metadata                                       │
+│  - Validate against official SHACL shapes                          │
+│  - Save to Dataverse (using built-in save functionality)           │
+│                                                                    │
+│  Dataverse URL field pre-populated with:                           │
+│  {dataverseUrl}/dataset.xhtml?persistentId={datasetPid}            │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### URL Parameters for cdi-viewer Standalone Mode
+
+When opening cdi-viewer from rdm-integration, the following URL parameters are used:
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `storageKey` | Key to retrieve JSON-LD data from localStorage | `cdi-viewer-data-1737012345678` |
+| `datasetPid` | Dataset persistent ID (DOI) | `doi:10.5072/FK2/ABC123` |
+| `dataverseUrl` | Base Dataverse server URL | `https://demo.dataverse.org` |
+| `apiToken` | (Optional) Dataverse API token for authentication | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+
+The cdi-viewer constructs the full Dataverse URL for the save functionality:
+```
+{dataverseUrl}/dataset.xhtml?persistentId={encodeURIComponent(datasetPid)}
+```
+
+This URL is pre-populated in the "Dataverse URL" input field, allowing users to save the edited metadata directly to their dataset.
+
+---
+
+## Previous Architecture (Embedded Iframe - Deprecated)
+
+The original implementation used an embedded iframe:
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
@@ -62,17 +148,13 @@ This migration has been successfully implemented. Below is the summary of change
 │  │ └─────────────────────────────────────────────────────────┘ │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────────┘
-                              ↓
-                    JSON-LD generation request
-                              ↓
-┌────────────────────────────────────────────────────────────────────┐
-│                       rdm-integration backend                      │
-│                                                                    │
-│  cdi_generator_jsonld.py → WideDataSet.jsonld                      │
-│                                                                    │
-│  Output: application/ld+json with DDI-CDI 1.0 context              │
-└────────────────────────────────────────────────────────────────────┘
 ```
+
+This was replaced because:
+1. The cdi-viewer's built-in save functionality works better in standalone mode
+2. Correct MIME type is automatically set when saving from cdi-viewer
+3. Simpler code without iframe communication complexity
+4. Better user experience with full-screen viewer
 
 ---
 
