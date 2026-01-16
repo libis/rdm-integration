@@ -46,7 +46,7 @@ services:
       - keycloak
 
   cache:
-    image: redis:7.4-alpine
+    image: redis:8-alpine
     hostname: cache
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     networks:
