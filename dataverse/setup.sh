@@ -16,12 +16,12 @@ ADMIN_PASSWORD=$(cat "/run/secrets/password")
 API_KEY=$(cat "/run/secrets/api/key")
 
 # admin user (and as superuser)
-api PUT 'admin/settings/BuiltinUsers.KEY' -d "temporary-password"
+api PUT 'admin/settings/:BuiltinUsersKey' -d "temporary-password"
 datafile "builtin-users?password=${ADMIN_PASSWORD}&key=temporary-password" "$(data_file user-admin.json)"
 adminKey="$(echo "${REPLY}" | jq .data.apiToken | tr -d \")"
 echo $adminKey > /run/secrets/api/adminkey
 api POST "admin/superuser/$(jq -r '.userName' $(data_file user-admin.json))"
-api DELETE 'admin/settings/BuiltinUsers.KEY'
+api DELETE 'admin/settings/:BuiltinUsersKey'
 api PUT 'admin/settings/:BlockedApiKey' -d "${API_KEY}"
 api PUT 'admin/settings/:BlockedApiPolicy' -d 'unblock-key'
 api PUT 'admin/settings/:BlockedApiEndpoints' -d 'admin,builtin-users'

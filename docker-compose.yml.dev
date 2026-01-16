@@ -5,8 +5,7 @@ services:
     build:
       dockerfile: ./dataverse/Dockerfile.dev
       args:
-        - BASE_VERSION=${BASE_VERSION:-6.8-noble}
-        - PAYARA_TAG=${PAYARA_TAG:-6.2025.9-jdk17}
+        - BASE_VERSION=${BASE_VERSION:-6.9-noble}
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
     environment:
