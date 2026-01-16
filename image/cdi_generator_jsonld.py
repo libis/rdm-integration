@@ -671,7 +671,7 @@ def build_jsonld_graph(
                 "@id": var_id,
                 "@type": ["InstanceVariable", "RepresentedVariable"],
                 "name": label or col_name,
-                "takesSubstantiveValuesFrom": domain_id
+                "takesSubstantiveValuesFrom_SubstantiveValueDomain": domain_id
             }
             if label and label != col_name:
                 var_node["definition"] = f"Column: {col_name}"
@@ -681,21 +681,21 @@ def build_jsonld_graph(
             graph.append({
                 "@id": component_id,
                 "@type": component_type,
-                "isDefinedBy": var_id
+                "isDefinedBy_RepresentedVariable": var_id
             })
             
             # Create ValueMapping
             graph.append({
                 "@id": mapping_id,
                 "@type": "ValueMapping",
-                "formats": var_id
+                "defaultValue": ""
             })
             
             # Create ValueMappingPosition
             graph.append({
                 "@id": mapping_pos_id,
                 "@type": "ValueMappingPosition",
-                "indexes": mapping_id
+                "indexes_ValueMapping": mapping_id
             })
     
     # Create WideDataSet (root)
@@ -717,7 +717,7 @@ def build_jsonld_graph(
     graph.append({
         "@id": structure_id,
         "@type": "WideDataStructure",
-        "has": all_component_ids
+        "has_DataStructureComponent": all_component_ids
     })
     
     # Create LogicalRecord
@@ -725,7 +725,7 @@ def build_jsonld_graph(
         "@id": logical_record_id,
         "@type": "LogicalRecord",
         "organizes": dataset_id,
-        "has": all_variable_ids
+        "has_InstanceVariable": all_variable_ids
     })
     
     # Create PrimaryKey if we have identifier components
@@ -754,10 +754,10 @@ def build_jsonld_graph(
         "@id": physical_layout_id,
         "@type": "PhysicalSegmentLayout",
         "formats": logical_record_id,
-        "isDelimited": "true",
-        "hasHeader": "true",
-        "headerRowCount": "1",
-        "has": all_value_mappings
+        "isDelimited": True,
+        "hasHeader": True,
+        "headerRowCount": 1,
+        "has_ValueMapping": all_value_mappings
     }
     
     # Add delimiter info from first file
