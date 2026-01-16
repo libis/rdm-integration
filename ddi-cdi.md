@@ -28,7 +28,7 @@
   - [Accessing the Generator](#accessing-the-ddi-cdi-generator)
   - [Step-by-Step Workflow](#step-by-step-workflow)
   - [Understanding the Results](#understanding-the-results)
-  - [The Interactive Form (SHACL Form)](#the-interactive-form-shacl-form)
+  - [The Interactive Viewer (CDI Viewer)](#the-interactive-viewer-cdi-viewer)
   - [Console Output](#console-output)
   - [Caching and Performance](#caching-and-performance)
   - [Common Scenarios and Tips](#common-scenarios-and-tips)
@@ -36,8 +36,7 @@
 ### 🛠️ Technical Reference
 - [Technical Details](#technical-details)
   - [Architecture](#architecture)
-  - [The cdi_generator.py Script](#the-cdi_generatorpy-script)
-  - [SHACL Shapes Hosting](#shacl-shapes-hosting)
+  - [The cdi_generator_jsonld.py Script](#the-cdi_generator_jsonldpy-script)
   - [Testing](#testing)
 - [Performance and Scalability](#performance-and-scalability)
 - [Limitations and Future Enhancements](#limitations-and-future-enhancements)
@@ -46,7 +45,7 @@
 ### 📖 Additional Resources
 - [Getting Help and Contributing](#getting-help-and-contributing)
 - [Credits and Acknowledgments](#credits-and-acknowledgments)
-- [Appendix: cdi_generator.py Deep Dive](#appendix-cdi_generatorpy-deep-dive)
+- [Appendix: cdi_generator_jsonld.py Deep Dive](#appendix-cdi_generator_jsonldpy-deep-dive)
 
 ---
 
@@ -88,8 +87,8 @@ When you have tabular data files (CSV, TSV, or statistical format files like SPS
 1. **Analyzes your data files** automatically, examining the structure and content
 2. **Infers metadata** about each column (variable type, role, statistics)
 3. **Enriches descriptions** using any existing DDI metadata from Dataverse
-4. **Generates standardized metadata** in RDF/Turtle format following DDI-CDI specifications
-5. **Presents results** through an interactive form interface for review and validation
+4. **Generates standardized metadata** in JSON-LD format following DDI-CDI 1.0 specifications
+5. **Presents results** through an interactive viewer interface (cdi-viewer) for review and editing
 
 All of this happens in the background, requiring minimal effort from you as a researcher.
 
@@ -167,24 +166,25 @@ This multi-source approach ensures the richest possible documentation, leveragin
 
 ### Step 5: CDI Generation
 
-The Go backend now assembles a manifest (JSON) that captures dataset context alongside every selected file (physical paths, discovered metadata, ingest/xconvert fragments, and processing options). It then invokes [`cdi_generator.py`](image/cdi_generator.py) once via `--manifest <manifest-path>`, letting the Python layer iterate through each entry, emit DDI-CDI output, and surface any warnings back to the job log. Legacy single-file invocations still work for ad-hoc CLI use, but the automated job defaults to manifest mode for consistency and performance.
+The Go backend now assembles a manifest (JSON) that captures dataset context alongside every selected file (physical paths, discovered metadata, ingest/xconvert fragments, and processing options). It then invokes [`cdi_generator_jsonld.py`](image/cdi_generator_jsonld.py) once via `--manifest <manifest-path>`, letting the Python layer iterate through each entry, emit DDI-CDI output, and surface any warnings back to the job log. Legacy single-file invocations still work for ad-hoc CLI use, but the automated job defaults to manifest mode for consistency and performance.
 
 Within this manifest-driven run, the generator:
 
-- Constructs a DDI-CDI compliant RDF graph
-- Describes the dataset structure (physical and logical representations)
-- Documents each variable with its properties and relationships
+- Constructs a DDI-CDI 1.0 compliant JSON-LD document
+- Uses the official DDI-CDI context: `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld`
+- Describes the dataset structure using WideDataSet, WideDataStructure, and related types
+- Documents each variable with InstanceVariable, RepresentedVariable, and component types
 - Records provenance information (processing timestamp, tools used)
 - Writes optional per-run summary JSON when `--summary` is enabled (used by the backend to capture profiling metadata)
-- Outputs the result in RDF Turtle format (a human-readable semantic format)
+- Outputs the result in JSON-LD format with MIME type `application/ld+json`
 
 ### Step 6: Presentation
 
 The generated metadata is:
 
 - Cached for quick retrieval
-- Displayed in an interactive SHACL form (provided by ULB Darmstadt)
-- Validated against DDI-CDI shapes and constraints
+- Displayed in the interactive **cdi-viewer** (embedded via iframe)
+- Validated against official DDI-CDI SHACL shapes from ddi-cdi.github.io
 - Made available for download or further processing
 
 ---
@@ -338,8 +338,8 @@ If DDI-CDI metadata was previously generated for this dataset:
 
 - The system **automatically loads** the cached output when you select the dataset
 - A success notification displays: "Loaded previously generated DDI-CDI metadata (timestamp)"
-- The **SHACL form** shows the previously generated metadata for review and editing
-- Use the **"Refresh"** button (appears when cached output is loaded) to reload from cache
+- The **cdi-viewer** shows the previously generated metadata for review and editing
+- Use the **"Reload viewer"** button to reload from cache
 
 #### 3. Generate DDI-CDI Metadata
 
@@ -369,19 +369,19 @@ After starting generation:
 
 When generation completes (either by waiting or returning later):
 
-- The **SHACL form** appears on the right side of the interface
-- The form displays your DDI-CDI metadata in an **interactive, editable format**
+- The **cdi-viewer** appears on the right side of the interface (embedded iframe)
+- The viewer displays your DDI-CDI metadata in an **interactive, editable format**
 - Console output shows on the left (or can be hidden)
 - A success notification confirms: "DDI-CDI generated successfully!"
 
 #### 7. Edit Metadata (Optional)
 
-Using the SHACL form:
+Using the cdi-viewer:
 
-- **Review** the automatically generated metadata
-- **Edit** any fields to add or correct information
-- **Validate** changes (the form validates against DDI-CDI shapes)
-- Changes are captured in the form but not yet saved to Dataverse
+- **Review** the automatically generated metadata in a hierarchical tree view
+- **Edit** any fields to add or correct information (click "Enable Editing" button)
+- **Validate** changes (the viewer validates against official DDI-CDI SHACL shapes)
+- Changes are captured in the viewer but not yet saved to Dataverse
 
 #### 8. Add File to Dataset
 
@@ -389,7 +389,7 @@ To save the generated (or edited) metadata back to Dataverse:
 
 - Click the **"Add to Dataset"** button (appears after successful generation)
 - A confirmation dialog appears:
-  - Shows the filename that will be created: **`ddi-cdi-[timestamp].ttl`**
+  - Shows the filename that will be created: **`ddi-cdi-[timestamp].jsonld`**
   - Explains the file will be added to your dataset
 - Click **"Add File"** to confirm
 - A success notification confirms the file was added to your dataset
@@ -404,13 +404,13 @@ To save the generated (or edited) metadata back to Dataverse:
 
 At any time after generation:
 
-- Click **"Refresh"** to reload the last cached output from Redis
-- This discards any unsaved edits in the SHACL form
+- Click **"Reload viewer"** to reload the last cached output from Redis
+- This discards any unsaved edits in the cdi-viewer
 - Useful if you want to start over with the original generated metadata
 
 ### Understanding the Results
 
-The generated DDI-CDI metadata is presented in **RDF/Turtle format** and includes:
+The generated DDI-CDI metadata is presented in **JSON-LD format** (following DDI-CDI 1.0) and includes:
 
 #### Dataset-Level Information
 - **Dataset title** and persistent identifier (DOI)
@@ -445,32 +445,32 @@ The system enriches the output by combining:
 - **DDI Codebook metadata** from ingested files (via `/metadata/ddi` API)
 - **xconvert metadata** from statistical syntax files
 
-### The Interactive Form (SHACL Form)
+### The Interactive Viewer (CDI Viewer)
 
-The interface uses the **SHACL form** web component (credit: ULB Darmstadt, [https://github.com/ULB-Darmstadt/shacl-form](https://github.com/ULB-Darmstadt/shacl-form)) which provides:
+The interface uses the **cdi-viewer** application (developed at KU Leuven, [https://github.com/libis/cdi-viewer](https://github.com/libis/cdi-viewer)) embedded via iframe, which provides:
 
 #### Visual Interface Features
-- **Structured display** of your DDI-CDI metadata hierarchy
-- **Collapsible sections** for dataset, files, and variables
-- **Form controls** for editing values:
-  - Text fields for labels and descriptions
-  - Dropdowns for controlled vocabularies
-  - Date pickers for temporal information
+- **Hierarchical tree display** of your DDI-CDI metadata
+- **Collapsible sections** for dataset, data structures, and variables
+- **Search functionality** to find specific elements
+- **Color-coded validation** indicators
 
 #### Real-Time Validation
-- **Shape validation** against DDI-CDI constraints
+- **SHACL shape validation** against official DDI-CDI shapes from ddi-cdi.github.io
 - **Visual indicators** for validation errors or warnings
-- **Inline help** text explaining expected values
+- **Inline property suggestions** based on DDI-CDI schema
 
 #### Editing Capabilities
-- **Direct editing** of generated metadata
-- **Add or remove** properties and values
-- **Changes tracked** in the form state
+- **Toggle edit mode** with the "Enable Editing" button
+- **Direct editing** of generated metadata values
+- **Add or remove** properties and nodes
+- **Changes tracked** and highlighted in the interface
 - All edits are captured when you click "Add to Dataset"
 
 #### Export and Save
-- **Turtle format** (default): Human-readable RDF serialization
-- **Save to Dataverse**: Click "Add to Dataset" to upload as `.ttl` file
+- **JSON-LD format**: Standard linked data serialization with DDI-CDI 1.0 context
+- **Export button**: Download the current metadata as a `.jsonld` file
+- **Save to Dataverse**: Click "Add to Dataset" to upload as `.jsonld` file
 - The saved file can be downloaded, versioned, and shared with your dataset
 
 ### Console Output
@@ -479,7 +479,7 @@ While generation is running or after completion, the **console output area** (le
 
 - Processing status messages
 - File analysis progress
-- Python script output from `cdi_generator.py`
+- Python script output from `cdi_generator_jsonld.py`
 - Any warnings or non-fatal errors
 - Completion confirmation
 
@@ -550,10 +550,10 @@ The DDI-CDI feature includes intelligent caching to improve user experience:
 - This replaces the cached output with new results
 
 #### Scenario 4: Need to Start Over with Edits
-**Problem**: You've made edits in the SHACL form but want to discard them.
+**Problem**: You've made edits in the cdi-viewer but want to discard them.
 
 **Solution**:
-- Click the **"Refresh"** button
+- Click the **"Reload viewer"** button
 - This reloads the cached output, discarding unsaved changes
 - You're back to the last generated version
 
@@ -579,7 +579,7 @@ The DDI-CDI feature includes intelligent caching to improve user experience:
 **Problem**: The generated metadata has incorrect or missing information.
 
 **Solution**:
-- Use the SHACL form to **edit** the metadata directly
+- Use the cdi-viewer to **edit** the metadata directly (click "Enable Editing")
 - Add missing fields or correct errors
 - Click "Add to Dataset" to save your corrections
 - Consider improving source metadata in Dataverse for better future results
@@ -595,16 +595,18 @@ The DDI-CDI feature includes intelligent caching to improve user experience:
 The feature uses a hybrid architecture:
 
 - **Go backend**: Handles job orchestration, authentication, file system access, and caching
-- **Python script**: Performs data profiling and RDF generation
+- **Python script**: Performs data profiling and JSON-LD generation (`cdi_generator_jsonld.py`)
 - **Redis queue**: Manages background job processing
-- **SHACL form**: Provides interactive metadata presentation
+- **cdi-viewer**: Provides interactive metadata viewing and editing (embedded via iframe)
 
-### The cdi_generator.py Script
+### The cdi_generator_jsonld.py Script
 
-The core metadata generation is performed by [`cdi_generator.py`](image/cdi_generator.py), a Python script designed with contributions in mind:
+The core metadata generation is performed by [`cdi_generator_jsonld.py`](image/cdi_generator_jsonld.py), a Python script designed with contributions in mind:
 
 - **Clean, documented code** with clear function boundaries
 - **Standard Python libraries** (rdflib, chardet, datasketch, python-dateutil)
+- **JSON-LD output** following DDI-CDI 1.0 specification
+- **Official DDI-CDI context** from `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld`
 - **Streaming architecture** for memory efficiency
 - **Modular design** making it easy to add features or fix issues
 
@@ -616,16 +618,7 @@ The core metadata generation is performed by [`cdi_generator.py`](image/cdi_gene
 - Add new metadata enrichments
 - Fix bugs or improve performance
 
-View the script here: [image/cdi_generator.py](image/cdi_generator.py)
-
-### SHACL Shapes Hosting
-
-The SHACL form renderer now loads its shape definitions from the backend. The default template lives in [`image/app/frontend/default_shacl_shapes.ttl`](image/app/frontend/default_shacl_shapes.ttl) and is exposed via the `GET /api/frontend/shacl` endpoint (see [`image/app/frontend/shacl.go`](image/app/frontend/shacl.go)).
-
-- The template is delivered as Turtle; the Angular component performs a simple string substitution for the placeholder `__TARGET_NODE__`, replacing it with the dataset node discovered in the generated CDI graph.
-- Deployments can override the embedded template by setting the `FRONTEND_SHACL_FILE` environment variable to point to an alternative Turtle file at startup.
-- Keep the `__TARGET_NODE__` marker in any custom template so the frontend can continue to bind the active dataset node; the remainder of the file is free-form SHACL and can include additional shapes or constraints.
-- When contributing improvements, update the embedded template file and, if needed, extend the documentation here so downstream deployers know which shapes are new.
+View the script here: [image/cdi_generator_jsonld.py](image/cdi_generator_jsonld.py)
 
 ### Testing
 
@@ -668,9 +661,9 @@ The test suite includes dozens of tests covering:
    - Title and description handling
 
 3. **RDF Generation Tests**:
-   - Valid Turtle syntax generation
+   - Valid JSON-LD syntax generation
    - Required CDI properties presence
-   - Namespace declarations
+   - Correct DDI-CDI 1.0 context reference
    - Variable and dataset linking
 
 4. **xconvert Integration Tests** (12 tests):
@@ -756,7 +749,9 @@ Future versions may include:
 
 This feature implements the DDI-CDI 1.0 specification:
 
-- **Namespace**: `http://www.ddialliance.org/Specification/DDI-CDI/1.0/RDF/`
+- **Namespace**: `http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/`
+- **JSON-LD Context**: `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld`
+- **SHACL Shapes**: `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/shacl/ddi-cdi.shacl.ttl`
 - **Documentation**: [https://ddialliance.org/Specification/DDI-CDI/](https://ddialliance.org/Specification/DDI-CDI/)
 
 ### DDI Codebook 2.x
@@ -773,10 +768,11 @@ For statistical file metadata, the feature uses:
 
 Generated metadata follows:
 
+- **JSON-LD**: JavaScript Object Notation for Linked Data
 - **RDF**: Resource Description Framework for linked data
-- **Turtle syntax**: Human-readable RDF serialization
 - **PROV**: W3C provenance vocabulary for processing history
 - **DCTERMS**: Dublin Core terms for dataset descriptions
+- **SKOS**: Simple Knowledge Organization System for labels and concepts
 
 ---
 
@@ -803,7 +799,7 @@ If you encounter problems:
 
 We welcome contributions, especially to the Python metadata generation:
 
-- **Python developers**: Enhance cdi_generator.py with new features
+- **Python developers**: Enhance cdi_generator_jsonld.py with new features
 - **Data scientists**: Improve statistical profiling algorithms
 - **Metadata experts**: Refine DDI-CDI mappings and enrichments
 - **Testers**: Add test cases for edge cases and new formats
@@ -818,8 +814,8 @@ The Python codebase is designed to be accessible - basic Python knowledge is suf
 
 This feature integrates several open-source tools and standards:
 
+- **cdi-viewer**: Interactive DDI-CDI viewer and editor from KU Leuven ([https://github.com/libis/cdi-viewer](https://github.com/libis/cdi-viewer))
 - **xconvert**: Statistical file converter from UC Berkeley SDA project ([https://sda.berkeley.edu/ddi/tools/xconvert.html](https://sda.berkeley.edu/ddi/tools/xconvert.html))
-- **SHACL Form**: Interactive RDF form library from ULB Darmstadt ([https://github.com/ULB-Darmstadt/shacl-form](https://github.com/ULB-Darmstadt/shacl-form))
 - **DDI Alliance**: International standards body for data documentation
 - **Dataverse Project**: Open-source research data repository software
 
@@ -835,16 +831,17 @@ Python libraries:
 
 ## License
 
-## Appendix: cdi_generator.py deep dive
+## Appendix: cdi_generator_jsonld.py deep dive
 
 **Navigation**: [↑ Table of Contents](#table-of-contents) | [← Credits & Acknowledgments](#credits-and-acknowledgments) | [↑ Back to Top](#ddi-cdi-metadata-generation)
 
-This appendix gives a technical, implementation-oriented overview of the Python generator referenced throughout this document: `image/cdi_generator.py`.
+This appendix gives a technical, implementation-oriented overview of the Python generator referenced throughout this document: `image/cdi_generator_jsonld.py`.
 
 ### What it is
 
-- A streaming CSV/TSV profiler and DDI‑CDI 1.0 RDF generator.
-- Reads one or many tabular files, infers per‑column datatype and role, optionally enriches with Dataverse metadata and DDI fragments, and emits a compact CDI graph as Turtle.
+- A streaming CSV/TSV profiler and DDI‑CDI 1.0 JSON-LD generator.
+- Reads one or many tabular files, infers per‑column datatype and role, optionally enriches with Dataverse metadata and DDI fragments, and emits a DDI-CDI compliant JSON-LD document.
+- Uses the official DDI-CDI 1.0 context from ddi-cdi.github.io.
 - Scales to large files by streaming rows (no full‑file loads).
 
 ### Inputs and outputs
@@ -856,26 +853,28 @@ This appendix gives a technical, implementation-oriented overview of the Python 
   - Dataverse dataset JSON: title, description, creators (+ORCID), subjects, license, issued date, publisher, per‑file URIs.
   - DDI XML fragment (from Dataverse ingest or xconvert): variable labels, categories, summary statistics; stored as rdf:XMLLiteral when well‑formed.
 - Outputs
-  - Turtle RDF (.ttl) with DataSet, PhysicalDataSet(s), LogicalDataSet(s), Variable(s), and a provenance ProcessStep.
+  - JSON-LD file (.jsonld) with DDI-CDI 1.0 context, containing WideDataSet, WideDataStructure, Variables, and provenance.
   - Optional JSON summary with per‑column profiling (approx distinct counts, datatype, role).
 
 ### High‑level flow
 
 1. Parse CLI, configure logging.
 2. Manifest mode
-   - Create a single DataSet node and add dataset‑level info from Dataverse JSON when available.
-   - Iterate files: profile CSV, optionally obtain DDI (native or via xconvert), then add PhysicalDataSet + LogicalDataSet + Variables.
-   - Serialize combined graph to Turtle; optionally write a summary JSON used by the job logs/UI.
+   - Create a single WideDataSet node and add dataset‑level info from Dataverse JSON when available.
+   - Iterate files: profile CSV, optionally obtain DDI (native or via xconvert), then add WideDataStructure + LogicalRecord + Variables.
+   - Serialize combined graph to JSON-LD with DDI-CDI 1.0 context; optionally write a summary JSON used by the job logs/UI.
 3. Single‑file mode
    - Similar steps for one file; Dataverse JSON can fill missing title or file URI.
 
 ### Key components
 
-- Namespaces and link predicates
-  - Uses native CDI predicates:
-    - DataSet → `cdi:hasLogicalDataSet` / `cdi:hasPhysicalDataSet`
-    - LogicalDataSet → `cdi:containsVariable`
-    - Variable → `cdi:hasRole`, `cdi:hasRepresentation`
+- DDI-CDI Types and Structure
+  - Uses official DDI-CDI 1.0 types:
+    - WideDataSet: root container for the dataset
+    - WideDataStructure: defines the structure of the tabular data
+    - LogicalRecord: represents the logical organization
+    - InstanceVariable, RepresentedVariable, SubstantiveValueDomain: variable representation
+    - IdentifierComponent, MeasureComponent, DimensionComponent, AttributeComponent: variable roles
 - ColumnStats (streaming inference)
   - Determines XSD datatype (integer, decimal, boolean, dateTime, string) and approximate distinct counts (HyperLogLog).
   - Role heuristic:
@@ -892,31 +891,34 @@ This appendix gives a technical, implementation-oriented overview of the Python 
 - Dataverse metadata extraction
   - Title, description, authors (+ORCID), subjects, license (URI/name), issued date, publisher; per‑file persistent or access URIs.
 
-### RDF emission shape
+### JSON-LD output structure
 
-- PhysicalDataSet
-  - `dcterms:format`, optional `dcterms:identifier` (file URI), `dcterms:provenance` (md5:...), and `dcterms:source` (DDI as literal/XMLLiteral).
-- LogicalDataSet
-  - Blank node: carries `dcterms:identifier` (`logical-dataset-<slug>`), `skos:prefLabel`, and `dcterms:description` derived from dataset/file context.
-  - Links to Variables via `cdi:containsVariable`.
-- Variable
-  - IRI: `<dataset>#var/<column>`; `skos:prefLabel` (+ `skos:altLabel` if DDI label differs), `dcterms:identifier`.
-  - `cdi:hasRepresentation` set to inferred XSD datatype; `cdi:hasRole` points to a Role node with `skos:prefLabel`.
-  - Optional `skos:note` with “DDI categories: …” and “DDI stats: …”.
-- ProcessStep
-  - Linked via `prov:wasGeneratedBy` with a descriptive `dcterms:description`.
+- WideDataSet
+  - Root container with `dcterms:title`, `dcterms:description`, `dcterms:creator`, `dcterms:issued`.
+  - Links to WideDataStructure via `cdi:WideDataSet_has_WideDataStructure`.
+- WideDataStructure
+  - Defines data organization with PhysicalSegmentLayout and LogicalRecord.
+  - Links to components (IdentifierComponent, MeasureComponent, etc.).
+- InstanceVariable
+  - Represents each column with `cdi:name`, `cdi:displayLabel`.
+  - Links to RepresentedVariable via `cdi:InstanceVariable_representedVariable`.
+- RepresentedVariable and SubstantiveValueDomain
+  - Captures the semantic representation and data type.
+  - `cdi:dataType` set to inferred XSD datatype URI.
+- Component Types
+  - IdentifierComponent, MeasureComponent, DimensionComponent, AttributeComponent based on role heuristic.
+- Provenance
+  - Linked via PROV vocabulary with generation timestamp and tool identification.
 
-### Noteworthy behavior: LogicalDataSet description
+### Noteworthy behavior: dataset description
 
-- If the dataset has a description, the generator composes:
-  - `{dataset_description}\n\nLogical representation of data from file: <name or URI>`
-- The embedded newline can cause multi‑line Turtle literals (triple‑quoted) when serialized.
-- If only file name/URI is available (no dataset description), the description is single‑line.
-- To force single‑line descriptions for all cases, adjust `add_file_to_dataset_graph()` to join with a space or omit the dataset description in that field.
+- If the dataset has a description from Dataverse metadata, it is included in the WideDataSet.
+- File-level information is captured in the WideDataStructure and PhysicalSegmentLayout.
+- JSON-LD naturally handles multi-line strings without special quoting.
 
 ### CLI at a glance
 
-- Manifest mode: `--manifest <path>` (preferred); writes `.ttl` and optional `--summary-json`.
+- Manifest mode: `--manifest <path>` (preferred); writes `.jsonld` and optional `--summary-json`.
 - Single‑file mode: `--csv <file> --dataset-pid <PID> --dataset-uri-base <base>`; optional `--dataset-metadata-file` and `--ddi-file`.
 - Useful flags: `--skip-md5`, `--limit-rows`, `--encoding`, `--delimiter`, `--no-header`.
 

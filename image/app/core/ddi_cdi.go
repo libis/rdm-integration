@@ -120,14 +120,14 @@ func DdiCdiGen(job Job) (Job, error) {
 						defer os.Remove(outputPath)
 
 						args := []string{
-							"/usr/local/bin/cdi_generator.py",
+							"/usr/local/bin/cdi_generator_jsonld.py",
 							"--manifest", manifestPath,
 							"--output", outputPath,
 							"--skip-md5",
 							"--quiet",
 						}
 
-						appendDebug(fmt.Sprintf("Executing Python CDI generator: python3 %v", args))
+						appendDebug(fmt.Sprintf("Executing Python DDI-CDI JSON-LD generator: python3 %v", args))
 						cmd := exec.CommandContext(ctx, "python3", args...)
 						cmd.Dir = workspaceDir
 						startTime := time.Now()

@@ -54,7 +54,7 @@ func Start() {
 
 	// frontend config
 	srvMux.HandleFunc("/api/frontend/config", frontend.GetConfig)
-	srvMux.HandleFunc("/api/frontend/shacl", frontend.GetShaclShapes)
+	// Note: SHACL shapes endpoint removed - using cdi-viewer with official DDI-CDI shapes
 
 	// quit
 	if config.AllowQuit {

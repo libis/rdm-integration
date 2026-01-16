@@ -113,8 +113,8 @@ echo -e "${GREEN}✓${NC} Python environment ready"
 echo ""
 
 # Run Python tests
-echo -e "${YELLOW}Running Python tests for cdi_generator.py...${NC}"
-if python3 test_csv_to_cdi.py; then
+echo -e "${YELLOW}Running Python tests for cdi_generator_jsonld.py...${NC}"
+if python3 test_cdi_generator_jsonld.py; then
     echo -e "${GREEN}✓${NC} Python tests passed"
 else
     echo -e "${RED}✗${NC} Python tests failed"
@@ -122,28 +122,28 @@ else
 fi
 echo ""
 
-# Test cdi_generator.py with sample data
-echo -e "${YELLOW}Testing cdi_generator.py with sample data...${NC}"
-if python3 cdi_generator.py \
+# Test cdi_generator_jsonld.py with sample data
+echo -e "${YELLOW}Testing cdi_generator_jsonld.py with sample data...${NC}"
+if python3 cdi_generator_jsonld.py \
     --csv testdata/sample.csv \
     --dataset-pid "doi:10.123/TEST" \
     --dataset-uri-base "https://example.org/dataset" \
-    --output testdata/output_sample.ttl \
+    --output testdata/output_sample.jsonld \
     --skip-md5 \
     --quiet; then
-    echo -e "${GREEN}✓${NC} cdi_generator.py execution successful"
+    echo -e "${GREEN}✓${NC} cdi_generator_jsonld.py execution successful"
     
     # Verify output file was created
-    if [ -f "testdata/output_sample.ttl" ]; then
+    if [ -f "testdata/output_sample.jsonld" ]; then
         echo -e "${GREEN}✓${NC} Output file created"
         
-        # Check if output contains expected RDF elements
-        if grep -q "@prefix cdi:" testdata/output_sample.ttl && \
-           grep -q "cdi:DataSet" testdata/output_sample.ttl && \
-           grep -q "cdi:Variable" testdata/output_sample.ttl; then
-            echo -e "${GREEN}✓${NC} Output contains valid CDI RDF"
+        # Check if output contains expected JSON-LD elements
+        if grep -q "@context" testdata/output_sample.jsonld && \
+           grep -q "@graph" testdata/output_sample.jsonld && \
+           grep -q "WideDataSet" testdata/output_sample.jsonld; then
+            echo -e "${GREEN}✓${NC} Output contains valid DDI-CDI JSON-LD"
         else
-            echo -e "${RED}✗${NC} Output missing expected RDF elements"
+            echo -e "${RED}✗${NC} Output missing expected JSON-LD elements"
             FAILURES=$((FAILURES + 1))
         fi
     else
@@ -151,56 +151,56 @@ if python3 cdi_generator.py \
         FAILURES=$((FAILURES + 1))
     fi
 else
-    echo -e "${RED}✗${NC} cdi_generator.py execution failed"
+    echo -e "${RED}✗${NC} cdi_generator_jsonld.py execution failed"
     FAILURES=$((FAILURES + 1))
 fi
 echo ""
 
 # Test with DDI metadata
-echo -e "${YELLOW}Testing cdi_generator.py with DDI metadata...${NC}"
-if python3 cdi_generator.py \
+echo -e "${YELLOW}Testing cdi_generator_jsonld.py with DDI metadata...${NC}"
+if python3 cdi_generator_jsonld.py \
     --csv testdata/sample.csv \
     --dataset-pid "doi:10.123/TEST-DDI" \
     --dataset-uri-base "https://example.org/dataset" \
     --ddi-file testdata/sample_ddi.xml \
-    --output testdata/output_with_ddi.ttl \
+    --output testdata/output_with_ddi.jsonld \
     --skip-md5 \
     --quiet; then
-    echo -e "${GREEN}✓${NC} cdi_generator.py with DDI successful"
+    echo -e "${GREEN}✓${NC} cdi_generator_jsonld.py with DDI successful"
     
-    # Check if DDI metadata is included
-    if grep -q "DDI categories:" testdata/output_with_ddi.ttl || \
-       grep -q "DDI stats:" testdata/output_with_ddi.ttl; then
-        echo -e "${GREEN}✓${NC} DDI metadata included in output"
+    # Check if output is valid JSON-LD
+    if python3 -c "import json; json.load(open('testdata/output_with_ddi.jsonld'))"; then
+        echo -e "${GREEN}✓${NC} Output is valid JSON"
     else
-        echo -e "${YELLOW}⚠${NC} No DDI metadata found in output (may be expected)"
+        echo -e "${RED}✗${NC} Output is not valid JSON"
+        FAILURES=$((FAILURES + 1))
     fi
 else
-    echo -e "${RED}✗${NC} cdi_generator.py with DDI failed"
+    echo -e "${RED}✗${NC} cdi_generator_jsonld.py with DDI failed"
     FAILURES=$((FAILURES + 1))
 fi
 echo ""
 
 # Test with dataset metadata
-echo -e "${YELLOW}Testing cdi_generator.py with dataset metadata...${NC}"
-if python3 cdi_generator.py \
+echo -e "${YELLOW}Testing cdi_generator_jsonld.py with dataset metadata...${NC}"
+if python3 cdi_generator_jsonld.py \
     --csv testdata/sample.csv \
     --dataset-pid "doi:10.123/TEST-META" \
     --dataset-uri-base "https://example.org/dataset" \
     --dataset-metadata-file testdata/dataset_metadata.json \
-    --output testdata/output_with_metadata.ttl \
+    --output testdata/output_with_metadata.jsonld \
     --skip-md5 \
     --quiet; then
-    echo -e "${GREEN}✓${NC} cdi_generator.py with metadata successful"
+    echo -e "${GREEN}✓${NC} cdi_generator_jsonld.py with metadata successful"
     
     # Check if dataset title is included
-    if grep -q "Test Dataset for DDI-CDI" testdata/output_with_metadata.ttl; then
+    if grep -q "Test Dataset for DDI-CDI" testdata/output_with_metadata.jsonld; then
         echo -e "${GREEN}✓${NC} Dataset title included from metadata"
     else
         echo -e "${YELLOW}⚠${NC} Dataset title not found (may use default)"
     fi
 else
-    echo -e "${RED}✗${NC} cdi_generator.py with metadata failed"
+    echo -e "${RED}✗${NC} cdi_generator_jsonld.py with metadata failed"
     FAILURES=$((FAILURES + 1))
 fi
 echo ""
