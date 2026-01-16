@@ -627,6 +627,7 @@ def build_jsonld_graph(
     all_component_ids: List[str] = []
     all_variable_ids: List[str] = []
     all_value_mappings: List[str] = []
+    all_value_mapping_positions: List[str] = []
     primary_key_components: List[str] = []
     
     # Process all variables from all files
@@ -645,7 +646,8 @@ def build_jsonld_graph(
             
             all_variable_ids.append(var_id)
             all_component_ids.append(component_id)
-            all_value_mappings.extend([mapping_id, mapping_pos_id])
+            all_value_mappings.append(mapping_id)
+            all_value_mapping_positions.append(mapping_pos_id)
             
             # Get DDI metadata if available
             ddi_info = ddi_variables.get(col_name, {}) if isinstance(ddi_variables, dict) else {}
@@ -695,7 +697,7 @@ def build_jsonld_graph(
             graph.append({
                 "@id": mapping_pos_id,
                 "@type": "ValueMappingPosition",
-                "indexes_ValueMapping": mapping_id
+                "indexes": mapping_id
             })
     
     # Create WideDataSet (root)
@@ -757,7 +759,8 @@ def build_jsonld_graph(
         "isDelimited": True,
         "hasHeader": True,
         "headerRowCount": 1,
-        "has_ValueMapping": all_value_mappings
+        "has_ValueMapping": all_value_mappings,
+        "has_ValueMappingPosition": all_value_mapping_positions
     }
     
     # Add delimiter info from first file

@@ -481,6 +481,65 @@ class TestJSONLDGeneration(unittest.TestCase):
         var_node = var_nodes[0]
         self.assertEqual(var_node.get("name"), "Age in Years")
 
+    def test_jsonld_property_names_for_shacl_compliance(self):
+        """Test JSON-LD uses correct property names for DDI-CDI 1.0 context.
+        
+        This ensures generated JSON-LD passes SHACL validation:
+        - ValueMappingPosition uses "indexes" not "indexes_ValueMapping"
+        - PhysicalSegmentLayout has separate has_ValueMapping and has_ValueMappingPosition
+        """
+        stats1 = cdi_gen.ColumnStats("id")
+        stats1.update("1")
+        stats1.update("2")
+        
+        stats2 = cdi_gen.ColumnStats("name")
+        stats2.update("Alice")
+        stats2.update("Bob")
+
+        files_data = [{
+            "file_name": "test.csv",
+            "columns": ["id", "name"],
+            "stats": [stats1, stats2],
+            "ddi_variables": {},
+        }]
+
+        jsonld_doc = cdi_gen.build_jsonld_graph(
+            dataset_title="Test Dataset",
+            dataset_description="A test description",
+            files_data=files_data,
+            dataset_pid="doi:10.123/456",
+        )
+
+        graph = jsonld_doc["@graph"]
+        
+        # Find PhysicalSegmentLayout
+        psl_nodes = [n for n in graph if n.get("@type") == "PhysicalSegmentLayout"]
+        self.assertEqual(len(psl_nodes), 1)
+        psl = psl_nodes[0]
+        
+        # PhysicalSegmentLayout must have separate properties
+        self.assertIn("has_ValueMapping", psl,
+            "PhysicalSegmentLayout must have has_ValueMapping")
+        self.assertIn("has_ValueMappingPosition", psl,
+            "PhysicalSegmentLayout must have has_ValueMappingPosition")
+        
+        # Verify they're lists with the right number of items
+        self.assertIsInstance(psl["has_ValueMapping"], list)
+        self.assertIsInstance(psl["has_ValueMappingPosition"], list)
+        self.assertEqual(len(psl["has_ValueMapping"]), 2)  # 2 columns
+        self.assertEqual(len(psl["has_ValueMappingPosition"]), 2)
+        
+        # Find ValueMappingPosition nodes
+        vmp_nodes = [n for n in graph if n.get("@type") == "ValueMappingPosition"]
+        self.assertEqual(len(vmp_nodes), 2)  # 2 columns
+        
+        for vmp in vmp_nodes:
+            # Must use "indexes" not "indexes_ValueMapping"
+            self.assertIn("indexes", vmp,
+                "ValueMappingPosition must use 'indexes' property")
+            self.assertNotIn("indexes_ValueMapping", vmp,
+                "ValueMappingPosition should NOT use 'indexes_ValueMapping'")
+
 
 class TestUtilityFunctions(unittest.TestCase):
     """Test utility functions"""
