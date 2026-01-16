@@ -14,7 +14,7 @@ RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
 # Install packages with better caching
 WORKDIR /app/rdm-integration-frontend-${FRONTEND_VERSION}
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --progress=false
+    npm install --prefer-offline --no-audit --progress=false
 
 # Build
 ARG NODE_ENV=production
@@ -57,7 +57,7 @@ COPY ./image/USERTrust_RSA_Certification_Authority.pem /usr/local/share/ca-certi
 RUN update-ca-certificates
 
 RUN python3 -m pip install --no-cache-dir --break-system-packages --upgrade pip && \
-    python3 -m pip install --no-cache-dir --break-system-packages rdflib==7.0.0 chardet==5.2.0 datasketch==1.5.9 python-dateutil==2.9.0.post0
+    python3 -m pip install --no-cache-dir --break-system-packages rdflib==7.5.0 chardet==5.2.0 datasketch==1.8.0 python-dateutil==2.9.0.post0
 
 ARG USER_ID
 ARG GROUP_ID

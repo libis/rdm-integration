@@ -46,7 +46,7 @@ services:
       - keycloak
 
   cache:
-    image: redis:7.0-alpine
+    image: redis:7.4-alpine
     hostname: cache
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     networks:
@@ -175,7 +175,7 @@ services:
     container_name: "solr"
     hostname: "solr"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: solr:9.8.0
+    image: solr:9.10.0
     command:
       - "solr-precreate"
       - "collection1"
@@ -191,7 +191,7 @@ services:
     container_name: "smtp"
     hostname: "smtp"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: maildev/maildev:2.0.5
+    image: maildev/maildev:2.2.1
     restart: unless-stopped
     ports:
       - "1080:1080" # web ui
@@ -206,7 +206,7 @@ services:
 
   keycloak:
     container_name: "keycloak"
-    image: 'quay.io/keycloak/keycloak:26.1.4'
+    image: 'quay.io/keycloak/keycloak:26.5.1'
     hostname: keycloak
     restart: unless-stopped
     environment:
@@ -228,7 +228,7 @@ services:
     container_name: "localstack"
     hostname: "localstack"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: localstack/localstack:3.8.1
+    image: localstack/localstack:4.12.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:4566:4566"
