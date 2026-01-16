@@ -19,9 +19,9 @@ ARG GROUP_ID
 RUN addgroup --gid ${GROUP_ID} app \
  && adduser --disabled-password --uid ${USER_ID} --ingroup app --gecos '' app
 
-COPY ./image/cdi_generator.py /usr/local/bin/cdi_generator.py
+COPY ./image/cdi_generator_jsonld.py /usr/local/bin/cdi_generator_jsonld.py
 COPY ./xconvert /usr/local/bin/xconvert
-RUN chmod +x /usr/local/bin/cdi_generator.py /usr/local/bin/xconvert
+RUN chmod +x /usr/local/bin/cdi_generator_jsonld.py /usr/local/bin/xconvert
 
 ENV GOPATH=/home/app/go
 ENV GO111MODULE=on

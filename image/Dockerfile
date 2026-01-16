@@ -74,9 +74,9 @@ RUN if ! getent group ${GROUP_ID} >/dev/null; then \
 
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 
-COPY ./image/cdi_generator.py /usr/local/bin/cdi_generator.py
+COPY ./image/cdi_generator_jsonld.py /usr/local/bin/cdi_generator_jsonld.py
 COPY ./xconvert /usr/local/bin/xconvert
-RUN chmod +x /usr/local/bin/cdi_generator.py /usr/local/bin/xconvert
+RUN chmod +x /usr/local/bin/cdi_generator_jsonld.py /usr/local/bin/xconvert
 
 USER app
 
