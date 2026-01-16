@@ -595,13 +595,562 @@ def extract_dataset_description(metadata: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _get_citation_fields(metadata: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """Get citation fields list from Dataverse metadata structure."""
+    dataset_version = metadata.get("datasetVersion") or metadata.get("latestVersion")
+    if not isinstance(dataset_version, dict):
+        return None
+    metadata_blocks = dataset_version.get("metadataBlocks")
+    if not isinstance(metadata_blocks, dict):
+        return None
+    citation_block = metadata_blocks.get("citation")
+    if not isinstance(citation_block, dict):
+        return None
+    fields = citation_block.get("fields")
+    return fields if isinstance(fields, list) else None
+
+
+def _extract_field_value(fields: List[Dict[str, Any]], type_name: str) -> Optional[str]:
+    """Extract a simple string value from Dataverse citation fields."""
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") != type_name:
+            continue
+        value = field.get("value")
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list) and value:
+            first = value[0]
+            if isinstance(first, str):
+                return first
+    return None
+
+
+def _extract_compound_list(
+    fields: List[Dict[str, Any]], type_name: str, sub_field: str
+) -> List[str]:
+    """Extract list of sub-field values from a compound Dataverse field."""
+    results: List[str] = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") != type_name:
+            continue
+        value = field.get("value")
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            sub_val = item.get(sub_field)
+            if isinstance(sub_val, dict):
+                sub_val = sub_val.get("value")
+            if isinstance(sub_val, str) and sub_val.strip():
+                results.append(sub_val.strip())
+    return results
+
+
+def extract_rich_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract comprehensive dataset metadata from Dataverse JSON.
+    
+    Returns a dict with keys:
+        - title: str
+        - subtitle: str (alternative title)
+        - description: str (abstract/summary)
+        - authors: List[Dict] (name, affiliation, identifier)
+        - contributors: List[Dict]
+        - publisher: str
+        - publication_date: str (ISO format)
+        - keywords: List[str]
+        - subjects: List[str]
+        - language: str
+        - license_name: str
+        - license_uri: str
+        - related_publications: List[str]
+        - grant_numbers: List[str]
+        - depositor: str
+        - date_of_deposit: str
+        - production_date: str
+        - distribution_date: str
+    """
+    result: Dict[str, Any] = {}
+    
+    fields = _get_citation_fields(metadata)
+    if not fields:
+        return result
+    
+    # Title
+    result["title"] = _extract_field_value(fields, "title")
+    
+    # Subtitle (alternative title)
+    result["subtitle"] = _extract_field_value(fields, "subtitle")
+    
+    # Alternative title
+    alt_titles = _extract_compound_list(fields, "alternativeTitle", "alternativeTitleValue")
+    if alt_titles:
+        result["alternative_title"] = alt_titles[0]
+    
+    # Authors with affiliation and identifier
+    authors: List[Dict[str, Any]] = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") != "author":
+            continue
+        value = field.get("value")
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            author: Dict[str, Any] = {}
+            name_val = item.get("authorName")
+            if isinstance(name_val, dict):
+                name_val = name_val.get("value")
+            if name_val:
+                author["name"] = name_val
+            
+            affil_val = item.get("authorAffiliation")
+            if isinstance(affil_val, dict):
+                affil_val = affil_val.get("value")
+            if affil_val:
+                author["affiliation"] = affil_val
+            
+            ident_scheme = item.get("authorIdentifierScheme")
+            if isinstance(ident_scheme, dict):
+                ident_scheme = ident_scheme.get("value")
+            ident_val = item.get("authorIdentifier")
+            if isinstance(ident_val, dict):
+                ident_val = ident_val.get("value")
+            if ident_val:
+                author["identifier"] = ident_val
+                if ident_scheme:
+                    author["identifier_scheme"] = ident_scheme
+            
+            if author:
+                authors.append(author)
+    if authors:
+        result["authors"] = authors
+    
+    # Contributors (similar structure)
+    contributors: List[Dict[str, Any]] = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") != "contributor":
+            continue
+        value = field.get("value")
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            contrib: Dict[str, Any] = {}
+            name_val = item.get("contributorName")
+            if isinstance(name_val, dict):
+                name_val = name_val.get("value")
+            if name_val:
+                contrib["name"] = name_val
+            
+            type_val = item.get("contributorType")
+            if isinstance(type_val, dict):
+                type_val = type_val.get("value")
+            if type_val:
+                contrib["type"] = type_val
+            
+            if contrib:
+                contributors.append(contrib)
+    if contributors:
+        result["contributors"] = contributors
+    
+    # Publisher
+    result["publisher"] = _extract_field_value(fields, "distributorName")
+    if not result.get("publisher"):
+        result["publisher"] = _extract_field_value(fields, "publisher")
+    
+    # Contact (as backup publisher info)
+    contacts = _extract_compound_list(fields, "datasetContact", "datasetContactName")
+    if contacts and not result.get("publisher"):
+        result["publisher"] = contacts[0]
+    
+    # Publication/Distribution date
+    result["publication_date"] = _extract_field_value(fields, "distributionDate")
+    if not result.get("publication_date"):
+        result["publication_date"] = _extract_field_value(fields, "dateOfDeposit")
+    
+    # Production date
+    result["production_date"] = _extract_field_value(fields, "productionDate")
+    
+    # Keywords
+    keywords = _extract_compound_list(fields, "keyword", "keywordValue")
+    if keywords:
+        result["keywords"] = keywords
+    
+    # Subjects
+    subjects: List[str] = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") != "subject":
+            continue
+        value = field.get("value")
+        if isinstance(value, str):
+            subjects.append(value)
+        elif isinstance(value, list):
+            for v in value:
+                if isinstance(v, str):
+                    subjects.append(v)
+    if subjects:
+        result["subjects"] = subjects
+    
+    # Language
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("typeName") != "language":
+            continue
+        value = field.get("value")
+        if isinstance(value, str):
+            result["language"] = value
+        elif isinstance(value, list) and value:
+            result["language"] = value[0] if isinstance(value[0], str) else None
+    
+    # License
+    dataset_version = metadata.get("datasetVersion") or metadata.get("latestVersion")
+    if isinstance(dataset_version, dict):
+        license_info = dataset_version.get("license")
+        if isinstance(license_info, dict):
+            result["license_name"] = license_info.get("name")
+            result["license_uri"] = license_info.get("uri")
+        terms = dataset_version.get("termsOfUse")
+        if isinstance(terms, str):
+            result["terms_of_use"] = terms
+    
+    # Related publications
+    related_pubs = _extract_compound_list(fields, "publication", "publicationCitation")
+    if related_pubs:
+        result["related_publications"] = related_pubs
+    
+    # Related materials (URLs)
+    related_urls = _extract_compound_list(fields, "publication", "publicationURL")
+    if related_urls:
+        result["related_urls"] = related_urls
+    
+    # Grant/Funding numbers
+    grants = _extract_compound_list(fields, "grantNumber", "grantNumberValue")
+    if grants:
+        result["grant_numbers"] = grants
+    
+    # Funding agencies
+    funders = _extract_compound_list(fields, "grantNumber", "grantNumberAgency")
+    if funders:
+        result["funding_agencies"] = funders
+    
+    # Depositor
+    result["depositor"] = _extract_field_value(fields, "depositor")
+    
+    # Date of deposit
+    result["date_of_deposit"] = _extract_field_value(fields, "dateOfDeposit")
+    
+    # Time period covered
+    time_period_start = _extract_compound_list(fields, "timePeriodCovered", "timePeriodCoveredStart")
+    time_period_end = _extract_compound_list(fields, "timePeriodCovered", "timePeriodCoveredEnd")
+    if time_period_start:
+        result["time_period_start"] = time_period_start[0]
+    if time_period_end:
+        result["time_period_end"] = time_period_end[0]
+    
+    # Geographic coverage
+    geo_coverage = _extract_compound_list(fields, "geographicCoverage", "country")
+    if geo_coverage:
+        result["geographic_coverage"] = geo_coverage
+    
+    return {k: v for k, v in result.items() if v}  # Remove empty values
+
+
 # ------------------------------ JSON-LD Graph Building ------------------------------
+
+def _build_catalog_details(
+    rich_metadata: Dict[str, Any],
+    dataset_pid: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build a DDI-CDI CatalogDetails node from rich metadata.
+    
+    This follows the SHACL shape for CatalogDetails which supports:
+    - title, subTitle, alternativeTitle
+    - summary (abstract)
+    - creator, contributor, publisher (as AgentInRole)
+    - date (CombinedDate)
+    - access (AccessInformation with license)
+    - languageOfObject
+    - provenance (with funding info)
+    - relatedResource
+    - identifier (InternationalIdentifier)
+    """
+    catalog: Dict[str, Any] = {
+        "@id": "#catalogDetails",
+        "@type": "CatalogDetails",
+    }
+    
+    # Title (InternationalString)
+    if rich_metadata.get("title"):
+        catalog["title"] = {
+            "@type": "InternationalString",
+            "languageSpecificString": {
+                "@type": "LanguageString",
+                "content": rich_metadata["title"],
+            }
+        }
+    
+    # Subtitle
+    if rich_metadata.get("subtitle"):
+        catalog["subTitle"] = {
+            "@type": "InternationalString",
+            "languageSpecificString": {
+                "@type": "LanguageString",
+                "content": rich_metadata["subtitle"],
+            }
+        }
+    
+    # Alternative title
+    if rich_metadata.get("alternative_title"):
+        catalog["alternativeTitle"] = {
+            "@type": "InternationalString",
+            "languageSpecificString": {
+                "@type": "LanguageString",
+                "content": rich_metadata["alternative_title"],
+            }
+        }
+    
+    # Summary (description/abstract)
+    if rich_metadata.get("description"):
+        catalog["summary"] = {
+            "@type": "InternationalString",
+            "languageSpecificString": {
+                "@type": "LanguageString",
+                "content": rich_metadata["description"],
+            }
+        }
+    
+    # Creators (authors as AgentInRole)
+    if rich_metadata.get("authors"):
+        creators: List[Dict[str, Any]] = []
+        for i, author in enumerate(rich_metadata["authors"]):
+            agent_id = f"#author_{i}"
+            agent_in_role: Dict[str, Any] = {
+                "@type": "AgentInRole",
+                "agent": {
+                    "@id": agent_id,
+                    "@type": "Individual",
+                }
+            }
+            
+            # Build individual name (BibliographicName with affiliation)
+            if author.get("name"):
+                name_node: Dict[str, Any] = {
+                    "@type": "BibliographicName",
+                    "languageSpecificString": {
+                        "@type": "LanguageString",
+                        "content": author["name"],
+                    }
+                }
+                if author.get("affiliation"):
+                    name_node["affiliation"] = author["affiliation"]
+                agent_in_role["agent"]["individualName"] = name_node
+            
+            # Add identifier (e.g., ORCID)
+            if author.get("identifier"):
+                ident_node: Dict[str, Any] = {
+                    "@type": "Identifier",
+                }
+                ident_value = author["identifier"]
+                scheme = author.get("identifier_scheme", "")
+                if scheme.upper() == "ORCID" and not ident_value.startswith("http"):
+                    ident_node["uri"] = f"https://orcid.org/{ident_value}"
+                else:
+                    ident_node["uri"] = ident_value
+                agent_in_role["agent"]["identifier"] = ident_node
+            
+            creators.append(agent_in_role)
+        
+        if creators:
+            catalog["creator"] = creators
+    
+    # Contributors
+    if rich_metadata.get("contributors"):
+        contributors: List[Dict[str, Any]] = []
+        for i, contrib in enumerate(rich_metadata["contributors"]):
+            agent_id = f"#contributor_{i}"
+            agent_in_role: Dict[str, Any] = {
+                "@type": "AgentInRole",
+                "agent": {
+                    "@id": agent_id,
+                    "@type": "Individual",
+                }
+            }
+            if contrib.get("name"):
+                agent_in_role["agent"]["individualName"] = {
+                    "@type": "BibliographicName",
+                    "languageSpecificString": {
+                        "@type": "LanguageString",
+                        "content": contrib["name"],
+                    }
+                }
+            if contrib.get("type"):
+                agent_in_role["role"] = contrib["type"]
+            
+            contributors.append(agent_in_role)
+        
+        if contributors:
+            catalog["contributor"] = contributors
+    
+    # Publisher
+    if rich_metadata.get("publisher"):
+        catalog["publisher"] = {
+            "@type": "AgentInRole",
+            "agent": {
+                "@id": "#publisher",
+                "@type": "Organization",
+                "organizationName": {
+                    "@type": "OrganizationName",
+                    "name": {
+                        "@type": "LanguageString",
+                        "content": rich_metadata["publisher"],
+                    }
+                }
+            }
+        }
+    
+    # Date (publication/distribution date)
+    if rich_metadata.get("publication_date"):
+        catalog["date"] = {
+            "@type": "CombinedDate",
+            "isoDate": rich_metadata["publication_date"],
+        }
+    
+    # Language
+    if rich_metadata.get("language"):
+        catalog["languageOfObject"] = rich_metadata["language"]
+    
+    # Access information (license)
+    if rich_metadata.get("license_name") or rich_metadata.get("license_uri"):
+        access: Dict[str, Any] = {
+            "@type": "AccessInformation",
+        }
+        if rich_metadata.get("license_name") or rich_metadata.get("license_uri"):
+            license_info: Dict[str, Any] = {
+                "@type": "LicenseInformation",
+            }
+            if rich_metadata.get("license_name"):
+                license_info["name"] = {
+                    "@type": "InternationalString",
+                    "languageSpecificString": {
+                        "@type": "LanguageString",
+                        "content": rich_metadata["license_name"],
+                    }
+                }
+            if rich_metadata.get("license_uri"):
+                license_info["uri"] = rich_metadata["license_uri"]
+            access["license"] = license_info
+        
+        if rich_metadata.get("terms_of_use"):
+            access["rights"] = {
+                "@type": "InternationalString",
+                "languageSpecificString": {
+                    "@type": "LanguageString",
+                    "content": rich_metadata["terms_of_use"],
+                }
+            }
+        
+        catalog["access"] = access
+    
+    # Provenance (funding information)
+    if rich_metadata.get("grant_numbers") or rich_metadata.get("funding_agencies"):
+        provenance: Dict[str, Any] = {
+            "@type": "ProvenanceInformation",
+        }
+        
+        funding_list: List[Dict[str, Any]] = []
+        agencies = rich_metadata.get("funding_agencies", [])
+        grants = rich_metadata.get("grant_numbers", [])
+        
+        # Pair agencies with grants
+        for i, grant in enumerate(grants):
+            funding: Dict[str, Any] = {
+                "@type": "FundingInformation",
+                "grantIdentifier": grant,
+            }
+            if i < len(agencies) and agencies[i]:
+                funding["funder"] = agencies[i]
+            funding_list.append(funding)
+        
+        # Add any remaining agencies without grants
+        for agency in agencies[len(grants):]:
+            if agency:
+                funding_list.append({
+                    "@type": "FundingInformation",
+                    "funder": agency,
+                })
+        
+        if funding_list:
+            provenance["funding"] = funding_list
+        
+        # Deposit date
+        if rich_metadata.get("date_of_deposit"):
+            provenance["recordCreationDate"] = rich_metadata["date_of_deposit"]
+        
+        catalog["provenance"] = provenance
+    
+    # Identifier (PID)
+    if dataset_pid:
+        catalog["identifier"] = {
+            "@type": "InternationalIdentifier",
+            "identifierContent": dataset_pid,
+            "isURI": dataset_pid.startswith("http") or dataset_pid.startswith("doi:"),
+        }
+    
+    # Related resources (publications)
+    if rich_metadata.get("related_publications") or rich_metadata.get("related_urls"):
+        related: List[Dict[str, Any]] = []
+        
+        for pub in rich_metadata.get("related_publications", []):
+            related.append({
+                "@type": "Reference",
+                "description": {
+                    "@type": "InternationalString",
+                    "languageSpecificString": {
+                        "@type": "LanguageString",
+                        "content": pub,
+                    }
+                }
+            })
+        
+        for url in rich_metadata.get("related_urls", []):
+            related.append({
+                "@type": "Reference",
+                "uri": url,
+            })
+        
+        if related:
+            catalog["relatedResource"] = related
+    
+    # Type of resource (subjects/keywords as ControlledVocabularyEntry)
+    if rich_metadata.get("subjects"):
+        catalog["typeOfResource"] = {
+            "@type": "ControlledVocabularyEntry",
+            "entryValue": "; ".join(rich_metadata["subjects"]),
+        }
+    
+    return catalog
+
 
 def build_jsonld_graph(
     dataset_title: str,
     dataset_description: Optional[str],
     files_data: List[Dict[str, Any]],
     dataset_pid: Optional[str] = None,
+    rich_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Build a DDI-CDI 1.0 compliant JSON-LD document.
@@ -611,6 +1160,7 @@ def build_jsonld_graph(
         dataset_description: Optional description
         files_data: List of file data, each containing columns and stats
         dataset_pid: Optional persistent identifier
+        rich_metadata: Optional rich metadata extracted from Dataverse
     
     Returns:
         JSON-LD document as Python dict
@@ -622,6 +1172,15 @@ def build_jsonld_graph(
     structure_id = "#datastructure"
     logical_record_id = "#logicalRecord"
     physical_layout_id = "#physicalSegmentLayout"
+    catalog_details_id = "#catalogDetails"
+    
+    # Build CatalogDetails from rich metadata if available
+    if rich_metadata:
+        # Ensure description is in rich_metadata for CatalogDetails
+        if dataset_description and not rich_metadata.get("description"):
+            rich_metadata["description"] = dataset_description
+        catalog_details = _build_catalog_details(rich_metadata, dataset_pid)
+        graph.append(catalog_details)
     
     # Collect all components and variables
     all_component_ids: List[str] = []
@@ -658,6 +1217,8 @@ def build_jsonld_graph(
             # Get DDI metadata if available
             ddi_info = ddi_variables.get(col_name, {}) if isinstance(ddi_variables, dict) else {}
             label = ddi_info.get("label") if isinstance(ddi_info, dict) else None
+            categories = ddi_info.get("categories", []) if isinstance(ddi_info, dict) else []
+            statistics = ddi_info.get("statistics", {}) if isinstance(ddi_info, dict) else {}
             
             # Determine role and component type
             role = col_stats.role()
@@ -667,12 +1228,42 @@ def build_jsonld_graph(
             if role == "identifier":
                 primary_key_components.append(component_id)
             
+            # Create CodeList if we have categories (value labels)
+            codelist_id = None
+            if categories:
+                codelist_id = f"#{full_frag}_CodeList"
+                code_ids = []
+                
+                for cat_value, cat_label in categories:
+                    code_frag = safe_fragment(str(cat_value))
+                    code_id = f"#{full_frag}_Code_{code_frag}"
+                    code_ids.append(code_id)
+                    
+                    code_node: Dict[str, Any] = {
+                        "@id": code_id,
+                        "@type": "Code",
+                        "identifier": str(cat_value)
+                    }
+                    if cat_label:
+                        code_node["name"] = cat_label
+                    graph.append(code_node)
+                
+                graph.append({
+                    "@id": codelist_id,
+                    "@type": "CodeList",
+                    "name": f"{label or col_name} codes",
+                    "has_Code": code_ids
+                })
+            
             # Create SubstantiveValueDomain
-            graph.append({
+            domain_node: Dict[str, Any] = {
                 "@id": domain_id,
                 "@type": "SubstantiveValueDomain",
                 "recommendedDataType": col_stats.ddi_datatype_uri()
-            })
+            }
+            if codelist_id:
+                domain_node["takesValuesFrom"] = codelist_id
+            graph.append(domain_node)
             
             # Create Variable (InstanceVariable + RepresentedVariable)
             var_node: Dict[str, Any] = {
@@ -684,6 +1275,39 @@ def build_jsonld_graph(
             if label and label != col_name:
                 var_node["definition"] = f"Column: {col_name}"
             graph.append(var_node)
+            
+            # Create CategoryStatistic nodes for summary statistics
+            if statistics:
+                for stat_type, stat_value in statistics.items():
+                    stat_frag = safe_fragment(stat_type)
+                    stat_id = f"#{full_frag}_stat_{stat_frag}"
+                    
+                    # Try to parse numeric value
+                    try:
+                        numeric_value = float(stat_value)
+                    except (ValueError, TypeError):
+                        numeric_value = None
+                    
+                    stat_node: Dict[str, Any] = {
+                        "@id": stat_id,
+                        "@type": "CategoryStatistic",
+                        "appliesTo": var_id,
+                        "typeOfCategoryStatistic": stat_type
+                    }
+                    
+                    if numeric_value is not None:
+                        stat_node["statistic"] = {
+                            "@type": "Statistic",
+                            "content": numeric_value
+                        }
+                    else:
+                        # Keep as string if not numeric
+                        stat_node["statistic"] = {
+                            "@type": "Statistic",
+                            "content": str(stat_value)
+                        }
+                    
+                    graph.append(stat_node)
             
             # Create Component
             graph.append({
@@ -710,9 +1334,13 @@ def build_jsonld_graph(
     dataset_node: Dict[str, Any] = {
         "@id": dataset_id,
         "@type": "WideDataSet",
-        "name": dataset_title,
         "isStructuredBy": structure_id
     }
+    # Link to CatalogDetails if we have rich metadata
+    if rich_metadata:
+        dataset_node["catalogDetails"] = catalog_details_id
+    # Name is also at dataset level for simple access
+    dataset_node["name"] = dataset_title
     if dataset_description:
         dataset_node["description"] = dataset_description
     if dataset_pid:
@@ -810,15 +1438,24 @@ def generate_manifest_jsonld(
 
     metadata_payload: Optional[Dict[str, Any]] = None
     dataset_description: Optional[str] = None
+    rich_metadata: Optional[Dict[str, Any]] = None
+    
     if dataset_metadata_path:
         metadata_payload = load_metadata_from_file(Path(dataset_metadata_path))
         if metadata_payload is None:
             warnings.append(f"Failed to parse dataset metadata from {dataset_metadata_path}")
 
-    if not dataset_title and metadata_payload:
-        dataset_title = extract_dataset_title(metadata_payload)
-    
     if metadata_payload:
+        # Extract rich metadata for CatalogDetails
+        rich_metadata = extract_rich_metadata(metadata_payload)
+        
+        # Use title from rich metadata if available
+        if not dataset_title and rich_metadata.get("title"):
+            dataset_title = rich_metadata["title"]
+        elif not dataset_title:
+            dataset_title = extract_dataset_title(metadata_payload)
+        
+        # Extract description
         dataset_description = extract_dataset_description(metadata_payload)
 
     if not dataset_title:
@@ -927,6 +1564,7 @@ def generate_manifest_jsonld(
         dataset_description=dataset_description,
         files_data=files_data,
         dataset_pid=dataset_pid,
+        rich_metadata=rich_metadata,
     )
 
     # Write output
@@ -1112,8 +1750,10 @@ def main():
                 args.dataset_title = inferred_title
 
         dataset_description: Optional[str] = None
+        rich_metadata: Optional[Dict[str, Any]] = None
         if metadata_payload:
             dataset_description = extract_dataset_description(metadata_payload)
+            rich_metadata = extract_rich_metadata(metadata_payload)
 
         ddi_variables: Dict[str, Dict[str, Any]] = {}
 
@@ -1174,6 +1814,7 @@ def main():
             dataset_description=dataset_description,
             files_data=files_data,
             dataset_pid=args.dataset_pid,
+            rich_metadata=rich_metadata,
         )
 
         # Write output

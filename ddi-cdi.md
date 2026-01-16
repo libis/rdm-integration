@@ -137,9 +137,10 @@ For each tabular data file, the system:
   - If the file was ingested by Dataverse (SPSS `.sav`, Stata `.dta`, R, Excel, or CSV)
   - Uses the tab-separated version created by Dataverse ([ingest process details](https://guides.dataverse.org/en/latest/user/tabulardataingest/ingestprocess.html))
   - Retrieves DDI metadata from the `/metadata/ddi` API endpoint
-- **For non-ingested statistical syntax files** (SPSS `.sps`, SAS `.sas`, Stata `.dct`):
+- **For non-ingested statistical syntax files** (SPSS `.sps`, SAS `.sas`, Stata `.dct`/`.do`):
   - Uses the Berkeley xconvert tool to extract structure and metadata
   - Converts syntax definitions to DDI XML format
+  - **Note**: Currently requires a matching data file (same stem name) to function; see [SYNTAX_FILE_PROCESSING.md](SYNTAX_FILE_PROCESSING.md) for planned standalone syntax file support
 - **For all tabular files**:
   - Streams through the data row-by-row (memory-efficient for large files)
   - Infers data types for each column (integer, decimal, boolean, date/time, text)
@@ -158,7 +159,7 @@ The system combines multiple metadata sources:
   - Category definitions with value labels
   - Summary statistics (mean, min, max, standard deviation)
   - Retrieved via the `/metadata/ddi` API endpoint
-- **DDI metadata from xconvert** (for syntax files: SPSS `.sps`, SAS `.sas`, Stata `.dct`)
+- **DDI metadata from xconvert** (for syntax files: SPSS `.sps`, SAS `.sas`, Stata `.dct`/`.do`)
   - Extracted from syntax definitions
   - Converted to DDI XML format
 
@@ -271,8 +272,11 @@ The DDI-CDI feature automatically filters files by their extension to show only 
 | `.sps` | SPSS syntax files | xconvert tool + DDI extraction |
 | `.sas` | SAS data step definitions | xconvert tool + DDI extraction |
 | `.dct` | Stata dictionary files | xconvert tool + DDI extraction |
+| `.do` | Stata command files | xconvert tool + DDI extraction |
 
-**Note**: The extension list is defined in the backend code (`image/app/core/ddi_cdi.go`) and files are filtered server-side. Files with other extensions will not appear in the file selection tree.
+**Note**: The extension list is defined in the backend code ([image/app/common/ddi_cdi.go](image/app/common/ddi_cdi.go)) and files are filtered server-side. Files with other extensions will not appear in the file selection tree.
+
+> ⚠️ **Current Limitation**: The backend filter does NOT yet include `.do` files—this is a known gap. Additionally, syntax files (`.sps`, `.sas`, `.dct`, `.do`) currently cannot be processed standalone; they require a matching data file with the same stem name (e.g., `survey.sps` needs `survey.csv`). See [SYNTAX_FILE_PROCESSING.md](SYNTAX_FILE_PROCESSING.md) for the planned improvements.
 
 #### Adding Support for New Extensions
 
@@ -342,7 +346,7 @@ If DDI-CDI metadata was previously generated for this dataset:
 - The **cdi-viewer** shows the previously generated metadata for review and editing
 - Use the **"Reload viewer"** button to reload from cache
 
-#### 3. Generate DDI-CDI Metadata
+#### 4. Generate DDI-CDI Metadata
 
 To generate new metadata:
 
@@ -838,7 +842,7 @@ The Python codebase is designed to be accessible - basic Python knowledge is suf
 
 ## Credits and Acknowledgments
 
-**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Getting Help & Contributing](#getting-help-and-contributing) | [→ Appendix](#appendix-cdi_generatorpy-deep-dive)
+**Navigation**: [↑ Table of Contents](#table-of-contents) | [← Getting Help & Contributing](#getting-help-and-contributing) | [→ Appendix](#appendix-cdi_generator_jsonldpy-deep-dive)
 
 This feature integrates several open-source tools and standards:
 
@@ -859,11 +863,15 @@ Python libraries:
 
 ## License
 
-## Appendix: cdi_generator_jsonld.py deep dive
+This project is licensed under the Apache License, Version 2.0. See [LICENSE.txt](LICENSE.txt) for details.
+
+---
+
+## Appendix: cdi_generator_jsonld.py Deep Dive
 
 **Navigation**: [↑ Table of Contents](#table-of-contents) | [← Credits & Acknowledgments](#credits-and-acknowledgments) | [↑ Back to Top](#ddi-cdi-metadata-generation)
 
-This appendix gives a technical, implementation-oriented overview of the Python generator referenced throughout this document: `image/cdi_generator_jsonld.py`.
+This appendix provides a technical, implementation-oriented overview of the Python generator referenced throughout this document: [cdi_generator_jsonld.py](image/cdi_generator_jsonld.py).
 
 ### What it is
 
