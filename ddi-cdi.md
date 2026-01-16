@@ -167,7 +167,7 @@ This multi-source approach ensures the richest possible documentation, leveragin
 
 ### Step 5: CDI Generation
 
-The Go backend now assembles a manifest (JSON) that captures dataset context alongside every selected file (physical paths, discovered metadata, ingest/xconvert fragments, and processing options). It then invokes [`cdi_generator_jsonld.py`](image/cdi_generator_jsonld.py) once via `--manifest <manifest-path>`, letting the Python layer iterate through each entry, emit DDI-CDI output, and surface any warnings back to the job log. Legacy single-file invocations still work for ad-hoc CLI use, but the automated job defaults to manifest mode for consistency and performance.
+The Go backend now assembles a manifest (JSON) that captures dataset context alongside every selected file (physical paths, discovered metadata, ingest/xconvert fragments, and processing options). It then invokes [`cdi_generator_jsonld.py`](image/cdi_generator_jsonld.py) once via `--manifest <manifest-path>`, letting the Python layer iterate through each entry, emit DDI-CDI output, and surface any warnings back to the job log.
 
 Within this manifest-driven run, the generator:
 
@@ -883,8 +883,7 @@ This appendix provides a technical, implementation-oriented overview of the Pyth
 ### Inputs and outputs
 
 - Inputs
-  - Manifest mode: JSON manifest describing multiple files and dataset context (preferred for jobs).
-  - Single‑file mode: one CSV/TSV with dataset identifiers; optional Dataverse JSON and/or a DDI XML fragment.
+  - Manifest JSON describing multiple files and dataset context
 - Optional enrichments
   - Dataverse dataset JSON: title, description, creators (+ORCID), subjects, license, issued date, publisher, per‑file URIs.
   - DDI XML fragment (from Dataverse ingest or xconvert): variable labels, categories, summary statistics; stored as rdf:XMLLiteral when well‑formed.
@@ -895,12 +894,9 @@ This appendix provides a technical, implementation-oriented overview of the Pyth
 ### High‑level flow
 
 1. Parse CLI, configure logging.
-2. Manifest mode
-   - Create a single WideDataSet node and add dataset‑level info from Dataverse JSON when available.
-   - Iterate files: profile CSV, optionally obtain DDI (native or via xconvert), then add WideDataStructure + LogicalRecord + Variables.
-   - Serialize combined graph to JSON-LD with DDI-CDI 1.0 context; optionally write a summary JSON used by the job logs/UI.
-3. Single‑file mode
-   - Similar steps for one file; Dataverse JSON can fill missing title or file URI.
+2. Load manifest and create a single WideDataSet node; add dataset‑level info from Dataverse JSON when available.
+3. Iterate files: profile CSV, optionally obtain DDI (native or via xconvert), then add WideDataStructure + LogicalRecord + Variables.
+4. Serialize combined graph to JSON-LD with DDI-CDI 1.0 context; optionally write a summary JSON used by the job logs/UI.
 
 ### Key components
 
@@ -954,9 +950,16 @@ This appendix provides a technical, implementation-oriented overview of the Pyth
 
 ### CLI at a glance
 
-- Manifest mode: `--manifest <path>` (preferred); writes `.jsonld` and optional `--summary-json`.
-- Single‑file mode: `--csv <file> --dataset-pid <PID> --dataset-uri-base <base>`; optional `--dataset-metadata-file` and `--ddi-file`.
-- Useful flags: `--skip-md5`, `--limit-rows`, `--encoding`, `--delimiter`, `--no-header`.
+```bash
+python cdi_generator_jsonld.py --manifest <path> --output <path> [--summary-json <path>] [--skip-md5] [--quiet] [--verbose]
+```
+
+- `--manifest`: Path to dataset manifest JSON (required)
+- `--output`: Output JSON-LD path (default: `dataset.cdi.jsonld`)
+- `--summary-json`: Optional path to write column summary as JSON
+- `--skip-md5`: Skip MD5 checksum calculation for faster runs
+- `--quiet`: Suppress console summary output
+- `--verbose`: Enable verbose logging
 
 ### Quick tweak tips
 

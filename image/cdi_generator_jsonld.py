@@ -13,33 +13,43 @@ CSV/TSV -> DDI-CDI JSON-LD generation utilities.
 - Infers per-column XSD datatype and a role (identifier/dimension/measure/attribute).
 - Uses HyperLogLog (datasketch) to approximate distinct counts with tiny memory.
 - Emits DDI-CDI 1.0 compliant JSON-LD with official context.
-- Supports both single-file conversion and dataset manifests that describe many files at once.
+- Processes dataset manifests that describe multiple files at once.
 
 USAGE
 ------
-
-Dataset manifest (recommended):
 
     python cdi_generator_jsonld.py \\
         --manifest /tmp/manifest.json \\
         --output /tmp/dataset.cdi.jsonld \\
         --quiet
 
-Single file (legacy mode retained for compatibility):
+Manifest JSON format:
 
-    python cdi_generator_jsonld.py \\
-        --csv /data/big.csv \\
-        --dataset-pid "doi:10.70122/FK2/EXAMPLE" \\
-        --dataset-uri-base "https://rdr.kuleuven.be/dataset" \\
-        --file-uri "https://rdr.kuleuven.be/api/access/datafile/123456" \\
-        --dataset-title "Example dataset" \\
-        --output dataset.cdi.jsonld
+    {
+      "dataset_pid": "doi:10.70122/FK2/EXAMPLE",
+      "dataset_uri_base": "https://rdr.kuleuven.be/dataset",
+      "dataset_title": "Example dataset",
+      "dataset_metadata_path": "/path/to/metadata.json",  // optional
+      "files": [
+        {
+          "csv_path": "/data/file1.csv",
+          "file_name": "file1.csv",
+          "file_uri": "https://example.org/api/access/datafile/123",
+          "ddi_path": "/path/to/file1_ddi.xml",  // optional
+          "header": "auto",  // "auto", "present", or "absent"
+          "delimiter": ",",  // optional, sniffed if not provided
+          "encoding": "utf-8",  // optional, detected if not provided
+          "skip_md5": false,
+          "allow_xconvert": true
+        }
+      ]
+    }
 
 Notes
 -----
-- Header auto-detects by default; use --no-header to force synthetic column names.
-- Encoding is detected on a sample via chardet; override with --encoding if needed.
-- Delimiter is sniffed unless provided with --delimiter.
+- Header auto-detects by default.
+- Encoding is detected on a sample via chardet; override in manifest if needed.
+- Delimiter is sniffed unless provided in manifest.
 - Output is JSON-LD with official DDI-CDI 1.0 context.
 """
 
@@ -1670,214 +1680,40 @@ def detect_and_run_xconvert(csv_path: Path, work_dir: Path) -> Optional[Path]:
 # ------------------------------ CLI ------------------------------
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Stream a CSV and emit DDI-CDI JSON-LD.")
-    p.add_argument("--manifest", type=Path, help="Path to dataset manifest JSON (enables multi-file mode)")
-    p.add_argument("--csv", type=Path, help="Path to CSV file (legacy single-file mode)")
-    p.add_argument("--dataset-pid", help="Dataset PID/DOI (required in single-file mode)")
-    p.add_argument("--dataset-uri-base", help="Base URI for dataset landing pages (single-file mode)")
-    p.add_argument("--file-uri", help="Public URI for this data file (if any; single-file mode)")
-    p.add_argument("--dataset-title", help="Dataset title (optional; single-file mode)")
-    p.add_argument("--dataset-metadata-file", type=Path, help="Optional path to Dataverse dataset metadata JSON")
+    p = argparse.ArgumentParser(description="Generate DDI-CDI JSON-LD from a dataset manifest.")
+    p.add_argument("--manifest", type=Path, required=True, help="Path to dataset manifest JSON")
     p.add_argument("--output", "-o", type=Path, default=Path("dataset.cdi.jsonld"), help="Output JSON-LD path")
-    p.add_argument("--delimiter", help="Force CSV delimiter (otherwise sniffed)")
-    p.add_argument("--encoding", help="Force encoding (otherwise detected)")
-    p.add_argument("--no-header", action="store_true", help="Treat the CSV as headerless")
-    p.add_argument("--limit-rows", type=int, help="Optional cap for rows to process (for quick trial runs)")
     p.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     p.add_argument("--skip-md5", action="store_true", help="Skip MD5 checksum calculation for faster runs")
     p.add_argument("--summary-json", type=Path, help="Optional path to write column summary as JSON")
     p.add_argument("--quiet", action="store_true", help="Suppress console summary output")
-    p.add_argument("--ddi-file", type=Path, help="Optional path to a Dataverse DDI fragment for this file")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    if args.manifest and args.csv:
-        print("[ERROR] --manifest and --csv are mutually exclusive", file=sys.stderr)
-        sys.exit(2)
-
-    if not args.manifest and not args.csv:
-        print("[ERROR] Provide either --manifest for multi-file mode or --csv for single-file mode", file=sys.stderr)
-        sys.exit(2)
 
     setup_logging(args.verbose, args.quiet)
 
     try:
-        if args.manifest:
-            if not args.manifest.exists():
-                raise FileNotFoundError(f"Manifest file not found: {args.manifest}")
-            manifest_data = json.loads(args.manifest.read_text(encoding="utf-8"))
-            warnings, total_rows, file_count = generate_manifest_jsonld(
-                manifest=manifest_data,
-                output_path=args.output,
-                summary_json=args.summary_json,
-                skip_md5_default=args.skip_md5,
-                quiet=args.quiet,
-            )
-            for message in warnings:
-                logging.warning(message)
-            if not args.quiet:
-                print(f"[OK] Wrote DDI-CDI JSON-LD: {args.output}")
-                print(f"  files_processed={file_count}, rows_profiled={total_rows}")
-                if args.summary_json:
-                    print(f"  summary_json={args.summary_json}")
-            logging.info("Manifest conversion completed: files=%s rows=%s", file_count, total_rows)
-            return
-
-        # Single-file mode
-        missing_args = [
-            name for name in ("dataset_pid", "dataset_uri_base")
-            if not getattr(args, name.replace("-", "_"))
-        ]
-        if missing_args:
-            raise ValueError(
-                "Missing required arguments for single-file mode: " + ", ".join(missing_args)
-            )
-        if not args.csv:
-            raise ValueError("--csv is required in single-file mode")
-        if not args.csv.exists():
-            raise FileNotFoundError(f"CSV path not found: {args.csv}")
-
-        # Load metadata from file if provided
-        metadata_payload: Optional[Dict[str, Any]] = None
-        if args.dataset_metadata_file:
-            metadata_payload = load_metadata_from_file(args.dataset_metadata_file)
-
-        if metadata_payload and not args.dataset_title:
-            inferred_title = extract_dataset_title(metadata_payload)
-            if inferred_title:
-                args.dataset_title = inferred_title
-
-        dataset_description: Optional[str] = None
-        rich_metadata: Optional[Dict[str, Any]] = None
-        if metadata_payload:
-            dataset_description = extract_dataset_description(metadata_payload)
-            rich_metadata = extract_rich_metadata(metadata_payload)
-
-        ddi_variables: Dict[str, Dict[str, Any]] = {}
-
-        if not args.ddi_file:
-            logging.info("No DDI file provided, checking for xconvert-compatible syntax files")
-            work_path = Path(args.csv).parent
-            xconvert_ddi = detect_and_run_xconvert(args.csv, work_path)
-            if xconvert_ddi:
-                args.ddi_file = xconvert_ddi
-                logging.info("Using xconvert-generated DDI: %s", xconvert_ddi)
-
-        if args.ddi_file:
-            raw_ddi, parsed_variables, _ = load_ddi_metadata(args.ddi_file)
-            if raw_ddi:
-                ddi_variables = parsed_variables
-                logging.info("Loaded DDI fragment from %s", args.ddi_file)
-
-        logging.info("Starting CSV to DDI-CDI JSON-LD conversion")
-        logging.info("Input file: %s", args.csv)
-        logging.info("Output file: %s", args.output)
-
-        header_mode: Union[bool, str]
-        if args.no_header:
-            header_mode = "absent"
-        else:
-            header_mode = "auto"
-
-        cols, stats, info, md5, dialect = stream_profile_csv(
-            args.csv,
-            encoding=args.encoding,
-            delimiter=args.delimiter,
-            header=header_mode,
-            limit_rows=args.limit_rows,
-            compute_md5=not args.skip_md5,
+        if not args.manifest.exists():
+            raise FileNotFoundError(f"Manifest file not found: {args.manifest}")
+        manifest_data = json.loads(args.manifest.read_text(encoding="utf-8"))
+        warnings, total_rows, file_count = generate_manifest_jsonld(
+            manifest=manifest_data,
+            output_path=args.output,
+            summary_json=args.summary_json,
+            skip_md5_default=args.skip_md5,
+            quiet=args.quiet,
         )
-
-        # Determine file format
-        file_format = "text/csv"
-        if args.csv.suffix.lower() in (".tsv", ".tab"):
-            file_format = "text/tab-separated-values"
-        elif dialect.delimiter == "\t":
-            file_format = "text/tab-separated-values"
-
-        files_data = [{
-            "file_name": args.csv.name,
-            "file_uri": args.file_uri,
-            "file_format": file_format,
-            "file_md5": md5,
-            "columns": cols,
-            "stats": stats,
-            "ddi_variables": ddi_variables,
-        }]
-
-        dataset_title = args.dataset_title or args.dataset_pid
-
-        jsonld_doc = build_jsonld_graph(
-            dataset_title=dataset_title,
-            dataset_description=dataset_description,
-            files_data=files_data,
-            dataset_pid=args.dataset_pid,
-            rich_metadata=rich_metadata,
-        )
-
-        # Write output
-        output_path = args.output
-        output_parent = output_path.parent
-        if output_parent != Path("."):
-            output_parent.mkdir(parents=True, exist_ok=True)
-        
-        output_path.write_text(
-            json.dumps(jsonld_doc, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
-
+        for message in warnings:
+            logging.warning(message)
         if not args.quiet:
             print(f"[OK] Wrote DDI-CDI JSON-LD: {args.output}")
-            print(f"  rows_profiled={info['rows_read']}, columns={len(cols)}")
-
-        if not args.quiet:
-            print("\nColumn Analysis:")
-        for name, st in zip(cols, stats):
-            datatype_name = st.xsd_datatype_name()
-            distinct = st.approx_distinct()
-            non_missing = st.n_non_missing
-            role = st.role()
-            ddi_meta = ddi_variables.get(name, {}) if isinstance(ddi_variables, dict) else {}
-            ddi_label = ddi_meta.get("label") if isinstance(ddi_meta, dict) else None
-            extra_label = ""
-            if ddi_label and ddi_label != name:
-                extra_label = f" | ddi_label={ddi_label}"
-            if not args.quiet:
-                print(
-                    f"  - {name:15} | type={datatype_name:10} | role={role:10} | distinct={distinct:6} | non-missing={non_missing:6}{extra_label}"
-                )
-
-        if args.summary_json:
-            summary_path = args.summary_json
-            summary_parent = summary_path.parent
-            if summary_parent != Path("."):
-                summary_parent.mkdir(parents=True, exist_ok=True)
-            
-            column_summaries = []
-            for name, st in zip(cols, stats):
-                entry = {
-                    "name": name,
-                    "datatype": st.xsd_datatype_name(),
-                    "role": st.role(),
-                    "approx_distinct": st.approx_distinct(),
-                    "non_missing": st.n_non_missing,
-                }
-                ddi_info = ddi_variables.get(name, {}) if isinstance(ddi_variables, dict) else {}
-                if isinstance(ddi_info, dict) and ddi_info.get("label"):
-                    entry["ddi_label"] = ddi_info["label"]
-                column_summaries.append(entry)
-            
-            summary_payload = {
-                "dataset_pid": args.dataset_pid,
-                "rows_profiled": info["rows_read"],
-                "columns": column_summaries,
-            }
-            summary_path.write_text(json.dumps(summary_payload, indent=2), encoding="utf-8")
-            logging.info("Wrote column summary JSON to %s", summary_path)
-
-        logging.info("Conversion completed successfully")
+            print(f"  files_processed={file_count}, rows_profiled={total_rows}")
+            if args.summary_json:
+                print(f"  summary_json={args.summary_json}")
+        logging.info("Manifest conversion completed: files=%s rows=%s", file_count, total_rows)
 
     except Exception as e:
         logging.error("Error during conversion: %s", e)

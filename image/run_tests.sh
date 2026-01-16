@@ -122,12 +122,23 @@ else
 fi
 echo ""
 
-# Test cdi_generator_jsonld.py with sample data
+# Test cdi_generator_jsonld.py with sample data (manifest mode)
 echo -e "${YELLOW}Testing cdi_generator_jsonld.py with sample data...${NC}"
+
+# Create manifest for test
+SAMPLE_MANIFEST=$(mktemp)
+cat > "$SAMPLE_MANIFEST" << 'EOF'
+{
+    "dataset_pid": "doi:10.123/TEST",
+    "dataset_uri_base": "https://example.org/dataset",
+    "files": [
+        {"csv_path": "testdata/sample.csv"}
+    ]
+}
+EOF
+
 if python3 cdi_generator_jsonld.py \
-    --csv testdata/sample.csv \
-    --dataset-pid "doi:10.123/TEST" \
-    --dataset-uri-base "https://example.org/dataset" \
+    --manifest "$SAMPLE_MANIFEST" \
     --output testdata/output_sample.jsonld \
     --skip-md5 \
     --quiet; then
@@ -154,15 +165,25 @@ else
     echo -e "${RED}✗${NC} cdi_generator_jsonld.py execution failed"
     FAILURES=$((FAILURES + 1))
 fi
+rm -f "$SAMPLE_MANIFEST"
 echo ""
 
-# Test with DDI metadata
+# Test with DDI metadata (manifest mode)
 echo -e "${YELLOW}Testing cdi_generator_jsonld.py with DDI metadata...${NC}"
+
+DDI_MANIFEST=$(mktemp)
+cat > "$DDI_MANIFEST" << 'EOF'
+{
+    "dataset_pid": "doi:10.123/TEST-DDI",
+    "dataset_uri_base": "https://example.org/dataset",
+    "files": [
+        {"csv_path": "testdata/sample.csv", "ddi_path": "testdata/sample_ddi.xml"}
+    ]
+}
+EOF
+
 if python3 cdi_generator_jsonld.py \
-    --csv testdata/sample.csv \
-    --dataset-pid "doi:10.123/TEST-DDI" \
-    --dataset-uri-base "https://example.org/dataset" \
-    --ddi-file testdata/sample_ddi.xml \
+    --manifest "$DDI_MANIFEST" \
     --output testdata/output_with_ddi.jsonld \
     --skip-md5 \
     --quiet; then
@@ -179,15 +200,26 @@ else
     echo -e "${RED}✗${NC} cdi_generator_jsonld.py with DDI failed"
     FAILURES=$((FAILURES + 1))
 fi
+rm -f "$DDI_MANIFEST"
 echo ""
 
-# Test with dataset metadata
+# Test with dataset metadata (manifest mode)
 echo -e "${YELLOW}Testing cdi_generator_jsonld.py with dataset metadata...${NC}"
+
+META_MANIFEST=$(mktemp)
+cat > "$META_MANIFEST" << 'EOF'
+{
+    "dataset_pid": "doi:10.123/TEST-META",
+    "dataset_uri_base": "https://example.org/dataset",
+    "dataset_metadata_file": "testdata/dataset_metadata.json",
+    "files": [
+        {"csv_path": "testdata/sample.csv"}
+    ]
+}
+EOF
+
 if python3 cdi_generator_jsonld.py \
-    --csv testdata/sample.csv \
-    --dataset-pid "doi:10.123/TEST-META" \
-    --dataset-uri-base "https://example.org/dataset" \
-    --dataset-metadata-file testdata/dataset_metadata.json \
+    --manifest "$META_MANIFEST" \
     --output testdata/output_with_metadata.jsonld \
     --skip-md5 \
     --quiet; then
@@ -203,6 +235,7 @@ else
     echo -e "${RED}✗${NC} cdi_generator_jsonld.py with metadata failed"
     FAILURES=$((FAILURES + 1))
 fi
+rm -f "$META_MANIFEST"
 echo ""
 
 # ================================

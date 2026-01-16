@@ -722,18 +722,29 @@ class TestXConvertWorkflow(unittest.TestCase):
             "105,4,5,3,2\n"
         )
         
-        # Step 3: Convert to CDI JSON-LD
+        # Step 3: Create manifest and convert to CDI JSON-LD
+        manifest_file = self.test_dir / "manifest.json"
+        manifest_data = {
+            "dataset_pid": "doi:10.123/SURVEY",
+            "dataset_uri_base": "https://example.org/dataset",
+            "dataset_title": "Survey Data with SPSS Metadata",
+            "files": [
+                {
+                    "csv_path": str(csv_file),
+                    "file_name": "survey.csv",
+                    "ddi_path": str(ddi_file),
+                    "skip_md5": True,
+                }
+            ]
+        }
+        manifest_file.write_text(json.dumps(manifest_data), encoding="utf-8")
+        
         output_jsonld = self.test_dir / "survey_cdi.jsonld"
         
         result = subprocess.run(
             ['python3', str(Path(__file__).parent / 'cdi_generator_jsonld.py'),
-             '--csv', str(csv_file),
-             '--dataset-pid', 'doi:10.123/SURVEY',
-             '--dataset-uri-base', 'https://example.org/dataset',
-             '--dataset-title', 'Survey Data with SPSS Metadata',
-             '--ddi-file', str(ddi_file),
+             '--manifest', str(manifest_file),
              '--output', str(output_jsonld),
-             '--skip-md5',
              '--quiet'],
             capture_output=True,
             text=True,
