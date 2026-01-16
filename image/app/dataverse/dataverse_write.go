@@ -20,6 +20,67 @@ import (
 	"github.com/libis/rdm-dataverse-go-api/api"
 )
 
+// AddFileWithMimeType adds a file to a dataset with a specific MIME type and returns the file ID.
+// This is a simplified, synchronous function for adding single files (like DDI-CDI metadata).
+func AddFileWithMimeType(ctx context.Context, persistentId, token, user, fileName, content, mimeType, description string) (int64, error) {
+	path := "/api/v1/datasets/:persistentId/add?persistentId=" + persistentId
+
+	// Build multipart form data
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add file with specific MIME type
+	h := make(map[string][]string)
+	h["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s"`, fileName)}
+	h["Content-Type"] = []string{mimeType}
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create form part: %w", err)
+	}
+	_, err = part.Write([]byte(content))
+	if err != nil {
+		return 0, fmt.Errorf("failed to write file content: %w", err)
+	}
+
+	// Add jsonData with description
+	jsonData := api.JsonData{
+		Description: description,
+	}
+	jsonDataBytes, _ := json.Marshal(jsonData)
+	jsonPart, err := writer.CreateFormField("jsonData")
+	if err != nil {
+		return 0, fmt.Errorf("failed to create jsonData field: %w", err)
+	}
+	_, err = jsonPart.Write(jsonDataBytes)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write jsonData: %w", err)
+	}
+
+	writer.Close()
+
+	// Make request
+	requestHeader := http.Header{}
+	requestHeader.Add("Content-Type", writer.FormDataContentType())
+	req := GetRequest(path, "POST", user, token, body, requestHeader)
+
+	res := api.AddReplaceFileResponse{}
+	err = api.Do(ctx, req, &res)
+	if err != nil {
+		return 0, fmt.Errorf("API request failed: %w", err)
+	}
+
+	if res.Status != "OK" {
+		return 0, fmt.Errorf("adding file failed: %s", res.Message)
+	}
+
+	// Extract file ID from response
+	if len(res.Data.Files) == 0 {
+		return 0, fmt.Errorf("no files in response")
+	}
+
+	return res.Data.Files[0].DataFile.Id, nil
+}
+
 func CreateNewDataset(ctx context.Context, collection, token, userName string, metadata types.Metadata) (string, error) {
 	if collection == "" {
 		collection = config.GetConfig().Options.RootDataverseId

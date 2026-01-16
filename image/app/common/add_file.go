@@ -3,7 +3,6 @@
 package common
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
@@ -11,7 +10,6 @@ import (
 	"integration/app/dataverse"
 	"io"
 	"net/http"
-	"sync"
 )
 
 type AddFileRequest struct {
@@ -19,7 +17,17 @@ type AddFileRequest struct {
 	DataverseKey string `json:"dataverseKey"`
 	FileName     string `json:"fileName"`
 	Content      string `json:"content"`
+	MimeType     string `json:"mimeType"`
+	Description  string `json:"description"`
 }
+
+type AddFileResponse struct {
+	FileId int64  `json:"fileId"`
+	Key    string `json:"key"`
+}
+
+// DDI-CDI MIME type constant
+const DdiCdiMimeType = `application/ld+json;profile="http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://ddialliance.org/specification/ddi-cdi/1.0"`
 
 func AddFileToDataset(w http.ResponseWriter, r *http.Request) {
 	// Check if DDI-CDI feature is enabled
@@ -55,16 +63,28 @@ func AddFileToDataset(w http.ResponseWriter, r *http.Request) {
 	// Get user from header
 	user := core.GetUserFromHeader(r.Header)
 
-	// Upload file to Dataverse using ApiAddReplaceFile
-	err = uploadFileToDataverse(r.Context(), req.PersistentId, req.DataverseKey, user, req.FileName, req.Content)
+	// Use DDI-CDI MIME type if not specified
+	mimeType := req.MimeType
+	if mimeType == "" {
+		mimeType = DdiCdiMimeType
+	}
+
+	// Use default description if not specified
+	description := req.Description
+	if description == "" {
+		description = "DDI-CDI metadata file"
+	}
+
+	// Upload file to Dataverse and get file ID
+	fileId, err := dataverse.AddFileWithMimeType(r.Context(), req.PersistentId, req.DataverseKey, user, req.FileName, req.Content, mimeType, description)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - failed to add file: %v", err)))
 		return
 	}
 
-	// Return success response
-	res := Key{Key: "success"}
+	// Return response with file ID
+	res := AddFileResponse{FileId: fileId, Key: "success"}
 	b, err = json.Marshal(res)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -72,59 +92,4 @@ func AddFileToDataset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(b)
-}
-
-func uploadFileToDataverse(ctx context.Context, persistentId, apiKey, user, fileName, content string) error {
-	// Check if file already exists in the dataset to determine if we need to replace
-	existingFileId := int64(0)
-
-	// Get dataset nodes to check for existing file
-	nodes, _, _, err := dataverse.GetDatasetNodesWithAccessInfo(ctx, persistentId, apiKey, user)
-	if err == nil {
-		// Look for existing file with the same name
-		for _, node := range nodes {
-			if node.Name == fileName && node.Attributes.DestinationFile.Id != 0 {
-				existingFileId = node.Attributes.DestinationFile.Id
-				break
-			}
-		}
-	}
-
-	// Use ApiAddReplaceFile which supports:
-	// - OAuth2 authentication
-	// - URL signing
-	// - Streaming implementation
-	// - Replace if file exists (when existingFileId != 0)
-	var wg sync.WaitGroup
-	asyncErr := &core.ErrorHolder{}
-
-	writer, err := dataverse.ApiAddReplaceFile(ctx, existingFileId, fileName, apiKey, user, persistentId, &wg, asyncErr)
-	if err != nil {
-		return fmt.Errorf("failed to initialize file upload: %w", err)
-	}
-
-	// Write content to the writer (streaming)
-	_, err = writer.Write([]byte(content))
-	if err != nil {
-		writer.Close()
-		wg.Wait()
-		return fmt.Errorf("failed to write file content: %w", err)
-	}
-
-	// Close the writer to finalize upload
-	err = writer.Close()
-	if err != nil {
-		wg.Wait()
-		return fmt.Errorf("failed to close file writer: %w", err)
-	}
-
-	// Wait for async upload to complete
-	wg.Wait()
-
-	// Check for async errors
-	if asyncErr.Err != nil {
-		return fmt.Errorf("upload failed: %w", asyncErr.Err)
-	}
-
-	return nil
 }
