@@ -635,14 +635,20 @@ def build_jsonld_graph(
         columns = file_data.get("columns", [])
         stats = file_data.get("stats", [])
         ddi_variables = file_data.get("ddi_variables", {})
+        file_name = file_data.get("file_name", "")
+        
+        # Create a file prefix for unique IDs across files
+        file_prefix = safe_fragment(Path(file_name).stem) if file_name else ""
         
         for col_name, col_stats in zip(columns, stats):
             var_frag = safe_fragment(col_name)
-            var_id = f"#{var_frag}"
-            domain_id = f"#{var_frag}_Substantive_Value_Domain"
-            component_id = f"#{var_frag}_Component"
-            mapping_id = f"#valueMapping_{var_frag}"
-            mapping_pos_id = f"#ValueMappingPosition_{var_frag}"
+            # Include file prefix to ensure unique IDs across files
+            full_frag = f"{file_prefix}_{var_frag}" if file_prefix else var_frag
+            var_id = f"#{full_frag}"
+            domain_id = f"#{full_frag}_Substantive_Value_Domain"
+            component_id = f"#{full_frag}_Component"
+            mapping_id = f"#valueMapping_{full_frag}"
+            mapping_pos_id = f"#ValueMappingPosition_{full_frag}"
             
             all_variable_ids.append(var_id)
             all_component_ids.append(component_id)

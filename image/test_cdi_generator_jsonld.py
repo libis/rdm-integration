@@ -807,6 +807,56 @@ class TestManifestGeneration(unittest.TestCase):
         self.assertEqual(summary["files"][0]["rows_profiled"], 2)
         self.assertEqual(summary["files"][1]["rows_profiled"], 2)
 
+    def test_unique_ids_across_files_with_same_column_names(self):
+        """Test that files with same column names get unique IDs in JSON-LD"""
+        # Create two files with same column names
+        file_one = self.tmp_path / "data1.csv"
+        file_two = self.tmp_path / "data2.csv"
+        file_one.write_text("col_a,col_b\n1,x\n2,y\n", encoding="utf-8")
+        file_two.write_text("col_a,col_b\n3,z\n4,w\n", encoding="utf-8")
+
+        manifest = {
+            "dataset_pid": "doi:10.123/unique-ids",
+            "dataset_uri_base": "https://example.org/dataset",
+            "dataset_title": "Test Unique IDs",
+            "files": [
+                {"csv_path": str(file_one), "file_name": "data1.csv"},
+                {"csv_path": str(file_two), "file_name": "data2.csv"},
+            ],
+        }
+
+        output_path = self.tmp_path / "unique_ids.jsonld"
+        summary_path = self.tmp_path / "unique_ids_summary.json"
+
+        warnings, rows, file_count = cdi_gen.generate_manifest_jsonld(
+            manifest,
+            output_path=output_path,
+            summary_json=summary_path,
+            skip_md5_default=True,
+            quiet=True,
+        )
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(file_count, 2)
+        
+        jsonld_content = json.loads(output_path.read_text(encoding="utf-8"))
+        graph = jsonld_content["@graph"]
+        
+        # Collect all IDs
+        all_ids = [obj.get("@id") for obj in graph]
+        unique_ids = set(all_ids)
+        
+        # All IDs should be unique - no duplicates
+        self.assertEqual(len(all_ids), len(unique_ids), 
+                        f"Duplicate IDs found: {len(all_ids) - len(unique_ids)} duplicates. "
+                        f"This happens when files have same column names without file prefixes.")
+        
+        # Check that both data1 and data2 prefixes are used for col_a
+        data1_col_a_ids = [id for id in all_ids if "data1" in id and "col_a" in id]
+        data2_col_a_ids = [id for id in all_ids if "data2" in id and "col_a" in id]
+        self.assertGreater(len(data1_col_a_ids), 0, "Should have col_a variables with data1 prefix")
+        self.assertGreater(len(data2_col_a_ids), 0, "Should have col_a variables with data2 prefix")
+
 
 def run_tests():
     """Run all tests"""
