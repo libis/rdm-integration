@@ -386,29 +386,31 @@ After generation, you have two options:
 
 **Option B: Open in Viewer (Recommended)**
 - Click the **"Open in Viewer"** button to open the **cdi-viewer** in a new browser window
-- The viewer automatically loads your generated metadata
-- The Dataverse URL field is pre-populated with your dataset's location
-- You can edit the metadata using the viewer's full feature set
+- The system first adds your DDI-CDI file to the dataset with the correct MIME type
+- The viewer opens and loads the file directly from Dataverse
+- You can then edit and save changes back to the same file
 
 #### 8. Edit and Save to Dataverse (via cdi-viewer)
 
-When you click "Open in Viewer", the cdi-viewer opens with:
+When you click "Open in Viewer":
 
-- Your generated DDI-CDI metadata already loaded
-- The **Dataverse URL field pre-populated** with your dataset (e.g., `https://your-dataverse/dataset.xhtml?persistentId=doi:10.1234/ABC`)
-- This allows you to save directly to your dataset after editing
+1. The generated DDI-CDI metadata is added as a file to your Dataverse dataset
+2. The file receives the correct DDI-CDI MIME type automatically
+3. The cdi-viewer opens with your file ID and Dataverse URL as parameters
+4. The viewer loads the file directly from Dataverse using its API
 
 In the cdi-viewer:
 
 - **Review** the automatically generated metadata in a hierarchical tree view
 - **Edit** any fields to add or correct information (click "Enable Editing" button)
 - **Validate** changes against official DDI-CDI SHACL shapes
-- Click **"Save to Dataverse"** to upload the file to your dataset
+- Click **"Save to Dataverse"** to save your changes back to the file
 
 **File Management**:
-- The cdi-viewer creates files with the correct DDI-CDI MIME type
-- Files are added to your dataset like any other file upload
-- You can keep multiple versions by saving with different filenames
+- The file is created with the correct DDI-CDI MIME type
+- The file is added to your dataset automatically when you click "Open in Viewer"
+- When you save in cdi-viewer, changes are saved back to the same file
+- The file can be downloaded, versioned, and shared with your dataset
 
 #### 9. Refresh or Start Over
 
@@ -457,7 +459,11 @@ The system enriches the output by combining:
 
 ### The Interactive Viewer (CDI Viewer)
 
-The **cdi-viewer** application (developed at KU Leuven, [https://github.com/libis/cdi-viewer](https://github.com/libis/cdi-viewer)) opens in a **new browser window** when you click "Open in Viewer". It provides:
+The **cdi-viewer** application (developed at KU Leuven, [https://github.com/libis/cdi-viewer](https://github.com/libis/cdi-viewer)) opens in a **new browser window** when you click "Open in Viewer". 
+
+**How it works**: When you click "Open in Viewer", the system first adds the generated DDI-CDI metadata as a file to your Dataverse dataset (with the correct JSON-LD MIME type), then opens the cdi-viewer with standard Dataverse parameters (`fileid` and `siteUrl`). The viewer loads the file directly from Dataverse using its API.
+
+The cdi-viewer provides:
 
 #### Visual Interface Features
 - **Hierarchical tree display** of your DDI-CDI metadata
@@ -479,17 +485,19 @@ The **cdi-viewer** application (developed at KU Leuven, [https://github.com/libi
 #### Export and Save
 - **JSON-LD format**: Standard linked data serialization with DDI-CDI 1.0 context
 - **Export button**: Download the current metadata as a `.jsonld` file
-- **Save to Dataverse**: Click "Save to Dataverse" to upload as `.jsonld` file with correct MIME type
+- **Save to Dataverse**: Click "Save to Dataverse" to replace the file in Dataverse with your edits
 - The saved file can be downloaded, versioned, and shared with your dataset
 
-#### Pre-populated Dataset Information
-When opened from rdm-integration, the viewer receives:
-- Your generated DDI-CDI metadata (via localStorage)
-- The dataset persistent ID (DOI)
-- The Dataverse server URL
-- (Optionally) Your API token for authentication
+#### How Viewer Integration Works
+When opened from rdm-integration, the viewer receives standard Dataverse parameters:
+- **`fileid`**: The Dataverse file ID of the generated DDI-CDI file
+- **`siteUrl`**: The Dataverse server URL
 
-The Dataverse URL field is automatically filled in, making it easy to save directly to your dataset.
+The viewer loads the file content directly from Dataverse using these parameters. When you save changes, the viewer replaces the existing file in the dataset. This approach:
+- Works seamlessly across different origins (rdm-integration and cdi-viewer)
+- Leverages standard Dataverse file APIs
+- Ensures proper authentication and authorization
+- Uses the correct DDI-CDI MIME type: `application/ld+json;profile="http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://ddialliance.org/specification/ddi-cdi/1.0"`
 
 ### Console Output
 
@@ -613,11 +621,11 @@ The DDI-CDI feature includes intelligent caching to improve user experience:
 
 The feature uses a hybrid architecture:
 
-- **Go backend**: Handles job orchestration, authentication, file system access, and caching
+- **Go backend**: Handles job orchestration, authentication, file system access, caching, and adding files to Dataverse
 - **Python script**: Performs data profiling and JSON-LD generation (`cdi_generator_jsonld.py`)
 - **Redis queue**: Manages background job processing
-- **cdi-viewer**: Provides interactive metadata viewing and editing (opens in new browser window)
-- **Angular frontend**: Displays preview, handles generation requests, and passes data to cdi-viewer via localStorage
+- **cdi-viewer**: Provides interactive metadata viewing and editing (opens in new browser window, loads files via Dataverse API)
+- **Angular frontend**: Displays preview, handles generation requests, and opens cdi-viewer with Dataverse file parameters
 
 ### The cdi_generator_jsonld.py Script
 
