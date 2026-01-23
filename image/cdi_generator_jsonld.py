@@ -73,6 +73,9 @@ from dateutil import parser as dateparser
 # ---- Official DDI-CDI 1.0 JSON-LD Context URL ----
 DDI_CDI_CONTEXT = "https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld"
 
+# ---- Generator Version (increment when making changes to track generated files) ----
+GENERATOR_VERSION = "0.8"
+
 # ---- DDI Controlled Vocabulary Data Types ----
 DDI_DATATYPE_CV = "http://rdf-vocabulary.ddialliance.org/cv/DataType/1.1.2/#"
 
@@ -1049,11 +1052,13 @@ def _build_catalog_details(
             "@type": "AccessInformation",
         }
         if rich_metadata.get("license_name") or rich_metadata.get("license_uri"):
+            # LicenseInformation closed shape only allows: contact, description, licenseAgent, licenseReference
             license_info: Dict[str, Any] = {
                 "@type": "LicenseInformation",
             }
             if rich_metadata.get("license_name"):
-                license_info["name"] = {
+                # Use description property (not name) per SHACL closed shape
+                license_info["description"] = {
                     "@type": "InternationalString",
                     "languageSpecificString": {
                         "@type": "LanguageString",
@@ -1061,7 +1066,11 @@ def _build_catalog_details(
                     }
                 }
             if rich_metadata.get("license_uri"):
-                license_info["uri"] = rich_metadata["license_uri"]
+                # licenseReference must be a Reference object per SHACL
+                license_info["licenseReference"] = {
+                    "@type": "Reference",
+                    "uri": rich_metadata["license_uri"]
+                }
             access["license"] = license_info
         
         if rich_metadata.get("terms_of_use"):
@@ -1199,6 +1208,12 @@ def build_jsonld_graph(
     all_value_mapping_positions: List[str] = []
     primary_key_components: List[str] = []
     
+    # Track used fragment IDs to avoid duplicates (e.g., columns '*' and '/' both become '_')
+    used_fragments: Dict[str, int] = {}
+    
+    # Position counter for ValueMappingPosition (1-based per DDI-CDI convention)
+    position_counter = 1
+    
     # Process all variables from all files
     for file_data in files_data:
         columns = file_data.get("columns", [])
@@ -1213,6 +1228,14 @@ def build_jsonld_graph(
             var_frag = safe_fragment(col_name)
             # Include file prefix to ensure unique IDs across files
             full_frag = f"{file_prefix}_{var_frag}" if file_prefix else var_frag
+            
+            # Handle duplicate fragments (e.g., columns '*' and '/' both become '_')
+            if full_frag in used_fragments:
+                used_fragments[full_frag] += 1
+                full_frag = f"{full_frag}_{used_fragments[full_frag]}"
+            else:
+                used_fragments[full_frag] = 0
+            
             var_id = f"#{full_frag}"
             domain_id = f"#{full_frag}_Substantive_Value_Domain"
             component_id = f"#{full_frag}_Component"
@@ -1266,24 +1289,48 @@ def build_jsonld_graph(
                 })
             
             # Create SubstantiveValueDomain
+            # recommendedDataType must be a ControlledVocabularyEntry object per SHACL shapes
+            # vocabulary must be a Reference object (not ControlledVocabulary) per SHACL shapes
+            datatype_uri = col_stats.ddi_datatype_uri()
             domain_node: Dict[str, Any] = {
                 "@id": domain_id,
                 "@type": "SubstantiveValueDomain",
-                "recommendedDataType": col_stats.ddi_datatype_uri()
+                "recommendedDataType": {
+                    "@type": "ControlledVocabularyEntry",
+                    "entryValue": datatype_uri.split("#")[-1] if "#" in datatype_uri else datatype_uri,
+                    "vocabulary": {
+                        "@type": "Reference",
+                        "uri": datatype_uri.rsplit("#", 1)[0] + "#" if "#" in datatype_uri else datatype_uri
+                    }
+                }
             }
             if codelist_id:
                 domain_node["takesValuesFrom"] = codelist_id
             graph.append(domain_node)
             
-            # Create Variable (InstanceVariable + RepresentedVariable)
+            # Create Variable (InstanceVariable inherits from RepresentedVariable in DDI-CDI)
+            # Only declare @type as InstanceVariable - it already inherits RepresentedVariable properties
+            # name must be ObjectName object per SHACL shapes
             var_node: Dict[str, Any] = {
                 "@id": var_id,
-                "@type": ["InstanceVariable", "RepresentedVariable"],
-                "name": label or col_name,
-                "takesSubstantiveValuesFrom_SubstantiveValueDomain": domain_id
+                "@type": "InstanceVariable",
+                "name": {
+                    "@type": "ObjectName",
+                    "name": label or col_name
+                },
+                # DDI-CDI 1.0 context: RepresentedVariable property (inherited by InstanceVariable)
+                "takesSubstantiveValuesFrom_SubstantiveValueDomain": domain_id,
+                # Link variable to its ValueMapping(s)
+                "has_ValueMapping": mapping_id
             }
             if label and label != col_name:
-                var_node["definition"] = f"Column: {col_name}"
+                var_node["definition"] = {
+                    "@type": "InternationalString",
+                    "languageSpecificString": {
+                        "@type": "LanguageString",
+                        "content": f"Column: {col_name}"
+                    }
+                }
             graph.append(var_node)
             
             # Create CategoryStatistic nodes for summary statistics
@@ -1323,24 +1370,36 @@ def build_jsonld_graph(
             graph.append({
                 "@id": component_id,
                 "@type": component_type,
+                # DDI-CDI 1.0 context: DataStructureComponent property
                 "isDefinedBy_RepresentedVariable": var_id
             })
             
             # Create ValueMapping
+            # Note: ValueMapping doesn't link TO variables directly.
+            # The link is: InstanceVariable --has_ValueMapping--> ValueMapping
+            # ValueMapping's 'formats' property links to DataPoint, not variables
+            # DDI-CDI 1.0 SHACL requires defaultValue (minCount 1)
             graph.append({
                 "@id": mapping_id,
                 "@type": "ValueMapping",
-                "defaultValue": ""
+                "defaultValue": ""  # Required by SHACL, empty string as default
             })
             
             # Create ValueMappingPosition
             graph.append({
                 "@id": mapping_pos_id,
                 "@type": "ValueMappingPosition",
-                "indexes": mapping_id
+                "indexes": mapping_id,
+                "value": position_counter
             })
+            position_counter += 1
     
     # Create WideDataSet (root)
+    # WideDataSet inherits from DataSet which only allows:
+    # - catalogDetails (CatalogDetails object)
+    # - identifier (Identifier object)
+    # - has_DataPoint, has_Key, isStructuredBy
+    # Other properties like name, description go into CatalogDetails
     dataset_node: Dict[str, Any] = {
         "@id": dataset_id,
         "@type": "WideDataSet",
@@ -1349,17 +1408,36 @@ def build_jsonld_graph(
     # Link to CatalogDetails if we have rich metadata
     if rich_metadata:
         dataset_node["catalogDetails"] = catalog_details_id
-    # Name is also at dataset level for simple access
-    dataset_node["name"] = dataset_title
-    if dataset_description:
-        dataset_node["description"] = dataset_description
+    # identifier must be an Identifier object per SHACL shapes
+    # ddiIdentifier requires InternationalRegistrationDataIdentifier, not InternationalIdentifier
     if dataset_pid:
-        dataset_node["identifier"] = dataset_pid
-    if files_data and files_data[0].get("file_name"):
-        dataset_node["physicalFileName"] = files_data[0]["file_name"]
+        # Parse DOI to extract components
+        # Format: doi:10.82111/RPBJGL or https://doi.org/10.82111/RPBJGL
+        doi_value = dataset_pid
+        if doi_value.startswith("doi:"):
+            doi_value = doi_value[4:]  # Remove "doi:" prefix
+        elif doi_value.startswith("https://doi.org/"):
+            doi_value = doi_value[16:]  # Remove URL prefix
+        
+        # Extract registrationAuthorityIdentifier (prefix before /) and dataIdentifier (suffix after /)
+        parts = doi_value.split("/", 1)
+        registration_authority = parts[0] if len(parts) > 0 else ""
+        data_id = parts[1] if len(parts) > 1 else doi_value
+        
+        dataset_node["identifier"] = {
+            "@type": "Identifier",
+            "ddiIdentifier": {
+                "@type": "InternationalRegistrationDataIdentifier",
+                "dataIdentifier": data_id,
+                "registrationAuthorityIdentifier": registration_authority,
+                "versionIdentifier": "1.0"
+            }
+        }
     graph.append(dataset_node)
     
     # Create WideDataStructure
+    # Note: WideDataStructure inherits from DataStructure
+    # DDI-CDI 1.0 context: DataStructure uses has_DataStructureComponent
     graph.append({
         "@id": structure_id,
         "@type": "WideDataStructure",
@@ -1367,6 +1445,7 @@ def build_jsonld_graph(
     })
     
     # Create LogicalRecord
+    # DDI-CDI 1.0 context: LogicalRecord uses has_InstanceVariable
     graph.append({
         "@id": logical_record_id,
         "@type": "LogicalRecord",
@@ -1396,11 +1475,15 @@ def build_jsonld_graph(
         all_component_ids.insert(0, primary_key_id)
     
     # Create PhysicalSegmentLayout
+    # DDI-CDI 1.0 context: uses has_ValueMapping and has_ValueMappingPosition separately
+    # SHACL requires: allowsDuplicates, isDelimited, isFixedWidth (all boolean, minCount 1)
     physical_layout: Dict[str, Any] = {
         "@id": physical_layout_id,
         "@type": "PhysicalSegmentLayout",
         "formats": logical_record_id,
+        "allowsDuplicates": True,  # Required by SHACL
         "isDelimited": True,
+        "isFixedWidth": False,  # Required by SHACL
         "hasHeader": True,
         "headerRowCount": 1,
         "has_ValueMapping": all_value_mappings,
@@ -1418,9 +1501,10 @@ def build_jsonld_graph(
     
     graph.append(physical_layout)
     
-    # Build final JSON-LD document
+    # Build final JSON-LD document with generator version for tracking
     return {
         "@context": DDI_CDI_CONTEXT,
+        "generatorVersion": GENERATOR_VERSION,
         "@graph": graph
     }
 
