@@ -43,17 +43,20 @@ This section provides a technical overview of the Globus integration, including 
 | Transfer status in UI | ✅ (ACTIVE/SUCCEEDED/FAILED) | ❌ |
 | Link to Globus web app for monitoring | ✅ | ✅ |
 | **User Interface** | | |
-| Hierarchical tree view for files | ✅ (PrimeNG TreeTable) | Flat list |
+| Hierarchical tree view for files | ✅ (PrimeNG TreeTable) | Flat list per folder¹ |
 | Color-coded file selection | ✅ (CSS variables for light/dark) | ❌ |
-| Folder selection (select all children) | ✅ | ❌ |
+| Folder selection (select all children) | ✅ (recursive) | ❌² |
 | Toggle all files at once | ✅ | ✅ (checkbox) |
 | Destination folder tree navigation | ✅ (expandable tree) | ✅ (list navigation) |
 | Multiple endpoint search tabs | ❌ | ✅ (Personal/Recent/Search) |
 | DOI dropdown with search | ✅ | ❌ (passed via callback) |
 | **Maintenance** | | |
-| Active development | ✅ | ⚠️ (last commit 2+ years ago) |
-| Latest Angular version | ✅ (Angular 19+) | Angular 17 (v2 branch) |
+| Active development | ✅ | ⚠️ (v2 branch merged ~mid-2025) |
+| Latest Angular version | ✅ (Angular 20) | Angular 17 (v2 branch) |
 | Regular security updates | ✅ | ❌ |
+
+¹ Uses `mat-selection-list` with double-click navigation into subdirectories  
+² Has "Select All" checkbox but only for visible items in current folder, not recursive
 
 ### Preview URL Support
 
