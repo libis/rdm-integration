@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"integration/app/logging"
 	"integration/app/plugin/types"
 	"io"
 	"net/http"
@@ -57,14 +56,23 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 		return nil, err
 	}
 
+	// Use the queried path as the base for constructing child paths
+	// The API's absolute_path is unreliable on Windows endpoints
+	basePath := path
+	if basePath == "" {
+		basePath = "/"
+	}
+	// Ensure basePath ends with /
+	if !strings.HasSuffix(basePath, "/") {
+		basePath = basePath + "/"
+	}
+
 	res := []Entry{}
 	for _, v := range response {
 		isDir := v.Type == "dir"
 
-		// Simple path construction: concatenate path + name + /
-		// Globus API handles Windows paths correctly (e.g., C/ for drives)
-		id := v.AbsolutePath + v.Name + "/"
-		logging.Logger.Printf("[globus] [PATH] path: '%s' + '%s' → ID: '%s'", v.AbsolutePath, v.Name, id)
+		// Construct child path using the queried path as base
+		id := basePath + v.Name + "/"
 
 		if recursive && isDir {
 			folderEntries, err := listItems(ctx, id, theUrl, token, user, true)
@@ -75,7 +83,7 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 		}
 
 		res = append(res, Entry{
-			Path:     v.AbsolutePath,
+			Path:     basePath,
 			Id:       id,
 			Name:     v.Name,
 			IsDir:    isDir,
