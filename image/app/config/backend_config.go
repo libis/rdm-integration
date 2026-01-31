@@ -181,7 +181,6 @@ func init() {
 func ApiKey() string {
 	b, err := os.ReadFile(config.Options.PathToApiKey)
 	if err != nil {
-		logging.Logger.Printf("API key could not be read from file %s: %v", config.Options.PathToApiKey, err)
 		return ""
 	}
 	return strings.TrimSpace(string(b))
