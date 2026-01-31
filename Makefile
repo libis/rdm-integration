@@ -32,6 +32,61 @@ build: fmt ## Build Docker image
 		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
 		--tag "$(IMAGE_TAG)" --file image/Dockerfile .
 
+build-local: fmt ## Build standalone binaries with local filesystem plugin for all platforms
+	@echo "=== Building standalone integration binaries ==="
+	@# Create temp build directory
+	rm -rf ./tmp/build-local
+	mkdir -p ./tmp/build-local
+	@echo "Using temp directory: ./tmp/build-local"
+	@# Download and extract frontend (like Dockerfile does)
+	@echo "Downloading frontend (version $(FRONTEND_VERSION))..."
+	curl -sL https://github.com/libis/rdm-integration-frontend/archive/refs/tags/$(FRONTEND_VERSION).tar.gz -o ./tmp/build-local/$(FRONTEND_VERSION).tar.gz
+	cd ./tmp/build-local && tar -xzf $(FRONTEND_VERSION).tar.gz
+	@# Install and build frontend
+	@echo "Installing frontend dependencies..."
+	cd ./tmp/build-local/rdm-integration-frontend-$(FRONTEND_VERSION) && NODE_ENV=development npm ci --no-audit --progress=false
+	@echo "Building frontend..."
+	cd ./tmp/build-local/rdm-integration-frontend-$(FRONTEND_VERSION) && npm run build -- --configuration=$(NODE_ENV) --base-href=/
+	@# Copy frontend dist to image (note: Dockerfile uses dist/datasync/browser)
+	mkdir -p image/app/frontend/dist
+	rm -rf image/app/frontend/dist/datasync
+	cp -r ./tmp/build-local/rdm-integration-frontend-$(FRONTEND_VERSION)/dist/datasync/browser image/app/frontend/dist/datasync
+	@# Apply customizations (like Dockerfile does)
+	cp -r ./conf/customizations/* image/app/frontend/dist/datasync/
+	@# Build binaries for all platforms
+	@echo "Building binaries..."
+	mkdir -p dist
+	@# Demo Dataverse binaries
+	@echo "  -> demo-integration-local (Linux amd64)"
+	cd image && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.DataverseServer=https://demo.dataverse.org -X 'main.DataverseServerName=Demo Dataverse'" -o ../dist/demo-integration-local-linux-amd64 ./app/local
+	@echo "  -> demo-integration-local (Linux arm64)"
+	cd image && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X main.DataverseServer=https://demo.dataverse.org -X 'main.DataverseServerName=Demo Dataverse'" -o ../dist/demo-integration-local-linux-arm64 ./app/local
+	@echo "  -> demo-integration-local (macOS amd64)"
+	cd image && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.DataverseServer=https://demo.dataverse.org -X 'main.DataverseServerName=Demo Dataverse'" -o ../dist/demo-integration-local-darwin-amd64 ./app/local
+	@echo "  -> demo-integration-local (macOS arm64)"
+	cd image && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.DataverseServer=https://demo.dataverse.org -X 'main.DataverseServerName=Demo Dataverse'" -o ../dist/demo-integration-local-darwin-arm64 ./app/local
+	@echo "  -> demo-integration-local (Windows amd64)"
+	cd image && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.DataverseServer=https://demo.dataverse.org -X 'main.DataverseServerName=Demo Dataverse'" -o ../dist/demo-integration-local-windows-amd64.exe ./app/local
+	@# Harvard Dataverse binaries
+	@echo "  -> harvard-integration-local (Linux amd64)"
+	cd image && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.DataverseServer=https://dataverse.harvard.edu -X 'main.DataverseServerName=Harvard Dataverse'" -o ../dist/harvard-integration-local-linux-amd64 ./app/local
+	@echo "  -> harvard-integration-local (Linux arm64)"
+	cd image && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X main.DataverseServer=https://dataverse.harvard.edu -X 'main.DataverseServerName=Harvard Dataverse'" -o ../dist/harvard-integration-local-linux-arm64 ./app/local
+	@echo "  -> harvard-integration-local (macOS amd64)"
+	cd image && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.DataverseServer=https://dataverse.harvard.edu -X 'main.DataverseServerName=Harvard Dataverse'" -o ../dist/harvard-integration-local-darwin-amd64 ./app/local
+	@echo "  -> harvard-integration-local (macOS arm64)"
+	cd image && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.DataverseServer=https://dataverse.harvard.edu -X 'main.DataverseServerName=Harvard Dataverse'" -o ../dist/harvard-integration-local-darwin-arm64 ./app/local
+	@echo "  -> harvard-integration-local (Windows amd64)"
+	cd image && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.DataverseServer=https://dataverse.harvard.edu -X 'main.DataverseServerName=Harvard Dataverse'" -o ../dist/harvard-integration-local-windows-amd64.exe ./app/local
+	@# Cleanup: restore placeholder index.html and remove temp directory
+	rm -rf image/app/frontend/dist/datasync
+	mkdir -p image/app/frontend/dist/datasync
+	echo "This file will be replaced during the build." > image/app/frontend/dist/datasync/index.html
+	rm -rf ./tmp/build-local
+	@echo ""
+	@echo "=== Build complete! Binaries available in dist/ ==="
+	@ls -lh dist/
+
 push: ## Push Docker image (only in prod stage)
 	if [ "$(STAGE)" = "prod" ]; then \
 		echo "Pushing Docker image to repository ..."; \

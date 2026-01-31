@@ -16,6 +16,9 @@
 # vendor/
 
 docker-volumes
+tmp/
+dist/
+image/app/frontend/dist/datasync/
 *.tar.gz
 *.war
 image/coverage.html
