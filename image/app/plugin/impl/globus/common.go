@@ -55,25 +55,25 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 	if err != nil {
 		return nil, err
 	}
-
-	// Use the queried path as the base for constructing child paths
-	// The API's absolute_path is unreliable on Windows endpoints
-	basePath := path
-	if basePath == "" {
-		basePath = "/"
-	}
-	// Ensure basePath ends with /
-	if !strings.HasSuffix(basePath, "/") {
-		basePath = basePath + "/"
-	}
-
 	res := []Entry{}
 	for _, v := range response {
 		isDir := v.Type == "dir"
 
-		// Construct child path using the queried path as base
-		id := basePath + v.Name + "/"
+		// Use the API's resolved absolute_path which handles /~/, /{server_default}/, etc.
+		// Fall back to queried path only if absolute_path is empty (edge case).
+		basePath := v.AbsolutePath
+		if basePath == "" {
+			basePath = path
+		}
+		if basePath == "" {
+			basePath = "/"
+		}
+		// Ensure basePath ends with /
+		if !strings.HasSuffix(basePath, "/") {
+			basePath = basePath + "/"
+		}
 
+		id := basePath + v.Name + "/"
 		if recursive && isDir {
 			folderEntries, err := listItems(ctx, id, theUrl, token, user, true)
 			if err != nil {
@@ -81,7 +81,6 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 			}
 			res = append(res, folderEntries...)
 		}
-
 		res = append(res, Entry{
 			Path:     basePath,
 			Id:       id,

@@ -22,12 +22,21 @@ func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []ty
 	if params.Option == "" {
 		endpoint, err := getEndpoint(ctx, params)
 		if err == nil && endpoint.DefaultDirectory != "" {
-			params.Option = endpoint.DefaultDirectory
+			// Check if DefaultDirectory is a template variable (e.g., "{server_default}")
+			// These should be replaced with /~/ which Globus interprets as the user's home directory
+			isTemplate := strings.Contains(endpoint.DefaultDirectory, "{") && strings.Contains(endpoint.DefaultDirectory, "}")
+			if isTemplate {
+				params.Option = "/~/"
+			} else {
+				params.Option = endpoint.DefaultDirectory
+			}
 			res, err = doListFolderItems(ctx, params, "")
 			if err == nil && len(res) > 0 {
 				return res, nil
-			} else {
+			} else if !isTemplate {
 				// DefaultDirectory is empty or failed, list its parent so user can see/select it
+				// Only do this for non-template directories (we know the exact path)
+				// For templates, we can't know the resolved path to pre-select
 				parentDir := path.Dir(strings.TrimSuffix(endpoint.DefaultDirectory, "/"))
 				if parentDir != "" && parentDir != "." {
 					params.Option = parentDir + "/"
