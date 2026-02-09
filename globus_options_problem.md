@@ -1,164 +1,97 @@
-# Globus Options Path Problem
+# Globus Folder Selection — Problem & Solution
 
-## Problem Statement
+## Problems
 
-When selecting a folder from a Globus endpoint, we need to:
-1. Show the **full absolute path** to start from (not `/~/` or `/{server_default}/`)
-2. Allow the frontend to construct a tree by splitting on `/`
-3. Pre-select the default folder
-4. Work in ALL cases:
-   - Windows personal endpoints (drive letters like `C:/`)
-   - Linux personal endpoints (`/~/` → `/home/user/`)
-   - Servers with `{server_default}` template variable
+### Problem 1: Tree doesn't visually refresh after expanding a node
 
-## UI Behavior
+PrimeNG `<p-tree>` does reference-equality check on its `[value]` binding.
+When expanding a node, `handleOptionsResponse` mutated `node.children` in-place
+and incremented a `refreshTrigger` signal. But `rootOptions` computed still
+returned the **same array reference** from `_rootOptionsData()`, so PrimeNG
+never detected the change — the user had to click again to see children.
 
-1. **Initial state**: Root shows "Expand and select" (placeholder)
-2. **First expansion**: Shows the absolute path hierarchy to the pre-selected default folder
-   - Example: If default is `/home/u0050020/data/`, show tree:
-     ```
-     /home/
-       └── u0050020/
-             └── data/  ← pre-selected
-     ```
-3. **Subsequent expansions**: Load siblings of the expanded folder
-4. **Collapse/expand**: Refreshes and loads siblings
+### Problem 2: Default folder not shown in hierarchy
 
-## Frontend Tree Refresh Pattern
+On initial load, the backend listed the **contents** of `DefaultDirectory`
+(i.e. its children) and returned them as a flat list. The user saw the
+subfolders but not the default folder itself, and couldn't navigate up to
+parent directories.
 
-Use **trigger input pattern** (NOT deep cloning) for consistency with other components:
-- `datafile.component.ts` - uses `trigger` input to force computed signal re-evaluation
-- `downloadablefile.component.ts` - same pattern
-- `metadatafield.component.ts` - same pattern
+## Solution
 
-The pattern:
+### Frontend fix (Problem 1)
+
+In `handleOptionsResponse` for both `connect.component.ts` and
+`download.component.ts`, replaced:
+
 ```typescript
-readonly trigger = input(0);
-readonly someComputed = computed(() => {
-  this.trigger(); // Track trigger to update on changes
-  return /* computed value */;
-});
+this.refreshTrigger.update((n) => n + 1);
 ```
 
-When tree nodes change, increment the trigger to force UI refresh.
+with:
 
-## Current State Analysis
+```typescript
+this._rootOptionsData.update((prev) => [...prev]);
+```
 
-### Backend: `options.go`
-- `listFolderItems()` tries DefaultDirectory, then `/`, then `/~/`
-- When DefaultDirectory contains `{...}`, it substitutes with `/~/`
-- Returns folder items with their `Value` field set to the path
+This creates a **new array reference** via spread, so PrimeNG detects the
+change and re-renders the tree immediately.
 
-### Backend: `common.go`
-- `listItems()` calls Globus API with the path
-- Globus API returns `absolute_path` in the response which resolves `/~/` → `/home/user/`
-- Each item's path should use this resolved `absolute_path`
+In `connect.component.ts`, `refreshTrigger` was removed entirely (it had no
+other consumers). In `download.component.ts` it remains for the file-action
+toggle / `action` computed signal, but `rootOptions` no longer depends on it.
 
-### The Core Issue
-When querying `/~/` or `/{server_default}/`:
-1. Globus API resolves it to the actual path (e.g., `/home/u0050020/`)
-2. The response's `absolute_path` field contains this resolved path
-3. We need to use this resolved path for constructing folder IDs
+### Backend fix (Problem 2)
 
-## Solution Plan
+**`types/select_item.go`** — added two optional fields:
 
-### Step 1: Verify Globus API behavior
-Make an initial `/ls` call with the DefaultDirectory (or `/~/` or `/`) and check the `absolute_path` in the response.
-
-### Step 2: Backend uses resolved paths from Globus API
-The Globus API returns an `absolute_path` field in each response item. When we query `/~/` or `/{server_default}/`, the API resolves it to the actual path (e.g., `/home/u0050020/`).
-
-In `listItems()`, we use `v.AbsolutePath` from each response item instead of constructing paths from the queried path.
-
-### Step 3: Existing tree logic handles hierarchy
-The existing code already builds the tree structure correctly - no changes needed there. The frontend splits paths on `/` to show the hierarchy.
-
-**On collapse + expand**: Load ALL siblings at that level (normal folder listing).
-
-This is efficient - initial load shows just the path (3-4 items), not thousands of folders.
-
-### Step 4: Handle all three cases
-
-| Case | DefaultDirectory | Query | API absolute_path | Result |
-|------|------------------|-------|-------------------|--------|
-| Linux server with template | `{server_default}` | `/~/` | `/home/user/` | Use `/home/user/` |
-| Linux personal | `/home/user/` | `/home/user/` | `/home/user/` | Use `/home/user/` |
-| Windows personal | `/` | `/` | `/` | Items: `C`, `D` → `/C/`, `/D/` |
-
-### Step 5: Frontend handles tree construction
-Frontend receives items with full absolute paths. It can:
-- Split on `/` to show hierarchy
-- Expand/collapse to load siblings
-- Default folder is pre-selected
-
-## Implementation
-
-### `common.go` - listItems()
 ```go
-func listItems(...) {
-    response, err := getResponse(...)
-    for _, v := range response {
-        // Use resolved absolute_path from API
-        basePath := v.AbsolutePath
-        if basePath == "" {
-            basePath = path  // fallback to queried path
-        }
-        if !strings.HasSuffix(basePath, "/") {
-            basePath = basePath + "/"
-        }
-        id := basePath + v.Name + "/"
-        // ...
-    }
-}
+Expanded bool         `json:"expanded,omitempty"`
+Children []SelectItem `json:"children,omitempty"`
 ```
 
-### `options.go` - listFolderItems()
-```go
-func listFolderItems(...) {
-    // For initial load, try to get resolved default directory
-    if params.Option == "" {
-        endpoint, _ := getEndpoint(...)
-        defaultDir := endpoint.DefaultDirectory
-        
-        // Determine what path to query
-        queryPath := "/"
-        if defaultDir != "" {
-            if strings.Contains(defaultDir, "{") {
-                queryPath = "/~/"  // Template variable → use /~/
-            } else {
-                queryPath = defaultDir
-            }
-        }
-        
-        // Query and get resolved path from response
-        params.Option = queryPath
-        items, err := doListFolderItems(...)
-        // Items now have full absolute paths in their Value field
-        return items, err
-    }
-    
-    // Expanding existing node - just list that folder
-    return doListFolderItems(params, "")
-}
-```
+These are backward-compatible: other plugins (iRODS, OneDrive, SFTP, etc.)
+return flat `[]SelectItem` arrays where `Children` and `Expanded` are
+zero-valued and omitted from JSON.
 
-## Execution Checklist
+**`globus/options.go`** — rewrote `listFolderItems`:
 
-### Backend
-- [x] 1. `common.go`: Use `v.AbsolutePath` from Globus API response (the API resolves `/~/` etc. for us)
-- [x] 2. `options.go`: When `DefaultDirectory` contains `{...}`, query `/~/` instead (API will resolve it)
-- [x] 3. Keep existing tree logic (already works)
+1. On initial load (no `option`), resolve `DefaultDirectory` via the Globus
+   endpoint API. Template variables like `{server_default}` map to `/~/`.
+2. List the default directory's contents to get its children **and** the
+   resolved absolute path (from Globus API's `absolute_path` field).
+3. Call `buildHierarchy(resolvedDir, children)` which constructs a nested
+   tree from `/` down to the default directory:
 
-### Frontend Migration: Remove deep cloning, use trigger pattern
-- [x] 5. `connect.component.ts`: Add `refreshTrigger` signal, remove `deepCloneTree` usage
-- [x] 6. `download.component.ts`: Already has `refreshTrigger`, remove `deepCloneTree` usage
-- [x] 7. `tree-utils.ts`: Remove `deepCloneTree` function if no longer needed
-- [x] 8. Increment trigger after `node.children = ...` to force refresh
+   ```
+   home/          (expanded)
+     └── user/    (expanded)
+           └── data/  (expanded, selected, children populated)
+                 ├── subfolder1/
+                 └── subfolder2/
+   ```
 
-### Testing
-- [ ] 9. Test case: Linux server with `{server_default}`
-- [ ] 10. Test case: Linux personal endpoint
-- [ ] 11. Test case: Windows personal endpoint
-- [ ] 12. Frontend displays full paths correctly
-- [ ] 13. Expanding folders works (loads siblings)
-- [ ] 14. Default folder pre-selection works
+4. On subsequent expand (user clicks a node), return flat children as before.
+
+The frontend's existing `convertToTreeNodes` already handles recursive
+`children`, `expanded`, and `selected` fields — no frontend model changes
+were needed.
+
+### How it handles all endpoint types
+
+| Endpoint type | DefaultDirectory | Resolved path | Hierarchy shown |
+|---------------|------------------|---------------|-----------------|
+| Linux server with template | `{server_default}` | `/~/` → `/home/user/` | `/home/ > user/ > ...` |
+| Linux personal | `/home/user/data/` | `/home/user/data/` | `/home/ > user/ > data/` |
+| Windows personal | `C:/Users/me/` | `C:/Users/me/` | `C:/ > Users/ > me/` |
+| Root only | `/` | `/` | flat children of `/` |
+
+## Files changed
+
+### Backend (`rdm-integration`)
+- `image/app/plugin/types/select_item.go` — added `Expanded`, `Children` fields
+- `image/app/plugin/impl/globus/options.go` — rewrote `listFolderItems`, added `buildHierarchy`
+
+### Frontend (`rdm-integration-frontend`)
+- `src/app/download/download.component.ts` — `_rootOptionsData.update(prev => [...prev])` instead of `refreshTrigger`
+- `src/app/connect/connect.component.ts` — same fix, removed unused `refreshTrigger`

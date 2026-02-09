@@ -3,7 +3,9 @@
 package types
 
 type SelectItem struct {
-	Label    string      `json:"label"`
-	Value    interface{} `json:"value"`
-	Selected bool        `json:"selected,omitempty"`
+	Label    string       `json:"label"`
+	Value    interface{}  `json:"value"`
+	Selected bool         `json:"selected,omitempty"`
+	Expanded bool         `json:"expanded,omitempty"`
+	Children []SelectItem `json:"children,omitempty"`
 }
