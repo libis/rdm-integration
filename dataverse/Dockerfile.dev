@@ -1,5 +1,5 @@
 # Author: Eryk Kulikowski @ KU Leuven (2024). Apache 2.0 License
-ARG BASE_VERSION=6.8-noble
+ARG BASE_VERSION=6.9-noble
 FROM gdcc/base:${BASE_VERSION}
 
 # The first section requires root privileges

@@ -1,12 +1,12 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
-ARG OAUTH2_POXY_VERSION=v7.6.0
-ARG NODE_VERSION=22-alpine
+ARG OAUTH2_POXY_VERSION=v7.14.2
+ARG NODE_VERSION=24-alpine
 
 FROM node:${NODE_VERSION} AS frontend-builder
 
 # Download and extract frontend
 WORKDIR /app
-ARG FRONTEND_VERSION=1.0.5-rc
+ARG FRONTEND_VERSION=2.0.0
 ARG FRONTEND_TAR_GZ=https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION}.tar.gz
 ADD ${FRONTEND_TAR_GZ} /app/
 RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download && go mod verify
 
 COPY ./image .
-ARG FRONTEND_VERSION=1.0.5-rc
+ARG FRONTEND_VERSION=2.0.0
 COPY --from=frontend-builder /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/browser ./app/frontend/dist/datasync
 
 # Build with optimizations
@@ -57,7 +57,7 @@ COPY ./image/USERTrust_RSA_Certification_Authority.pem /usr/local/share/ca-certi
 RUN update-ca-certificates
 
 RUN python3 -m pip install --no-cache-dir --break-system-packages --upgrade pip && \
-    python3 -m pip install --no-cache-dir --break-system-packages rdflib==7.5.0 chardet==5.2.0 datasketch==1.8.0 python-dateutil==2.9.0.post0
+    python3 -m pip install --no-cache-dir --break-system-packages rdflib==7.5.0 chardet==5.2.0 datasketch==1.9.0 python-dateutil==2.9.0.post0
 
 ARG USER_ID
 ARG GROUP_ID
