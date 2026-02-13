@@ -49,7 +49,20 @@ type Entry struct {
 	Size     int64
 }
 
+func normalizeEndpointPath(path string) string {
+	if path == "" {
+		return path
+	}
+	normalized := strings.TrimSpace(path)
+	decoded, err := url.PathUnescape(normalized)
+	if err == nil && decoded != "" {
+		normalized = decoded
+	}
+	return normalized
+}
+
 func listItems(ctx context.Context, path, theUrl, token, user string, recursive bool) ([]Entry, error) {
+	path = normalizeEndpointPath(path)
 	urlString := theUrl + "?path=" + url.QueryEscape(path)
 	response, err := getResponse(ctx, urlString, token)
 	if err != nil {
@@ -97,10 +110,12 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 }
 
 func getResponse(ctx context.Context, url string, token string) ([]Data, error) {
+	const limit = 100
 	next := true
+	offset := 0
 	res := []Data{}
-	for i := 0; next; i++ {
-		response, err := getPartialResponse(ctx, url, token, 100, i)
+	for next {
+		response, err := getPartialResponse(ctx, url, token, limit, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -109,6 +124,14 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 			res = append(res, r)
 		}
 		next = response.HasNextPage
+		if next {
+			nextOffset := response.Offset + response.Limit
+			// Fallback when backend response does not include reliable pagination metadata.
+			if nextOffset <= offset {
+				nextOffset = offset + limit
+			}
+			offset = nextOffset
+		}
 	}
 	return res, nil
 }

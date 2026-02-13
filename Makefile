@@ -1,6 +1,6 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 
-STAGE ?= dev
+STAGE ?= prod
 BUILD_BASE_HREF ?= /integration/
 
 include env.$(STAGE)
@@ -25,11 +25,21 @@ DATAVERSE_CLASSES_SRC := ../dataverse/target/classes
 DATAVERSE_WEBAPP_SRC := ../dataverse/src/main/webapp
 
 build: fmt ## Build Docker image
+	customizations_path="$(CUSTOMIZATIONS)"; \
+	if [ ! -d "$$customizations_path" ]; then \
+		if [ -d "./conf/kul_customizations" ]; then \
+			echo "CUSTOMIZATIONS path '$$customizations_path' not found; falling back to './conf/kul_customizations'"; \
+			customizations_path="./conf/kul_customizations"; \
+		else \
+			echo "CUSTOMIZATIONS path '$$customizations_path' not found; falling back to './conf/customizations'"; \
+			customizations_path="./conf/customizations"; \
+		fi; \
+	fi; \
 	docker build \
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
 		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
 		--build-arg FRONTEND_VERSION=$(FRONTEND_VERSION) --build-arg NODE_ENV=$(NODE_ENV) \
-		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
+		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$$customizations_path \
 		--tag "$(IMAGE_TAG)" --file image/Dockerfile .
 
 build-local: fmt ## Build standalone binaries with local filesystem plugin for all platforms

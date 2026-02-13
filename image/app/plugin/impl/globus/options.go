@@ -19,35 +19,100 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 }
 
 func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
-	if params.Option == "" {
-		endpoint, err := getEndpoint(ctx, params)
-		if err == nil && endpoint.DefaultDirectory != "" {
-			params.Option = endpoint.DefaultDirectory
-			res, err = doListFolderItems(ctx, params, "")
-			if err == nil && len(res) > 0 {
-				return res, nil
-			} else {
-				// DefaultDirectory is empty or failed, list its parent so user can see/select it
-				parentDir := path.Dir(strings.TrimSuffix(endpoint.DefaultDirectory, "/"))
-				if parentDir != "" && parentDir != "." {
-					params.Option = parentDir + "/"
-					// Pass the default directory so it can be marked as selected
-					return doListFolderItems(ctx, params, endpoint.DefaultDirectory)
-				}
-				params.Option = ""
+	if params.Option != "" {
+		// User expanded a specific node — return flat children for that folder
+		return doListFolderItems(ctx, params)
+	}
+
+	// Initial load: resolve default directory and build nested hierarchy
+	endpoint, err := getEndpoint(ctx, params)
+	if err != nil || endpoint.DefaultDirectory == "" {
+		// No endpoint info or no default directory — try root, then /~/
+		params.Option = "/"
+		res, err = doListFolderItems(ctx, params)
+		if len(res) == 0 && (err == nil || strings.Contains(err.Error(), "ClientError.NotFound")) {
+			params.Option = "/~/"
+			return doListFolderItems(ctx, params)
+		}
+		return
+	}
+
+	// Resolve template variables like {server_default}
+	defaultDir := normalizeEndpointPath(endpoint.DefaultDirectory)
+	if strings.Contains(defaultDir, "{") && strings.Contains(defaultDir, "}") {
+		defaultDir = "/~/"
+	}
+
+	// Resolve the actual absolute path by listing the default directory.
+	// Globus resolves /~/ and similar to real paths and returns absolute_path.
+	resolvedDir := defaultDir
+	params.Option = defaultDir
+	defaultDirItems, listErr := doListFolderItems(ctx, params)
+	if listErr == nil && len(defaultDirItems) > 0 {
+		// The Value of child items is like "/resolved/path/childname/"
+		// Extract the resolved parent from the first child's Value
+		firstChildPath, ok := defaultDirItems[0].Value.(string)
+		if ok {
+			parent := path.Dir(strings.TrimSuffix(firstChildPath, "/"))
+			if parent != "" && parent != "." {
+				resolvedDir = parent + "/"
 			}
 		}
+	} else if listErr != nil && !strings.Contains(listErr.Error(), "ClientError.NotFound") {
+		return nil, listErr
 	}
-	res, err = doListFolderItems(ctx, params, "")
-	if len(res) == 0 && (err == nil || strings.Contains(err.Error(), "ClientError.NotFound")) && params.Option == "" {
-		params.Option = "/~/"
-		return doListFolderItems(ctx, params, "")
-	}
-	return
+
+	// Build the nested hierarchy from "/" down to the resolved default directory
+	return buildHierarchy(resolvedDir, defaultDirItems), nil
 }
 
-func doListFolderItems(ctx context.Context, params types.OptionsRequest, defaultDir string) (res []types.SelectItem, err error) {
-	folder := params.Option
+// buildHierarchy constructs a nested tree of SelectItems from the root "/"
+// down to targetDir, with targetDir's children populated.
+func buildHierarchy(targetDir string, children []types.SelectItem) []types.SelectItem {
+	// Normalize: ensure targetDir starts and ends with /
+	targetDir = strings.TrimSuffix(targetDir, "/") + "/"
+	if !strings.HasPrefix(targetDir, "/") {
+		targetDir = "/" + targetDir
+	}
+
+	// Split the path into segments: "/home/user/data/" -> ["home", "user", "data"]
+	trimmed := strings.Trim(targetDir, "/")
+	if trimmed == "" {
+		// Target is root "/" itself — just return the children flat
+		return children
+	}
+	segments := strings.Split(trimmed, "/")
+
+	// Build from the deepest node (the target) upward
+	// The target node: selected, expanded, with its children populated
+	targetLabel := segments[len(segments)-1]
+	targetNode := types.SelectItem{
+		Label:    targetLabel,
+		Value:    targetDir,
+		Selected: true,
+		Expanded: true,
+		Children: children,
+	}
+
+	// Wrap each ancestor around it, from inside out
+	current := targetNode
+	for i := len(segments) - 2; i >= 0; i-- {
+		// Build the path for this ancestor
+		ancestorPath := "/" + strings.Join(segments[:i+1], "/") + "/"
+		current = types.SelectItem{
+			Label:    segments[i],
+			Value:    ancestorPath,
+			Expanded: true,
+			Children: []types.SelectItem{current},
+		}
+	}
+
+	// The outermost node is under root "/"
+	return []types.SelectItem{current}
+}
+
+func doListFolderItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
+	folder := normalizeEndpointPath(params.Option)
 	if folder == "" {
 		folder = "/"
 	}
@@ -58,8 +123,7 @@ func doListFolderItems(ctx context.Context, params types.OptionsRequest, default
 	}
 	for _, e := range items {
 		if e.IsDir {
-			selected := defaultDir != "" && e.Id == defaultDir
-			res = append(res, types.SelectItem{Label: e.Name, Value: e.Id, Selected: selected})
+			res = append(res, types.SelectItem{Label: e.Name, Value: e.Id})
 		}
 	}
 	return res, nil
