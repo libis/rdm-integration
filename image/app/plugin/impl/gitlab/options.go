@@ -20,24 +20,6 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	if project == "" || token == "" || base == "" {
 		return nil, fmt.Errorf("branches: missing parameters: expected base, group (optional), project and token")
 	}
-	url := base + "/api/v4/projects/" + url.PathEscape(project) + "/repository/branches"
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Add("Authorization", "Bearer "+token)
-	r, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-	b, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	if r.StatusCode != 200 {
-		return nil, fmt.Errorf("getting branches failed: %s", string(b))
-	}
 	type Commit struct {
 		CommittedDate string `json:"committed_date"`
 	}
@@ -47,16 +29,48 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 		Commit  Commit `json:"commit"`
 	}
 	branches := []Branch{}
-	err = json.Unmarshal(b, &branches)
+	const perPage = 100
+	for page := 1; ; page++ {
+		pageURL := fmt.Sprintf(
+			"%s/api/v4/projects/%s/repository/branches?per_page=%d&page=%d",
+			base,
+			url.PathEscape(project),
+			perPage,
+			page,
+		)
+		request, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Add("Authorization", "Bearer "+token)
+		r, err := http.DefaultClient.Do(request)
+		if err != nil {
+			return nil, err
+		}
+		b, err := io.ReadAll(r.Body)
+		r.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		if r.StatusCode != 200 {
+			return nil, fmt.Errorf("getting branches failed: %s", string(b))
+		}
+		pageBranches := []Branch{}
+		err = json.Unmarshal(b, &pageBranches)
+		if err != nil {
+			return nil, err
+		}
+		if len(pageBranches) == 0 {
+			break
+		}
+		branches = append(branches, pageBranches...)
+	}
 	sort.Slice(branches, func(i, j int) bool {
 		if branches[i].Default {
 			return true
 		}
 		return branches[i].Commit.CommittedDate > branches[j].Commit.CommittedDate
 	})
-	if err != nil {
-		return nil, err
-	}
 	res := []types.SelectItem{}
 	for _, v := range branches {
 		res = append(res, types.SelectItem{Label: v.Name, Value: v.Name})

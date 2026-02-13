@@ -9,6 +9,7 @@ import (
 	"integration/app/plugin/types"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 type Item struct {
@@ -20,25 +21,39 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 	if token == "" {
 		return nil, fmt.Errorf("not authorized")
 	}
-	url := params.Url + "/api/v4/search?scope=projects&search=" + params.RepoName
-	request, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	const maxSearchResults = 10
+	searchURL := fmt.Sprintf(
+		"%s/api/v4/search?scope=projects&search=%s&per_page=%d&page=1",
+		params.Url,
+		url.QueryEscape(params.RepoName),
+		maxSearchResults,
+	)
+	request, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
+	if err != nil {
+		return nil, err
+	}
 	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %v", err)
 	}
-	defer r.Body.Close()
+	b, err := io.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("search failed: %v", err)
+	}
 	if r.StatusCode != 200 && r.StatusCode != 404 {
-		b, _ := io.ReadAll(r.Body)
 		return nil, fmt.Errorf("search failed: %d - %s", r.StatusCode, string(b))
 	}
-	b, _ := io.ReadAll(r.Body)
 	results := []Item{}
-	json.Unmarshal(b, &results)
-
+	if r.StatusCode == 200 {
+		if err := json.Unmarshal(b, &results); err != nil {
+			return nil, err
+		}
+	}
 	res := []types.SelectItem{}
 	for _, v := range results {
 		res = append(res, types.SelectItem{Label: v.PathWithNamespace, Value: v.PathWithNamespace})
 	}
-	return res, err
+	return res, nil
 }
