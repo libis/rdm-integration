@@ -58,6 +58,22 @@ func normalizeEndpointPath(path string) string {
 	if err == nil && decoded != "" {
 		normalized = decoded
 	}
+
+	normalized = strings.ReplaceAll(normalized, "\\", "/")
+	for strings.Contains(normalized, "//") {
+		normalized = strings.ReplaceAll(normalized, "//", "/")
+	}
+
+	if strings.HasPrefix(normalized, "{server_default}") {
+		normalized = "/" + normalized
+	}
+	if strings.HasPrefix(normalized, "/{server_default}") {
+		normalized = strings.TrimPrefix(normalized, "/{server_default}")
+		if normalized == "" {
+			normalized = "/"
+		}
+	}
+
 	return normalized
 }
 
