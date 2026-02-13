@@ -38,7 +38,7 @@ func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []ty
 	}
 
 	// Resolve template variables like {server_default}
-	defaultDir := endpoint.DefaultDirectory
+	defaultDir := normalizeEndpointPath(endpoint.DefaultDirectory)
 	if strings.Contains(defaultDir, "{") && strings.Contains(defaultDir, "}") {
 		defaultDir = "/~/"
 	}
@@ -112,7 +112,7 @@ func buildHierarchy(targetDir string, children []types.SelectItem) []types.Selec
 }
 
 func doListFolderItems(ctx context.Context, params types.OptionsRequest) (res []types.SelectItem, err error) {
-	folder := params.Option
+	folder := normalizeEndpointPath(params.Option)
 	if folder == "" {
 		folder = "/"
 	}

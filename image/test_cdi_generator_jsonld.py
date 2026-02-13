@@ -479,7 +479,12 @@ class TestJSONLDGeneration(unittest.TestCase):
         self.assertTrue(len(var_nodes) > 0)
         # Variable should use DDI label
         var_node = var_nodes[0]
-        self.assertEqual(var_node.get("name"), "Age in Years")
+        var_name = var_node.get("name")
+        if isinstance(var_name, dict):
+            self.assertEqual(var_name.get("@type"), "ObjectName")
+            self.assertEqual(var_name.get("name"), "Age in Years")
+        else:
+            self.assertEqual(var_name, "Age in Years")
 
     def test_jsonld_property_names_for_shacl_compliance(self):
         """Test JSON-LD uses correct property names for DDI-CDI 1.0 context.
