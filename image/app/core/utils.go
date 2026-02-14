@@ -9,6 +9,7 @@ import (
 	"integration/app/logging"
 	"net/http"
 	"net/smtp"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/libis/rdm-dataverse-go-api/api"
@@ -21,7 +22,9 @@ func GetUserFromHeader(h http.Header) string {
 		client := api.NewClient(config.GetConfig().DataverseServer)
 		header := http.Header{"Authorization": []string{"Bearer " + token}}
 		res := api.User{}
-		err := api.Do(context.Background(), client.NewRequest("/api/v1/users/:me", "GET", nil, header), &res)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := api.Do(ctx, client.NewRequest("/api/v1/users/:me", "GET", nil, header), &res)
 		if err == nil && res.Data.Identifier != "" {
 			// Successfully got user identifier from OIDC Bearer token
 			// Remove leading '@' if present (some systems include it)

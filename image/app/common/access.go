@@ -33,21 +33,21 @@ func GetAccessToQueue(w http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - bad request"))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad request"))
 		return
 	}
 	err = json.Unmarshal(b, &req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - bad request"))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad request"))
 		return
 	}
 
 	res, err := checkAccess(req, r)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - bad request"))
+		w.Write([]byte("500 - access check failed"))
 		return
 	}
 

@@ -25,14 +25,14 @@ func Compute(w http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - bad request"))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad request"))
 		return
 	}
 	err = json.Unmarshal(b, &req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - bad request"))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad request"))
 		return
 	}
 	access, err := checkAccess(AccessRequest{
@@ -46,8 +46,8 @@ func Compute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !access.Access {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - access denied"))
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("403 - access denied"))
 		return
 	}
 
@@ -95,16 +95,16 @@ func GetCachedComputeResponse(w http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - bad request"))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad request"))
 		return
 	}
 
 	key := Key{}
 	err = json.Unmarshal(b, &key)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - bad request"))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad request"))
 		return
 	}
 

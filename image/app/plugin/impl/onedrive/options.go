@@ -28,7 +28,8 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 		url := params.Url + "/sites/" + params.RepoName + "/drives"
 		drives, err = getResponse(ctx, url, params.Token)
 		if err != nil {
-			fmt.Println(err)
+			logging.Logger.Printf("onedrive options failed for site %s: %v\n", params.RepoName, err)
+			return nil, err
 		}
 	}
 	res := []types.SelectItem{}
