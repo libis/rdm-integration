@@ -8,21 +8,6 @@ set -e  # Exit on error
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
-# Check if asdf is being used and set Python version if needed
-if [ -f "$HOME/.asdf/asdf.sh" ] && command -v asdf &> /dev/null; then
-    # If .tool-versions doesn't exist, create one with available Python
-    if [ ! -f .tool-versions ] && asdf list python &> /dev/null; then
-        PYTHON_VERSION=$(asdf list python | grep -v '/' | tail -1 | tr -d ' ')
-        if [ -n "$PYTHON_VERSION" ]; then
-            echo "python $PYTHON_VERSION" > .tool-versions
-        fi
-    fi
-fi
-echo "================================"
-echo "RDM Integration Test Suite"
-echo "================================"
-echo ""
-
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -82,21 +67,7 @@ trap cleanup EXIT
 echo -e "${YELLOW}Setting up Python environment...${NC}"
 
 # Find Python executable
-PYTHON_CMD=""
-if command -v python3.13 &> /dev/null; then
-    PYTHON_CMD="python3.13"
-elif asdf which python3 &> /dev/null; then
-    # Use asdf Python if available
-    asdf local python 3.13.7 2>/dev/null || true
-    PYTHON_CMD="python3"
-elif command -v python3 &> /dev/null; then
-    PYTHON_CMD="python3"
-elif command -v python &> /dev/null; then
-    PYTHON_CMD="python"
-else
-    echo -e "${RED}Error: No Python installation found${NC}"
-    exit 1
-fi
+PYTHON_CMD="python"
 
 echo "Using Python: $PYTHON_CMD ($($PYTHON_CMD --version 2>&1))"
 
