@@ -126,11 +126,14 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 
 func getResponse(ctx context.Context, url string, token string) ([]Data, error) {
 	const limit = 100
+	const maxPages = 10000
 	next := true
-	offset := 0
 	res := []Data{}
-	for next {
-		response, err := getPartialResponse(ctx, url, token, limit, offset)
+	for page := 0; next; page++ {
+		if page >= maxPages {
+			return nil, fmt.Errorf("globus pagination exceeded %d pages", maxPages)
+		}
+		response, err := getPartialResponse(ctx, url, token, limit, page)
 		if err != nil {
 			return nil, err
 		}
@@ -139,13 +142,8 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 			res = append(res, r)
 		}
 		next = response.HasNextPage
-		if next {
-			nextOffset := response.Offset + response.Limit
-			// Fallback when backend response does not include reliable pagination metadata.
-			if nextOffset <= offset {
-				nextOffset = offset + limit
-			}
-			offset = nextOffset
+		if next && len(response.Data) == 0 {
+			return nil, fmt.Errorf("globus pagination returned empty page %d with has_next_page=true", page)
 		}
 	}
 	return res, nil

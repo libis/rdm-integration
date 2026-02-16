@@ -1,6 +1,14 @@
 package globus
 
-import "testing"
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strconv"
+	"testing"
+)
 
 func TestNormalizeEndpointPath(t *testing.T) {
 	tests := []struct {
@@ -43,5 +51,60 @@ func TestNormalizeEndpointPath(t *testing.T) {
 				t.Fatalf("normalizeEndpointPath(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGetResponseUsesPageBasedOffsets(t *testing.T) {
+	t.Parallel()
+
+	offsets := []int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil {
+			t.Fatalf("offset was not an integer: %v", err)
+		}
+		offsets = append(offsets, offset)
+
+		res := Response{
+			Data: []Data{
+				{
+					Name: "dir-" + strconv.Itoa(offset),
+					Type: "dir",
+				},
+			},
+			HasNextPage: offset == 0,
+		}
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	got, err := getResponse(context.Background(), server.URL+"?path=%2F", "token")
+	if err != nil {
+		t.Fatalf("getResponse returned error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("getResponse returned %d rows, want 2", len(got))
+	}
+	if !slices.Equal(offsets, []int{0, 1}) {
+		t.Fatalf("offsets = %v, want [0 1]", offsets)
+	}
+}
+
+func TestGetResponseErrorsOnEmptyPageWithNext(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		res := Response{HasNextPage: true, Data: []Data{}}
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	_, err := getResponse(context.Background(), server.URL+"?path=%2F", "token")
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }

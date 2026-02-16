@@ -352,7 +352,6 @@ func requestGlobusDownload(ctx context.Context, persistentId, token, user, princ
 	if !ok {
 		return nil, fmt.Errorf("requesting Globus download paths failed: %+v", res)
 	}
-	logging.Logger.Printf("\nGlobus download response:\n\n%+v\n\n", res)
 	params := map[string]string{}
 	for k, v := range receivedData {
 		str, ok := v.(string)
