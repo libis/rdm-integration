@@ -54,7 +54,7 @@ func TestNormalizeEndpointPath(t *testing.T) {
 	}
 }
 
-func TestGetResponseUsesPageBasedOffsets(t *testing.T) {
+func TestGetResponseUsesAbsoluteOffsetsWithHasNextPage(t *testing.T) {
 	t.Parallel()
 
 	offsets := []int{}
@@ -73,6 +73,8 @@ func TestGetResponseUsesPageBasedOffsets(t *testing.T) {
 				},
 			},
 			HasNextPage: offset == 0,
+			Limit:       100,
+			Offset:      offset,
 		}
 		if err := json.NewEncoder(w).Encode(res); err != nil {
 			t.Fatalf("failed to write response: %v", err)
@@ -87,8 +89,103 @@ func TestGetResponseUsesPageBasedOffsets(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("getResponse returned %d rows, want 2", len(got))
 	}
-	if !slices.Equal(offsets, []int{0, 1}) {
-		t.Fatalf("offsets = %v, want [0 1]", offsets)
+	if !slices.Equal(offsets, []int{0, 100}) {
+		t.Fatalf("offsets = %v, want [0 100]", offsets)
+	}
+}
+
+func TestGetResponsePaginatesUsingTotalWhenHasNextPageMissing(t *testing.T) {
+	t.Parallel()
+
+	offsets := []int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil {
+			t.Fatalf("offset was not an integer: %v", err)
+		}
+		offsets = append(offsets, offset)
+
+		count := 50
+		if offset == 0 {
+			count = 100
+		}
+		data := make([]Data, count)
+		for i := 0; i < count; i++ {
+			data[i] = Data{
+				Name: "file-" + strconv.Itoa(offset+i),
+				Type: "file",
+			}
+		}
+
+		res := Response{
+			Data:   data,
+			Total:  150,
+			Length: count,
+			Limit:  100,
+			Offset: offset,
+		}
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	got, err := getResponse(context.Background(), server.URL+"?path=%2F", "token")
+	if err != nil {
+		t.Fatalf("getResponse returned error: %v", err)
+	}
+	if len(got) != 150 {
+		t.Fatalf("getResponse returned %d rows, want 150", len(got))
+	}
+	if !slices.Equal(offsets, []int{0, 100}) {
+		t.Fatalf("offsets = %v, want [0 100]", offsets)
+	}
+}
+
+func TestGetResponsePaginatesOnFullPagesWhenTotalMissing(t *testing.T) {
+	t.Parallel()
+
+	offsets := []int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil {
+			t.Fatalf("offset was not an integer: %v", err)
+		}
+		offsets = append(offsets, offset)
+
+		count := 20
+		if offset == 0 {
+			count = 100
+		}
+		data := make([]Data, count)
+		for i := 0; i < count; i++ {
+			data[i] = Data{
+				Name: "entry-" + strconv.Itoa(offset+i),
+				Type: "file",
+			}
+		}
+
+		res := Response{
+			Data:   data,
+			Length: count,
+			Limit:  100,
+			Offset: offset,
+		}
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	got, err := getResponse(context.Background(), server.URL+"?path=%2F", "token")
+	if err != nil {
+		t.Fatalf("getResponse returned error: %v", err)
+	}
+	if len(got) != 120 {
+		t.Fatalf("getResponse returned %d rows, want 120", len(got))
+	}
+	if !slices.Equal(offsets, []int{0, 100}) {
+		t.Fatalf("offsets = %v, want [0 100]", offsets)
 	}
 }
 
