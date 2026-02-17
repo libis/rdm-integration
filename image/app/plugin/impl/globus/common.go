@@ -21,6 +21,8 @@ type Response struct {
 	HasNextPage      bool     `json:"has_next_page"`
 	Limit            int      `json:"limit"`
 	Offset           int      `json:"offset"`
+	Length           int      `json:"length"`
+	Total            int      `json:"total"`
 	DefaultDirectory string   `json:"default_directory"`
 	AbsolutePath     string   `json:"absolute_path"`
 }
@@ -125,11 +127,17 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 }
 
 func getResponse(ctx context.Context, url string, token string) ([]Data, error) {
-	const limit = 100
-	next := true
-	offset := 0
+	// Globus directory listing docs: limit defaults to 100000 (also max), and
+	// the backend still fetches the entire directory on each paged request.
+	// Using max limit minimizes repeated expensive listing work.
+	const limit = 100000
+	const maxPages = 10000
 	res := []Data{}
-	for next {
+	offset := 0
+	for page := 0; ; page++ {
+		if page >= maxPages {
+			return nil, fmt.Errorf("globus pagination exceeded %d pages", maxPages)
+		}
 		response, err := getPartialResponse(ctx, url, token, limit, offset)
 		if err != nil {
 			return nil, err
@@ -138,17 +146,44 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 			r.AbsolutePath = response.AbsolutePath
 			res = append(res, r)
 		}
-		next = response.HasNextPage
-		if next {
-			nextOffset := response.Offset + response.Limit
-			// Fallback when backend response does not include reliable pagination metadata.
-			if nextOffset <= offset {
-				nextOffset = offset + limit
-			}
-			offset = nextOffset
+
+		pageLimit := effectiveLimit(response, limit)
+
+		next := response.HasNextPage
+		if !next && response.Total > 0 {
+			next = len(res) < response.Total
 		}
+		// Some Globus list responses omit has_next_page; continue while pages are full.
+		if !next && response.Total == 0 && len(response.Data) == pageLimit {
+			next = true
+		}
+		if !next {
+			break
+		}
+		if next && len(response.Data) == 0 {
+			return nil, fmt.Errorf("globus pagination returned empty page %d with next page expected", page)
+		}
+
+		nextOffset := offset + pageLimit
+		if response.Offset > 0 || response.Limit > 0 {
+			candidate := response.Offset + response.Limit
+			if candidate > offset {
+				nextOffset = candidate
+			}
+		}
+		if nextOffset <= offset {
+			return nil, fmt.Errorf("globus pagination produced non-increasing offset at page %d", page)
+		}
+		offset = nextOffset
 	}
 	return res, nil
+}
+
+func effectiveLimit(response Response, fallback int) int {
+	if response.Limit > 0 {
+		return response.Limit
+	}
+	return fallback
 }
 
 func getPartialResponse(ctx context.Context, url string, token string, limit, offset int) (Response, error) {

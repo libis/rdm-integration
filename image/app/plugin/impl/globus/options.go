@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/plugin/types"
+	"net/url"
 	"path"
 	"strings"
 )
@@ -26,28 +27,50 @@ func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []ty
 
 	// Initial load: resolve default directory and build nested hierarchy
 	endpoint, err := getEndpoint(ctx, params)
+	if err != nil {
+		if isNotFoundError(err) {
+			// Frontend placeholders (e.g. "start") should not surface as HTTP 500.
+			return []types.SelectItem{}, nil
+		}
+	}
 	if err != nil || endpoint.DefaultDirectory == "" {
 		// No endpoint info or no default directory — try root, then /~/
 		params.Option = "/"
 		res, err = doListFolderItems(ctx, params)
-		if len(res) == 0 && (err == nil || strings.Contains(err.Error(), "ClientError.NotFound")) {
+		if len(res) == 0 && (err == nil || isNotFoundError(err)) {
 			params.Option = "/~/"
-			return doListFolderItems(ctx, params)
+			res, err = doListFolderItems(ctx, params)
+			if isNotFoundError(err) {
+				return []types.SelectItem{}, nil
+			}
+			return res, err
 		}
 		return
 	}
 
 	// Resolve template variables like {server_default}
-	defaultDir := normalizeEndpointPath(endpoint.DefaultDirectory)
-	if strings.Contains(defaultDir, "{") && strings.Contains(defaultDir, "}") {
-		defaultDir = "/~/"
-	}
+	defaultDir := resolveDefaultDirectory(endpoint.DefaultDirectory)
 
 	// Resolve the actual absolute path by listing the default directory.
 	// Globus resolves /~/ and similar to real paths and returns absolute_path.
 	resolvedDir := defaultDir
 	params.Option = defaultDir
 	defaultDirItems, listErr := doListFolderItems(ctx, params)
+	if listErr != nil && isNotFoundError(listErr) {
+		// Some mapped collections expose /{server_default}/ but reject "/".
+		// Retry through Globus home shorthand and use that result as initial tree.
+		params.Option = "/~/"
+		fallbackItems, fallbackErr := doListFolderItems(ctx, params)
+		if fallbackErr != nil {
+			if isNotFoundError(fallbackErr) {
+				return []types.SelectItem{}, nil
+			}
+			return nil, fallbackErr
+		}
+		defaultDirItems = fallbackItems
+		resolvedDir = "/~/"
+		listErr = nil
+	}
 	if listErr == nil && len(defaultDirItems) > 0 {
 		// The Value of child items is like "/resolved/path/childname/"
 		// Extract the resolved parent from the first child's Value
@@ -58,7 +81,7 @@ func listFolderItems(ctx context.Context, params types.OptionsRequest) (res []ty
 				resolvedDir = parent + "/"
 			}
 		}
-	} else if listErr != nil && !strings.Contains(listErr.Error(), "ClientError.NotFound") {
+	} else if listErr != nil && !isNotFoundError(listErr) {
 		return nil, listErr
 	}
 
@@ -140,5 +163,29 @@ func getEndpoint(ctx context.Context, params types.OptionsRequest) (Response, er
 	if err != nil {
 		return Response{}, err
 	}
+	if response.Code != "" && response.Message != "" {
+		return response, fmt.Errorf("%v: %v", response.Code, response.Message)
+	}
 	return response, nil
+}
+
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "ClientError.NotFound") || strings.Contains(msg, "EndpointNotFound")
+}
+
+func resolveDefaultDirectory(defaultDirectory string) string {
+	raw := strings.TrimSpace(defaultDirectory)
+	decoded := raw
+	if d, err := url.PathUnescape(raw); err == nil && d != "" {
+		decoded = d
+	}
+	if (strings.Contains(raw, "{") && strings.Contains(raw, "}")) ||
+		(strings.Contains(decoded, "{") && strings.Contains(decoded, "}")) {
+		return "/~/"
+	}
+	return normalizeEndpointPath(raw)
 }
