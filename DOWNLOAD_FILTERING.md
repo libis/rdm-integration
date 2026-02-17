@@ -1,5 +1,7 @@
 # Dataset Download Filtering
 
+[← Back to README](README.md)
+
 ## Overview
 
 This document describes how the download UI filters datasets based on user permissions. We only show datasets where the user can download all files, providing a cleaner user experience.
@@ -37,11 +39,12 @@ func CanUserDownloadAllFiles(ctx context.Context, persistentId, token, user stri
 
 Returns `true` if:
 1. **Dataset has no restrictions** - no restricted or embargoed files, OR
-2. **User has EditDataset permission** - dataset owners/curators can access all files
+2. **User has EditDataset permission** - dataset owners/curators can access all files, OR
+3. **User has CanViewUnpublishedDataset permission** - preview URL / private URL reviewers have full download access
 
 ### Dataverse API Used
 
-`GET /api/datasets/:persistentId/userPermissions?persistentId={pid}`
+`GET /api/v1/datasets/:persistentId/userPermissions?persistentId={pid}`
 
 Returns:
 ```json
@@ -83,6 +86,7 @@ This ensures minimal overhead for most datasets while still providing accurate f
 | Restricted dataset, user is NOT owner | ❌ No (cannot download all files) |
 | Embargoed dataset, user is owner | ✅ Yes |
 | Embargoed dataset, user is NOT owner | ❌ No (cannot download all files) |
+| Any restricted/embargoed dataset, preview URL user | ✅ Yes |
 
 Users who cannot download all files in a dataset will simply not see that dataset in the download interface, avoiding any confusion or failed transfer attempts.
 
@@ -106,7 +110,11 @@ Users who cannot download all files in a dataset will simply not see that datase
    - These users can download via direct HTTP instead of Globus transfer
    - This provides a consistent user experience where Globus shows only fully downloadable datasets
 
-2. **Fine-grained access not currently supported**
-   - We use EditDataset as a proxy for "can access all files"
+2. **Preview URL users have full access**
+   - Users arriving via a Dataverse private URL (CanViewUnpublishedDataset) can download all files, including restricted/embargoed ones
+   - This matches Dataverse's built-in private URL behaviour for reviewers
+
+3. **Fine-grained access not currently supported**
+   - We use EditDataset (and CanViewUnpublishedDataset) as proxies for "can access all files"
    - A more precise check would require per-file permission checks (expensive)
    - For most use cases, dataset owners are the primary users of bulk Globus downloads

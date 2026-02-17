@@ -1,6 +1,26 @@
 # Preview URL Support for Globus Downloads
 
-This document describes how preview URL users can download files from draft datasets via Globus.
+> Technical documentation for enabling preview URL users to download files from draft datasets via Globus.
+
+**Navigation:** [← Back to Globus Integration](GLOBUS_INTEGRATION.md) | [← Back to README](README.md)
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Important Limitations](#important-limitations)
+- [User Flow](#user-flow)
+- [Technical Architecture](#technical-architecture)
+- [Configuration](#configuration)
+- [Implementation Details](#implementation-details)
+- [Troubleshooting](#troubleshooting)
+- [Comparison with dataverse-globus](#comparison-with-dataverse-globus-app)
+- [Security Considerations](#security-considerations)
+- [Future Improvements](#future-improvements)
+- [Related Files](#related-files)
+
+[↑ Back to Top](#preview-url-support-for-globus-downloads)
+
+---
 
 ## Overview
 
@@ -11,6 +31,8 @@ Preview URL support enables users who only have a Dataverse preview URL (not a f
 - External validators checking data before acceptance
 
 **Status**: ✅ Implemented and tested (2026-01-08)
+
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Limitations](#important-limitations)
 
 ---
 
@@ -33,6 +55,8 @@ Anonymous (anonymized) preview URLs are intentionally restricted by Dataverse's 
 
 **Workaround**: Dataset owners should create a **General Preview URL** instead of an Anonymous Preview URL when Globus downloads are needed.
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ User Flow](#user-flow)
+
 ---
 
 ## User Flow
@@ -49,6 +73,8 @@ Anonymous (anonymized) preview URLs are intentionally restricted by Dataverse's 
 5. Click "Continue with preview URL"
 6. Complete Globus OAuth login (if not already authenticated)
 7. Select files and destination, then start transfer
+
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Technical Architecture](#technical-architecture)
 
 ---
 
@@ -173,6 +199,8 @@ interface LoginState {
 
 The state is base64-encoded and passed through the OAuth flow, then decoded on callback.
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Configuration](#configuration)
+
 ---
 
 ## Configuration
@@ -188,6 +216,8 @@ Controls whether the Dataverse token is persisted in localStorage:
 
 **Recommendation**: Use `false` for better security (token doesn't persist in browser).
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Implementation Details](#implementation-details)
+
 ---
 
 ## Implementation Details
@@ -202,6 +232,8 @@ Controls whether the Dataverse token is persisted in localStorage:
 
 1. **`download.go`** — Accept `dataverseKey` from request, pass to `StreamParams.DVToken`
 2. **`streams.go`** — Use `DVToken` when calling Dataverse's `requestGlobusDownload` API
+
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Troubleshooting](#troubleshooting)
 
 ---
 
@@ -244,6 +276,8 @@ Enable console debug logging by checking browser console for:
 [DownloadComponent] getRepoToken loginState: { dataverseToken: "abc-..." }
 ```
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Comparison](#comparison-with-dataverse-globus-app)
+
 ---
 
 ## Comparison with dataverse-globus App
@@ -259,6 +293,8 @@ The official `dataverse-globus` app (https://github.com/scholarsportal/dataverse
 
 The `dataverse-globus` v2 branch uses PKCE for Globus authentication (no client secret needed), while rdm-integration uses a standard OAuth redirect flow with client ID and secret registered at Globus.
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Security](#security-considerations)
+
 ---
 
 ## Security Considerations
@@ -272,6 +308,8 @@ The `dataverse-globus` v2 branch uses PKCE for Globus authentication (no client 
 
 3. **Signed URL Token**: The `token` parameter in Dataverse callback URLs is a SHA512 signature, NOT an API token. Never use it for authentication.
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Future Improvements](#future-improvements)
+
 ---
 
 ## Future Improvements
@@ -282,6 +320,8 @@ The `dataverse-globus` v2 branch uses PKCE for Globus authentication (no client 
 - [ ] E2E tests with Playwright
 - [ ] User documentation
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [→ Related Files](#related-files)
+
 ---
 
 ## Related Files
@@ -289,11 +329,27 @@ The `dataverse-globus` v2 branch uses PKCE for Globus authentication (no client 
 **Frontend** (`rdm-integration-frontend`):
 - `src/app/app.component.ts` — Callback parsing
 - `src/app/download/download.component.ts` — Download flow
-- `src/app/services/data.service.ts` — API calls
+- `src/app/data.service.ts` — API calls
 - `src/app/models/plugin.ts` — `storeDvToken` config
 
 **Backend** (`rdm-integration`):
 - `image/app/common/download.go` — Request handling
 - `image/app/plugin/impl/globus/streams.go` — Globus transfer logic
 
+[↑ Back to Top](#preview-url-support-for-globus-downloads)
 
+---
+
+## Related Documentation
+
+- [GLOBUS_INTEGRATION.md](GLOBUS_INTEGRATION.md) — Comprehensive Globus integration guide
+- [README.md](README.md) — Main project documentation
+- [ddi-cdi.md](ddi-cdi.md) — DDI-CDI metadata generation guide
+
+[↑ Back to Top](#preview-url-support-for-globus-downloads) | [← Back to Globus Integration](GLOBUS_INTEGRATION.md) | [← Back to README](README.md)
+
+---
+
+## License
+
+This project is licensed under the Apache License, Version 2.0. See [LICENSE.txt](LICENSE.txt) for details.
