@@ -18,6 +18,7 @@ type CompareRequest struct {
 	Data         []tree.Node `json:"data"`
 	PersistentId string      `json:"persistentId"`
 	DataverseKey string      `json:"dataverseKey"`
+	DownloadId   string      `json:"downloadId,omitempty"`
 }
 
 type Key struct {

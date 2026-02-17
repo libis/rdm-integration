@@ -8,6 +8,8 @@ import (
 	"integration/app/config"
 	"integration/app/core"
 	"integration/app/dataverse"
+	"integration/app/logging"
+	"integration/app/plugin/impl/globus"
 	"integration/app/tree"
 	"io"
 	"net/http"
@@ -84,11 +86,24 @@ func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 			data = append(data, node)
 		}
 	}
+
+	// If a downloadId is present, resolve the preselected file IDs from Globus.
+	var preSelectedIds []int64
+	if req.DownloadId != "" {
+		ids, err := globus.GetDownloadFileIds(r.Context(), req.PersistentId, req.DataverseKey, user, req.DownloadId)
+		if err != nil {
+			logging.Logger.Printf("warning: resolving downloadId %s failed: %v", req.DownloadId, err)
+		} else {
+			preSelectedIds = ids
+		}
+	}
+
 	res := core.CompareResponse{
-		Id:     req.PersistentId,
-		Status: core.Finished,
-		Data:   data,
-		Url:    core.Destination.GetRepoUrl(req.PersistentId, false),
+		Id:             req.PersistentId,
+		Status:         core.Finished,
+		Data:           data,
+		Url:            core.Destination.GetRepoUrl(req.PersistentId, false),
+		PreSelectedIds: preSelectedIds,
 	}
 	b, err = json.Marshal(res)
 	if err != nil {

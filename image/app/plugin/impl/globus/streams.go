@@ -15,6 +15,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/libis/rdm-dataverse-go-api/api"
@@ -377,4 +378,109 @@ func monitorGlobusDownloadAtDV(persistentId, taskId string, token, user string, 
 		return fmt.Errorf("globus error: requsting globus monitoring at DV failed: %+v", res)
 	}
 	return nil
+}
+
+type DownloadFile struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+// GetDownloadFiles retrieves the files linked to a Globus downloadId so the
+// frontend can preselect them in the UI.  It calls globusDownloadParameters
+// (which returns the cached file-ID→Globus-path map for the download) and
+// then resolves those IDs to human-readable file names and directory paths
+// via the dataset file listing API.
+func GetDownloadFiles(ctx context.Context, persistentId, dvToken, user, downloadId string) ([]DownloadFile, error) {
+	if downloadId == "" {
+		return nil, nil
+	}
+
+	// Step 1: get the file IDs associated with this downloadId.
+	fileIds, err := GetDownloadFileIds(ctx, persistentId, dvToken, user, downloadId)
+	if err != nil {
+		return nil, err
+	}
+	if len(fileIds) == 0 {
+		return nil, nil
+	}
+
+	// Step 2: fetch the full file listing for the dataset.
+	allFiles, err := getDatasetFileEntries(ctx, persistentId, dvToken, user)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 3: keep only the files whose IDs appear in the download.
+	idSet := make(map[int64]bool, len(fileIds))
+	for _, id := range fileIds {
+		idSet[id] = true
+	}
+
+	var result []DownloadFile
+	for _, f := range allFiles {
+		if idSet[f.DataFile.Id] {
+			result = append(result, DownloadFile{
+				Name: f.Label,
+				Path: f.DirectoryLabel,
+			})
+		}
+	}
+	return result, nil
+}
+
+// GetDownloadFileIds calls globusDownloadParameters with the downloadId and
+// returns the numeric file IDs from the "files" map in the response.
+// The Dataverse response nests files under data.queryParameters.files.
+func GetDownloadFileIds(ctx context.Context, persistentId, dvToken, user, downloadId string) ([]int64, error) {
+	path := config.GetConfig().DataverseServer +
+		"/api/v1/datasets/:persistentId/globusDownloadParameters?persistentId=" + persistentId +
+		"&downloadId=" + downloadId
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey(), config.UnblockKey)
+	client.Token = dvToken
+	req := client.NewRequest(path, "GET", nil, api.JsonContentHeader())
+	res := map[string]interface{}{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return nil, err
+	}
+	data, ok := res["data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("globus error: unexpected globusDownloadParameters response: %+v", res)
+	}
+	queryParams, ok := data["queryParameters"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("globus error: queryParameters not found in globusDownloadParameters response: %+v", data)
+	}
+	filesRaw, ok := queryParams["files"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("globus error: files map not found in globusDownloadParameters response: %+v", queryParams)
+	}
+	ids := make([]int64, 0, len(filesRaw))
+	for k := range filesRaw {
+		id, err := strconv.ParseInt(k, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("globus error: non-numeric file id %q in download files map", k)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// getDatasetFileEntries fetches the file listing for a dataset from the
+// Dataverse API and returns the metadata entries.
+func getDatasetFileEntries(ctx context.Context, persistentId, dvToken, user string) ([]api.MetaData, error) {
+	path := config.GetConfig().DataverseServer +
+		"/api/v1/datasets/:persistentId/versions/:latest/files?persistentId=" + persistentId
+	client := api.NewUrlSigningClient(config.GetConfig().DataverseServer, user, config.ApiKey(), config.UnblockKey)
+	client.Token = dvToken
+	req := client.NewRequest(path, "GET", nil, nil)
+	res := api.ListResponse{}
+	err := api.Do(ctx, req, &res)
+	if err != nil {
+		return nil, err
+	}
+	if res.Status != "OK" {
+		return nil, fmt.Errorf("globus error: listing dataset files failed: %+v", res)
+	}
+	return res.Data, nil
 }

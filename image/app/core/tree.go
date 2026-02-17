@@ -27,6 +27,8 @@ type CompareResponse struct {
 	AllowedFileNamePattern string `json:"allowedFileNamePattern,omitempty"`
 	// AllowedFolderPathPattern: regex pattern describing allowed folder path characters
 	AllowedFolderPathPattern string `json:"allowedFolderPathPattern,omitempty"`
+	// PreSelectedIds: file IDs preselected for download (e.g. from Globus downloadId)
+	PreSelectedIds []int64 `json:"preSelectedIds,omitempty"`
 }
 
 func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {
