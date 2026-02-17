@@ -6,7 +6,7 @@ FROM node:${NODE_VERSION} AS frontend-builder
 
 # Download and extract frontend
 WORKDIR /app
-ARG FRONTEND_VERSION=2.0.0
+ARG FRONTEND_VERSION=2.0.1
 ARG FRONTEND_TAR_GZ=https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION}.tar.gz
 ADD ${FRONTEND_TAR_GZ} /app/
 RUN tar -xzf ${FRONTEND_VERSION}.tar.gz || true
@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download && go mod verify
 
 COPY ./image .
-ARG FRONTEND_VERSION=2.0.0
+ARG FRONTEND_VERSION=2.0.1
 COPY --from=frontend-builder /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/browser ./app/frontend/dist/datasync
 
 # Build with optimizations
