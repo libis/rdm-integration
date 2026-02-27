@@ -56,6 +56,15 @@ func DoWork(job Job) (Job, error) {
 	streamParams.PersistentId = job.PersistentId
 	streamParams.DVToken = job.DataverseKey
 	streamParams.SessionId = job.SessionId
+	if job.Plugin == "globus" {
+		pluginId := job.StreamParams.PluginId
+		if pluginId == "" {
+			pluginId = job.Plugin
+		}
+		if _, ok := oauth.GetTokenFromCacheRaw(ctx, pluginId, job.SessionId); !ok {
+			return job, fmt.Errorf("globus error: oauth session not found in cache; reconnect to Globus and submit again")
+		}
+	}
 	streams, err := stream.Streams(ctx, streamNodes, job.Plugin, streamParams)
 	if err != nil {
 		return job, err
@@ -168,11 +177,15 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 	// Batch-delete files first, before any uploads/replacements
 	deleteIds := []int64{}
-	deleteKeys := []string{} // map keys for bookkeeping after batch delete
+	deleteKeys := []string{}             // map keys for bookkeeping after batch delete
+	globusUpdateDeleteKeys := []string{} // Globus updates are deleted before transfer to avoid duplicates
 	for k, v := range writableNodes {
 		if v.Action == tree.Delete {
 			deleteIds = append(deleteIds, v.Attributes.DestinationFile.Id)
 			deleteKeys = append(deleteKeys, k)
+		} else if in.Plugin == "globus" && v.Action == tree.Update && v.Attributes.DestinationFile.Id != 0 {
+			deleteIds = append(deleteIds, v.Attributes.DestinationFile.Id)
+			globusUpdateDeleteKeys = append(globusUpdateDeleteKeys, k)
 		}
 	}
 	if len(deleteIds) > 0 {
@@ -189,6 +202,23 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			writtenKeys = append(writtenKeys, redisKey)
 		}
 		logging.Logger.Printf("%v: batch-deleted %v files\n", persistentId, len(deleteIds))
+	}
+
+	if in.Plugin == "globus" {
+		for _, k := range globusUpdateDeleteKeys {
+			delete(knownHashes, writableNodes[k].Id)
+		}
+		// Globus uploads happen in streams.Cleanup() as a transfer task, so skip per-file upload work.
+		out.WritableNodes = map[string]tree.Node{}
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return
+		default:
+			writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
+			err = cleanup(writtenKeys)
+		}
+		return
 	}
 
 	for k, v := range writableNodes {
@@ -208,24 +238,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 
 		redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
-
-		if in.Plugin == "globus" {
-			if v.Action == tree.Update {
-				err = deleteFile(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
-				if err != nil {
-					return
-				}
-			}
-			delete(out.WritableNodes, k)
-			knownHashes[v.Id] = calculatedHashes{
-				LocalHashType:  types.LastModified,
-				LocalHashValue: v.Attributes.RemoteHash,
-				RemoteHashes:   map[string]string{types.LastModified: v.Attributes.RemoteHash},
-			}
-			config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
-			writtenKeys = append(writtenKeys, redisKey)
-			continue
-		}
 
 		fileStream := streams[k]
 		fileName := generateFileName()
