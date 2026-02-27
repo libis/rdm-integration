@@ -22,6 +22,7 @@ type DestinationPlugin struct {
 	SaveAfterDirectUpload func(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error
 	CleanupLeftOverFiles  func(ctx context.Context, persistentId, token, user string) error
 	DeleteFile            func(ctx context.Context, token, user string, id int64) error
+	DeleteFiles           func(ctx context.Context, token, user, persistentId string, ids []int64) error
 	Options               func(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error)
 	DownloadableOptions   func(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error)
 	GetStream             func(ctx context.Context, token, user string, id int64) (io.ReadCloser, error)

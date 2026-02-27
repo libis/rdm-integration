@@ -18,6 +18,7 @@ func SetDataverseAsDestination() {
 		SaveAfterDirectUpload: dataverse.SaveAfterDirectUpload,
 		CleanupLeftOverFiles:  dataverse.CleanupLeftOverFiles,
 		DeleteFile:            dataverse.DeleteFile,
+		DeleteFiles:           dataverse.DeleteFiles,
 		Options:               dataverse.DvObjects,
 		DownloadableOptions:   dataverse.DownloadableDvObjects,
 		GetStream:             dataverse.DownloadFile,

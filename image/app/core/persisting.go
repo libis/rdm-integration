@@ -166,7 +166,35 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	toReplaceNodes := &[]tree.Node{}
 	defer doFlush(ctx, toAddNodes, toReplaceNodes, &out, knownHashes, toAddIdentifiers, toReplaceIdentifiers)
 
+	// Batch-delete files first, before any uploads/replacements
+	deleteIds := []int64{}
+	deleteKeys := []string{} // map keys for bookkeeping after batch delete
 	for k, v := range writableNodes {
+		if v.Action == tree.Delete {
+			deleteIds = append(deleteIds, v.Attributes.DestinationFile.Id)
+			deleteKeys = append(deleteKeys, k)
+		}
+	}
+	if len(deleteIds) > 0 {
+		err = deleteFiles(ctx, dataverseKey, user, persistentId, deleteIds)
+		if err != nil {
+			return
+		}
+		for _, k := range deleteKeys {
+			v := writableNodes[k]
+			delete(knownHashes, v.Id)
+			delete(out.WritableNodes, k)
+			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
+			config.GetRedis().Set(ctx, redisKey, types.Deleted, FileNamesInCacheDuration)
+			writtenKeys = append(writtenKeys, redisKey)
+		}
+		logging.Logger.Printf("%v: batch-deleted %v files\n", persistentId, len(deleteIds))
+	}
+
+	for k, v := range writableNodes {
+		if v.Action == tree.Delete {
+			continue // already handled above
+		}
 		select {
 		case <-ctx.Done():
 			err = ctx.Err()
@@ -180,17 +208,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		}
 
 		redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
-		if v.Action == tree.Delete {
-			err = deleteFile(ctx, dataverseKey, user, v.Attributes.DestinationFile.Id)
-			if err != nil {
-				return
-			}
-			delete(knownHashes, v.Id)
-			delete(out.WritableNodes, k)
-			config.GetRedis().Set(ctx, redisKey, types.Deleted, FileNamesInCacheDuration)
-			writtenKeys = append(writtenKeys, redisKey)
-			continue
-		}
 
 		if in.Plugin == "globus" {
 			if v.Action == tree.Update {
@@ -363,4 +380,10 @@ func deleteFile(_ context.Context, token, user string, id int64) error {
 	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
 	defer cancel()
 	return Destination.DeleteFile(shortContext, token, user, id)
+}
+
+func deleteFiles(_ context.Context, token, user, persistentId string, ids []int64) error {
+	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
+	defer cancel()
+	return Destination.DeleteFiles(shortContext, token, user, persistentId, ids)
 }

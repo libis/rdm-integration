@@ -325,3 +325,34 @@ func DeleteFile(ctx context.Context, token, user string, id int64) error {
 	}
 	return nil
 }
+
+func DeleteFiles(ctx context.Context, token, user, persistentId string, ids []int64) error {
+	// Dataverse does not support batch delete in older versions, so we check the config to decide whether to attempt it or fall back to individual deletes.
+	if !version.GreaterOrEqual("6.2") {
+		// no batch delete; fall back to one-by-one
+		logging.Logger.Printf("Batch file delete not supported in this Dataverse version; falling back to individual deletes for %d files", len(ids))
+		for _, id := range ids {
+			if err := DeleteFile(ctx, token, user, id); err != nil {
+				return err
+			}
+		}
+		logging.Logger.Printf("Completed individual file deletes for %d files", len(ids))
+		return nil
+	}
+	path := "/api/v1/datasets/:persistentId/deleteFiles?persistentId=" + persistentId
+	data, err := json.Marshal(ids)
+	if err != nil {
+		return err
+	}
+	req := GetRequest(path, "PUT", user, token, bytes.NewReader(data), api.JsonContentHeader())
+	res := api.DvResponse{}
+	err = api.Do(ctx, req, &res)
+	if err != nil {
+		return err
+	}
+	if res.Status != "OK" {
+		return fmt.Errorf("batch deleting files for %s failed: %s", persistentId, res.Message)
+	}
+	logging.Logger.Printf("Batch deleted %d files for dataset %s", len(ids), persistentId)
+	return nil
+}
