@@ -205,3 +205,78 @@ func TestGetResponseErrorsOnEmptyPageWithNext(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 }
+
+func TestListItemsAlwaysRequestsShowHiddenFalse(t *testing.T) {
+	t.Parallel()
+
+	showHiddenValues := []string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		showHiddenValues = append(showHiddenValues, r.URL.Query().Get("show_hidden"))
+		res := Response{
+			AbsolutePath: "/",
+			Data: []Data{
+				{Name: "visible.txt", Type: "file"},
+			},
+		}
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	entries, err := listItems(context.Background(), "/", server.URL, "token", "user", false)
+	if err != nil {
+		t.Fatalf("listItems returned error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name != "visible.txt" {
+		t.Fatalf("unexpected entries: %+v", entries)
+	}
+	if !slices.Equal(showHiddenValues, []string{"false"}) {
+		t.Fatalf("show_hidden query values = %v, want [false]", showHiddenValues)
+	}
+}
+
+func TestListItemsSkipsDotDirectoriesRecursively(t *testing.T) {
+	t.Parallel()
+
+	paths := []string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestPath := r.URL.Query().Get("path")
+		paths = append(paths, requestPath)
+		res := Response{
+			AbsolutePath: requestPath,
+		}
+		switch requestPath {
+		case "/":
+			res.Data = []Data{
+				{Name: ".git", Type: "dir"},
+				{Name: "src", Type: "dir"},
+			}
+		case "/src/":
+			res.Data = []Data{
+				{Name: "main.go", Type: "file"},
+			}
+		default:
+			t.Fatalf("unexpected path listed: %q", requestPath)
+		}
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	entries, err := listItems(context.Background(), "/", server.URL, "token", "user", true)
+	if err != nil {
+		t.Fatalf("listItems returned error: %v", err)
+	}
+	if !slices.Equal(paths, []string{"/", "/src/"}) {
+		t.Fatalf("paths = %v, want [\"/\" \"/src/\"]", paths)
+	}
+	names := []string{}
+	for _, entry := range entries {
+		names = append(names, entry.Name)
+	}
+	if slices.Contains(names, ".git") {
+		t.Fatalf("dot directory should be skipped, entries: %v", names)
+	}
+}
