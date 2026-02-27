@@ -81,7 +81,7 @@ func normalizeEndpointPath(path string) string {
 
 func listItems(ctx context.Context, path, theUrl, token, user string, recursive bool) ([]Entry, error) {
 	path = normalizeEndpointPath(path)
-	urlString := theUrl + "?path=" + url.QueryEscape(path)
+	urlString := theUrl + "?path=" + url.QueryEscape(path) + "&show_hidden=false"
 	response, err := getResponse(ctx, urlString, token)
 	if err != nil {
 		return nil, err
@@ -89,6 +89,9 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 	res := []Entry{}
 	for _, v := range response {
 		isDir := v.Type == "dir"
+		if isDir && strings.HasPrefix(v.Name, ".") {
+			continue
+		}
 
 		// Use the API's resolved absolute_path which handles /~/, /{server_default}/, etc.
 		// Fall back to queried path only if absolute_path is empty (edge case).
