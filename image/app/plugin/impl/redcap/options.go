@@ -28,7 +28,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	res := []types.SelectItem{}
 	for _, e := range entries {
 		if e.IsDir {
-			res = append(res, types.SelectItem{Label: e.Id, Value: fmt.Sprint(e.DocId)})
+			res = append(res, types.SelectItem{Label: e.Id, Value: fmt.Sprint(e.FolderId)})
 		}
 	}
 	return res, nil

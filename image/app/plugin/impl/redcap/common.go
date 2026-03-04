@@ -31,11 +31,12 @@ type RedCapResponseEntry struct {
 }
 
 type Entry struct {
-	Path  string
-	Id    string
-	Name  string
-	IsDir bool
-	DocId int64
+	Path     string
+	Id       string
+	Name     string
+	IsDir    bool
+	FolderId int64
+	DocId    int64
 }
 
 var (
@@ -112,11 +113,12 @@ func listEntries(ctx context.Context, folderId int64, path, url, token string, r
 			res = append(res, folderEntries...)
 		}
 		res = append(res, Entry{
-			Path:  path,
-			Id:    id,
-			Name:  v.Name,
-			IsDir: isDir,
-			DocId: v.DocId,
+			Path:     path,
+			Id:       id,
+			Name:     v.Name,
+			IsDir:    isDir,
+			FolderId: v.FolderId,
+			DocId:    v.DocId,
 		})
 	}
 	return res, nil
