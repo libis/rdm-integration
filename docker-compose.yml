@@ -7,7 +7,7 @@ services:
     build:
       dockerfile: ./image/Dockerfile
       args:
-        - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.14.2}
+        - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.14.3}
         - NODE_VERSION=${NODE_VERSION:-24-alpine}
         - FRONTEND_VERSION=${FRONTEND_VERSION:-2.0.1}
         - FRONTEND_TAR_GZ=${FRONTEND_TAR_GZ:-https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION:-2.0.1}.tar.gz}

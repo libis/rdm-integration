@@ -1,5 +1,5 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
-ARG OAUTH2_POXY_VERSION=v7.14.2
+ARG OAUTH2_POXY_VERSION=v7.14.3
 ARG NODE_VERSION=24-alpine
 
 FROM node:${NODE_VERSION} AS frontend-builder
