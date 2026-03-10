@@ -3,14 +3,15 @@
 package types
 
 type StreamParams struct {
-	PluginId     string `json:"pluginId"`
-	RepoName     string `json:"repoName"`
-	Url          string `json:"url"`
-	Option       string `json:"option"`
-	User         string `json:"user"`
-	Token        string `json:"token"`
-	DVToken      string `json:"dvToken"`
-	PersistentId string `json:"persistentId"`
-	SessionId    string `json:"sessionId"`
-	DownloadId   string `json:"downloadId"`
+	PluginId      string `json:"pluginId"`
+	RepoName      string `json:"repoName"`
+	Url           string `json:"url"`
+	Option        string `json:"option"`
+	PluginOptions string `json:"pluginOptions,omitempty"`
+	User          string `json:"user"`
+	Token         string `json:"token"`
+	DVToken       string `json:"dvToken"`
+	PersistentId  string `json:"persistentId"`
+	SessionId     string `json:"sessionId"`
+	DownloadId    string `json:"downloadId"`
 }

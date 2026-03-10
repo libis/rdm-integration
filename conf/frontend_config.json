@@ -68,6 +68,16 @@
             "sourceUrlFieldPlaceholder": "https://your.redcap.server"
         },
         {
+            "id": "redcap2",
+            "name": "Other REDCap (reports beta)",
+            "plugin": "redcap2",
+            "pluginName": "REDCap",
+            "tokenFieldName": "Project token",
+            "tokenFieldPlaceholder": "project token",
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://preview.redcap.gbiomed.kuleuven.be"
+        },
+        {
             "id": "osf",
             "name": "OSF",
             "plugin": "osf",

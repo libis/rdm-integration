@@ -13,6 +13,7 @@ import (
 	"integration/app/plugin/impl/onedrive"
 	"integration/app/plugin/impl/osf"
 	"integration/app/plugin/impl/redcap"
+	"integration/app/plugin/impl/redcap2"
 	"integration/app/plugin/impl/sftp_plugin"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -52,6 +53,12 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Options: redcap.Options,
 		Search:  nil,
 		Streams: redcap.Streams,
+	},
+	"redcap2": {
+		Query:   redcap2.Query,
+		Options: redcap2.Options,
+		Search:  nil,
+		Streams: redcap2.Streams,
 	},
 	"osf": {
 		Query:    osf.Query,
