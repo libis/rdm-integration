@@ -1,0 +1,129 @@
+From 599ce051bb065c9fdc2122c42cd1daa50d831627 Mon Sep 17 00:00:00 2001
+From: Peter Verraedt <peter@verraedt.be>
+Date: Wed, 11 Mar 2026 09:02:10 +0100
+Subject: [PATCH] Use v2 of the data-platform-api to connect to ManGO
+
+Signed-off-by: Peter Verraedt <peter@verraedt.be>
+---
+ image/app/core/oauth/oauth.go         | 44 +++------------------------
+ image/app/plugin/impl/irods/client.go | 16 +++++-----
+ 2 files changed, 13 insertions(+), 47 deletions(-)
+
+diff --git a/image/app/core/oauth/oauth.go b/image/app/core/oauth/oauth.go
+index 5ebe986..f84d25f 100644
+--- a/image/app/core/oauth/oauth.go
++++ b/image/app/core/oauth/oauth.go
+@@ -17,14 +17,16 @@ import (
+ 	"time"
+ )
+ 
+-var PluginConfig = map[string]config.RepoPlugin{}
+-var RedirectUri string
++var (
++	PluginConfig = map[string]config.RepoPlugin{}
++	RedirectUri  string
++)
+ 
+ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId string) (types.TokenResponse, error) {
+ 	res := types.TokenResponse{SessionId: sessionId}
+ 	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
+ 	redirectUri := RedirectUri
+-	clientSecret, resource, postUrl, exchange, err := config.ClientSecret(clientId)
++	clientSecret, resource, postUrl, _, err := config.ClientSecret(clientId)
+ 	if err != nil {
+ 		return res, err
+ 	}
+@@ -85,12 +87,6 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId
+ 			TokenType:             params.Get("token_type"),
+ 		}
+ 	}
+-	if exchange != "" {
+-		result, err = doExchange(ctx, result, exchange)
+-		if err != nil {
+-			return res, err
+-		}
+-	}
+ 	result.Issued = time.Now()
+ 	tokenBytes, err := json.Marshal(result)
+ 	if err != nil {
+@@ -159,33 +155,3 @@ func encode(req types.OauthTokenRequest) *bytes.Buffer {
+ 	}
+ 	return bytes.NewBuffer([]byte(s))
+ }
+-
+-func doExchange(ctx context.Context, in types.OauthTokenResponse, url string) (types.OauthTokenResponse, error) {
+-	res := in
+-	req := types.ExchangeRequest{DropPermissions: true, IdToken: in.JwtToken}
+-	data, _ := json.Marshal(req)
+-	body := bytes.NewBuffer(data)
+-	request, _ := http.NewRequestWithContext(ctx, "POST", url, body)
+-	request.Header.Add("Content-Type", "application/json")
+-	request.Header.Add("Accept", "application/json")
+-	r, err := http.DefaultClient.Do(request)
+-	if err != nil {
+-		return res, fmt.Errorf("exchanging API token failed: %v", err)
+-	}
+-	defer r.Body.Close()
+-	if r.StatusCode != 200 {
+-		b, _ := io.ReadAll(r.Body)
+-		return res, fmt.Errorf("exchanging API token failed: %d - %s", r.StatusCode, string(b))
+-	}
+-	b, err := io.ReadAll(r.Body)
+-	if err != nil {
+-		return res, fmt.Errorf("exchanging token response failed: %v", err)
+-	}
+-	result := types.ExchangeResponse{}
+-	err = json.Unmarshal(b, &result)
+-	res.AccessToken = result.Token
+-	if result.Message != "" {
+-		return res, fmt.Errorf("exchanging token failed with message: %v", result.Message)
+-	}
+-	return res, err
+-}
+diff --git a/image/app/plugin/impl/irods/client.go b/image/app/plugin/impl/irods/client.go
+index cf1c653..945bee8 100644
+--- a/image/app/plugin/impl/irods/client.go
++++ b/image/app/plugin/impl/irods/client.go
+@@ -80,11 +80,11 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
+ 	s := getServer(server)
+ 	i := &IrodsClient{}
+ 	i.Zone = zone
+-	var keySize = 32
+-	var saltSize = 8
+-	var hashRounds = 8
+-	var algorithm = "AES-256-CBC"
+-	var negotiationPolicy = types.CSNegotiationPolicyRequestSSL
++	keySize := 32
++	saltSize := 8
++	hashRounds := 8
++	algorithm := "AES-256-CBC"
++	negotiationPolicy := types.CSNegotiationPolicyRequestSSL
+ 
+ 	var err error
+ 	if strings.Contains(server, "kuleuven") {
+@@ -203,11 +203,11 @@ func getConnectionInfo(zone, token string) (ConnectionInfo, error) {
+ 	if err != nil {
+ 		return ConnectionInfo{}, err
+ 	}
+-	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v1/irods/zones/" + zoneId + "/connection_info"
++	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v2/kuleuven/irods/zone/" + zoneId + "/connection-info"
+ 	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+ 	defer cancel()
+ 	res := ConnectionInfo{}
+-	request, _ := http.NewRequestWithContext(shortContext, "GET", url, nil)
++	request, _ := http.NewRequestWithContext(shortContext, "POST", url, nil)
+ 	request.Header.Add("accept", "application/json")
+ 	request.Header.Add("Authorization", "Bearer "+token)
+ 	response, err := http.DefaultClient.Do(request)
+@@ -234,7 +234,7 @@ func getZoneId(zone, token string) (string, error) {
+ }
+ 
+ func getZones(token string) ([]Zone, error) {
+-	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v1/irods/zones"
++	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v2/kuleuven/irods/zones"
+ 	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+ 	defer cancel()
+ 	res := []Zone{}
+-- 
+2.53.0
+

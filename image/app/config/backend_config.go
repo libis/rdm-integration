@@ -87,7 +87,6 @@ type OauthSecret struct {
 	PostUrl      string `json:"postURL"`
 	ClientSecret string `json:"clientSecret"`
 	Resource     string `json:"resource"`
-	Exchange     string `json:"exchange"`
 }
 
 var config Config
@@ -224,12 +223,12 @@ func RedisReady(ctx context.Context) bool {
 	return res == "PONG"
 }
 
-func ClientSecret(clientId string) (clientSecret, resource, url, exchange string, err error) {
+func ClientSecret(clientId string) (clientSecret, resource, url string, err error) {
 	s, ok := oauthSecrets[clientId]
 	if !ok {
-		return "", "", "", "", fmt.Errorf("OATH secret not found")
+		return "", "", "", fmt.Errorf("OATH secret not found")
 	}
-	return s.ClientSecret, s.Resource, s.PostUrl, s.Exchange, nil
+	return s.ClientSecret, s.Resource, s.PostUrl, nil
 }
 
 func GetMaxFileSize() int64 {

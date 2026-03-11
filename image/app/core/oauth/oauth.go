@@ -24,7 +24,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 	res := types.TokenResponse{SessionId: sessionId}
 	clientId := PluginConfig[pluginId].TokenGetter.OauthClientId
 	redirectUri := RedirectUri
-	clientSecret, resource, postUrl, exchange, err := config.ClientSecret(clientId)
+	clientSecret, resource, postUrl, err := config.ClientSecret(clientId)
 	if err != nil {
 		return res, err
 	}
@@ -83,12 +83,6 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 			RefreshTokenExpiresIn: exp2,
 			Scope:                 params.Get("scope"),
 			TokenType:             params.Get("token_type"),
-		}
-	}
-	if exchange != "" {
-		result, err = doExchange(ctx, result, exchange)
-		if err != nil {
-			return res, err
 		}
 	}
 	result.Issued = time.Now()
@@ -158,34 +152,4 @@ func encode(req types.OauthTokenRequest) *bytes.Buffer {
 		s = s + "&resource=" + url.QueryEscape(req.Resource)
 	}
 	return bytes.NewBuffer([]byte(s))
-}
-
-func doExchange(ctx context.Context, in types.OauthTokenResponse, url string) (types.OauthTokenResponse, error) {
-	res := in
-	req := types.ExchangeRequest{DropPermissions: true, IdToken: in.JwtToken}
-	data, _ := json.Marshal(req)
-	body := bytes.NewBuffer(data)
-	request, _ := http.NewRequestWithContext(ctx, "POST", url, body)
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Accept", "application/json")
-	r, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return res, fmt.Errorf("exchanging API token failed: %v", err)
-	}
-	defer r.Body.Close()
-	if r.StatusCode != 200 {
-		b, _ := io.ReadAll(r.Body)
-		return res, fmt.Errorf("exchanging API token failed: %d - %s", r.StatusCode, string(b))
-	}
-	b, err := io.ReadAll(r.Body)
-	if err != nil {
-		return res, fmt.Errorf("exchanging token response failed: %v", err)
-	}
-	result := types.ExchangeResponse{}
-	err = json.Unmarshal(b, &result)
-	res.AccessToken = result.Token
-	if result.Message != "" {
-		return res, fmt.Errorf("exchanging token failed with message: %v", result.Message)
-	}
-	return res, err
 }
