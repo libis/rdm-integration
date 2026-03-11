@@ -395,7 +395,23 @@ func deleteFile(_ context.Context, token, user string, id int64) error {
 }
 
 func deleteFiles(_ context.Context, token, user, persistentId string, ids []int64) error {
-	shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
-	defer cancel()
-	return Destination.DeleteFiles(shortContext, token, user, persistentId, ids)
+	const batchSize = 100
+	if len(ids) <= batchSize {
+		shortContext, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		return Destination.DeleteFiles(shortContext, token, user, persistentId, ids)
+	}
+	for i := 0; i < len(ids); i += batchSize {
+		end := i + batchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		shortContext, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		err := Destination.DeleteFiles(shortContext, token, user, persistentId, ids[i:end])
+		cancel()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
