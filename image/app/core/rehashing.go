@@ -141,7 +141,7 @@ func calculateHash(ctx context.Context, dataverseKey, user, persistentId string,
 	}
 	h, err := doHash(ctx, dataverseKey, user, persistentId, node)
 	if err != nil {
-		return fmt.Errorf("failed to hash local file %v: %v", node.Attributes.DestinationFile.StorageIdentifier, err)
+		return fmt.Errorf("failed to hash local file %v: %w", node.Attributes.DestinationFile.StorageIdentifier, err)
 	}
 	known.RemoteHashes[hashType] = fmt.Sprintf("%x", h)
 	knownHashes[node.Id] = known
