@@ -85,6 +85,9 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 			TokenType:             params.Get("token_type"),
 		}
 	}
+	if result.Error != "" {
+		return res, fmt.Errorf("getting API token failed: %s - %s", result.Error, result.Error_description)
+	}
 	result.Issued = time.Now()
 	tokenBytes, err := json.Marshal(result)
 	if err != nil {
@@ -99,7 +102,8 @@ func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) s
 	if !ok {
 		return token
 	}
-	expired := time.Now().After(res.Issued.Add(time.Duration((res.ExpiresIn - 5*60)) * time.Second))
+	expiry := res.Issued.Add(time.Duration((res.ExpiresIn - 5*60)) * time.Second)
+	expired := res.ExpiresIn > 0 && time.Now().After(expiry)
 	ok = true
 	if expired {
 		_, err := GetOauthToken(ctx, pluginId, "", res.RefreshToken, sessionId)
