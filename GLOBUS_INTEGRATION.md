@@ -58,6 +58,9 @@ The rdm-integration Globus plugin supports both uploads and downloads via manage
 | Destination folder tree navigation | ✅ (expandable tree) | ✅ (list navigation) |
 | Multiple endpoint search tabs | ❌ | ✅ (Personal/Recent/Search) |
 | DOI dropdown with search | ✅ | ❌ (passed via callback) |
+| **Performance** | | |
+| Endpoint file listing strategy | Recursive upfront (full tree built before compare view) | On-demand per folder (navigate into folder to list) |
+| Initial load time for large endpoints | ⚠️ Slow (all folders listed upfront via Globus API) | ✅ Fast (only lists current folder) |
 | **Maintenance** | | |
 | Active development | ✅ | ⚠️ (v2 branch merged ~mid-2025) |
 | Latest Angular version | ✅ (Angular 21) | Angular 17 (v2 branch) |
@@ -169,6 +172,7 @@ This bypasses the signed URL limitation where preview users (who are virtual `Pr
 | Anonymous Preview URLs don't work | Dataverse blocks anonymized tokens for Globus APIs | Use General Preview URL |
 | Preview users can't use signed URLs | `PrivateUrlUser` not in database, no `ApiToken` | Direct API calls with token |
 | Requires Globus app registration | OAuth flow needs client ID and secret | Register at auth.globus.org |
+| Slow initial load for large endpoints | The hierarchical compare view requires recursively listing all files and folders in the pre-selected Globus endpoint path via the Globus Transfer API. Endpoints with thousands of files or deeply nested directories cause noticeable delays. | Advise users to pre-select a narrow source path; the Globus Transfer API itself is the bottleneck |
 
 [↑ Back to Top](#globus-integration-details) | [→ Configuration](#configuration)
 
