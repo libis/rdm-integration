@@ -37,7 +37,7 @@ The rdm-integration Globus plugin supports both uploads and downloads via manage
 | Globus downloads from S3 storage | ✅ | ✅ |
 | Preview URL support (General) | ✅ **Unique** | ❌ |
 | Preview URL support (Anonymous) | ❌ (Dataverse limitation) | ❌ |
-| Guest download (public datasets) | ✅ | ❌ |
+| Guest download (public datasets) | ✅ | ✅ |
 | Authenticated user download | ✅ | ✅ |
 | Globus OAuth | Redirect with client secret | PKCE (v2 branch) |
 | Dataverse auth | Shibboleth / OIDC | Signed URLs |
