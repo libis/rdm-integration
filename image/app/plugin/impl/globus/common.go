@@ -79,14 +79,66 @@ func normalizeEndpointPath(path string) string {
 	return normalized
 }
 
+const recursiveConcurrency = 8
+
+// listItems lists a directory. When recursive is true, all subdirectories are
+// listed in parallel (bounded by recursiveConcurrency concurrent requests).
 func listItems(ctx context.Context, path, theUrl, token, user string, recursive bool) ([]Entry, error) {
+	entries, subdirs, err := listDirEntries(ctx, path, theUrl, token)
+	if err != nil {
+		return nil, err
+	}
+	if !recursive || len(subdirs) == 0 {
+		return entries, nil
+	}
+	sem := make(chan struct{}, recursiveConcurrency)
+	return appendSubentries(ctx, entries, subdirs, theUrl, token, user, sem)
+}
+
+type subResult struct {
+	entries []Entry
+	err     error
+}
+
+// appendSubentries fans out recursive listings for each dir in subdirs,
+// bounded by sem, and appends all collected entries to base.
+func appendSubentries(ctx context.Context, base []Entry, subdirs []string, theUrl, token, user string, sem chan struct{}) ([]Entry, error) {
+	ch := make(chan subResult, len(subdirs))
+	for _, dir := range subdirs {
+		go func(d string) {
+			sem <- struct{}{}
+			dirEntries, dirSubdirs, err := listDirEntries(ctx, d, theUrl, token)
+			<-sem
+			if err != nil {
+				ch <- subResult{nil, err}
+				return
+			}
+			if len(dirSubdirs) > 0 {
+				dirEntries, err = appendSubentries(ctx, dirEntries, dirSubdirs, theUrl, token, user, sem)
+			}
+			ch <- subResult{dirEntries, err}
+		}(dir)
+	}
+	res := base
+	for range subdirs {
+		r := <-ch
+		if r.err != nil {
+			return nil, r.err
+		}
+		res = append(res, r.entries...)
+	}
+	return res, nil
+}
+
+// listDirEntries lists one directory (non-recursively) and returns its entries
+// together with the paths of any subdirectories found, for further recursion.
+func listDirEntries(ctx context.Context, path, theUrl, token string) (entries []Entry, subdirs []string, err error) {
 	path = normalizeEndpointPath(path)
 	urlString := theUrl + "?path=" + url.QueryEscape(path) + "&show_hidden=false"
 	response, err := getResponse(ctx, urlString, token)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	res := []Entry{}
 	for _, v := range response {
 		isDir := v.Type == "dir"
 		if isDir && strings.HasPrefix(v.Name, ".") {
@@ -108,14 +160,10 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 		}
 
 		id := basePath + v.Name + "/"
-		if recursive && isDir {
-			folderEntries, err := listItems(ctx, id, theUrl, token, user, true)
-			if err != nil {
-				return nil, err
-			}
-			res = append(res, folderEntries...)
+		if isDir {
+			subdirs = append(subdirs, id)
 		}
-		res = append(res, Entry{
+		entries = append(entries, Entry{
 			Path:     basePath,
 			Id:       id,
 			Name:     v.Name,
@@ -126,7 +174,7 @@ func listItems(ctx context.Context, path, theUrl, token, user string, recursive 
 			Size:     v.Size,
 		})
 	}
-	return res, nil
+	return entries, subdirs, nil
 }
 
 func getResponse(ctx context.Context, url string, token string) ([]Data, error) {
