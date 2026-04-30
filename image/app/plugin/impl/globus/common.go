@@ -133,11 +133,23 @@ func appendSubentries(ctx context.Context, base []Entry, subdirs []string, theUr
 // listDirEntries lists one directory (non-recursively) and returns its entries
 // together with the paths of any subdirectories found, for further recursion.
 func listDirEntries(ctx context.Context, path, theUrl, token string) (entries []Entry, subdirs []string, err error) {
+	entries, subdirs, _, err = listDirEntriesWithPath(ctx, path, theUrl, token)
+	return entries, subdirs, err
+}
+
+// listDirEntriesWithPath is like listDirEntries but also returns the listed
+// directory's resolved absolute_path, exactly as Globus reported it on the
+// first page of the response. The returned absolutePath may be empty (the
+// endpoint did not include it) or echoed unchanged from the requested path
+// (some endpoints — notably mapped collections backed by iRODS — do not
+// resolve shorthand inputs like "/~/" or "/{server_default}/"). Callers that
+// need to detect those cases should compare against the input path.
+func listDirEntriesWithPath(ctx context.Context, path, theUrl, token string) (entries []Entry, subdirs []string, absolutePath string, err error) {
 	path = normalizeEndpointPath(path)
 	urlString := theUrl + "?path=" + url.QueryEscape(path) + "&show_hidden=false"
-	response, err := getResponse(ctx, urlString, token)
+	response, absolutePath, err := getResponseWithPath(ctx, urlString, token)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, absolutePath, err
 	}
 	for _, v := range response {
 		isDir := v.Type == "dir"
@@ -174,24 +186,45 @@ func listDirEntries(ctx context.Context, path, theUrl, token string) (entries []
 			Size:     v.Size,
 		})
 	}
-	return entries, subdirs, nil
+	return entries, subdirs, absolutePath, nil
+}
+
+// listOnce performs a single non-recursive listing of path and returns the
+// directory's resolved absolute_path along with the entries. Used by the
+// folder-selection flow to discover what Globus actually resolves shorthand
+// inputs like "/~/" to (which differs by endpoint type).
+func listOnce(ctx context.Context, path, theUrl, token string) (entries []Entry, absolutePath string, err error) {
+	entries, _, absolutePath, err = listDirEntriesWithPath(ctx, path, theUrl, token)
+	return entries, absolutePath, err
 }
 
 func getResponse(ctx context.Context, url string, token string) ([]Data, error) {
+	data, _, err := getResponseWithPath(ctx, url, token)
+	return data, err
+}
+
+// getResponseWithPath behaves like getResponse but also returns the listed
+// directory's resolved absolute_path, taken from the first non-empty response
+// page. May be empty if the endpoint did not include it.
+func getResponseWithPath(ctx context.Context, url string, token string) ([]Data, string, error) {
 	// Globus directory listing docs: limit defaults to 100000 (also max), and
 	// the backend still fetches the entire directory on each paged request.
 	// Using max limit minimizes repeated expensive listing work.
 	const limit = 100000
 	const maxPages = 10000
 	res := []Data{}
+	absolutePath := ""
 	offset := 0
 	for page := 0; ; page++ {
 		if page >= maxPages {
-			return nil, fmt.Errorf("globus pagination exceeded %d pages", maxPages)
+			return nil, absolutePath, fmt.Errorf("globus pagination exceeded %d pages", maxPages)
 		}
 		response, err := getPartialResponse(ctx, url, token, limit, offset)
 		if err != nil {
-			return nil, err
+			return nil, response.AbsolutePath, err
+		}
+		if absolutePath == "" {
+			absolutePath = response.AbsolutePath
 		}
 		for _, r := range response.Data {
 			r.AbsolutePath = response.AbsolutePath
@@ -212,7 +245,7 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 			break
 		}
 		if next && len(response.Data) == 0 {
-			return nil, fmt.Errorf("globus pagination returned empty page %d with next page expected", page)
+			return nil, absolutePath, fmt.Errorf("globus pagination returned empty page %d with next page expected", page)
 		}
 
 		nextOffset := offset + pageLimit
@@ -223,11 +256,11 @@ func getResponse(ctx context.Context, url string, token string) ([]Data, error) 
 			}
 		}
 		if nextOffset <= offset {
-			return nil, fmt.Errorf("globus pagination produced non-increasing offset at page %d", page)
+			return nil, absolutePath, fmt.Errorf("globus pagination produced non-increasing offset at page %d", page)
 		}
 		offset = nextOffset
 	}
-	return res, nil
+	return res, absolutePath, nil
 }
 
 func effectiveLimit(response Response, fallback int) int {
