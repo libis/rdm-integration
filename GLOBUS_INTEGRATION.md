@@ -180,16 +180,45 @@ This bypasses the signed URL limitation where preview users (who are virtual `Pr
 
 ## Configuration
 
-Globus plugin configuration in `backend_config.json`:
+`rdm-integration` uses a server-side OAuth token exchange for Globus. Configure
+it with a Globus **Confidential Client**:
+
+1. Open `https://app.globus.org`.
+2. Go to **Settings** -> **Developers**.
+3. Add or select a project.
+4. In that project, open **Apps** and add an app.
+5. Add a **Confidential Client** to that app.
+
+Use the Confidential Client ID as `tokenGetter.oauth_client_id`. The matching
+client secret is stored in the backend OAuth secrets file, not in
+`frontend_config.json`.
+
+This is not the native/PKCE client flow used by some Globus integrations. It is
+closer to a portal/science-gateway setup because the backend exchanges the
+authorization code with the client secret.
+
+### Frontend plugin configuration
+
+The Globus plugin entry belongs in `frontend_config.json`, under `plugins`.
+Use the `tokenGetter.URL` field for the Globus authorization URL:
 
 ```json
 {
   "plugins": [
     {
       "id": "globus",
+      "name": "Globus",
       "plugin": "globus",
+      "pluginName": "Globus",
+      "sourceUrlFieldValue": "https://transfer.api.globusonline.org/v0.10",
+      "optionFieldName": "Folder",
+      "optionFieldPlaceholder": "Select folder",
+      "optionFieldInteractive": true,
+      "repoNameFieldName": "Endpoint",
+      "repoNameFieldPlaceholder": "Select endpoint",
+      "repoNameFieldHasSearch": true,
       "tokenGetter": {
-        "authURL": "https://auth.globus.org/v2/oauth2/authorize",
+        "URL": "https://auth.globus.org/v2/oauth2/authorize?scope=urn%3Aglobus%3Aauth%3Ascope%3Atransfer.api.globus.org%3Aall+openid+email+profile",
         "oauth_client_id": "YOUR_GLOBUS_CLIENT_ID"
       }
     }
@@ -197,9 +226,126 @@ Globus plugin configuration in `backend_config.json`:
 }
 ```
 
-The client secret is stored separately in the OAuth secrets file (see `pathToOauthSecrets` in backend configuration).
+For institution-scoped login, add the Globus `session_required_single_domain`
+parameter to the authorization URL, for example:
+
+```text
+&session_required_single_domain=kuleuven.be
+```
+
+Preview and guest download flows remove this restriction automatically so
+external reviewers can use a non-institutional Globus identity.
+
+### Backend OAuth secrets
+
+`backend_config.json` should point to an OAuth secrets file:
+
+```json
+{
+  "options": {
+    "pathToOauthSecrets": "/dsdata/oauth/secrets.json"
+  }
+}
+```
+
+The secrets file maps the Globus Confidential Client ID to the token endpoint
+and client secret:
+
+```json
+{
+  "YOUR_GLOBUS_CLIENT_ID": {
+    "postURL": "https://auth.globus.org/v2/oauth2/token",
+    "clientSecret": "YOUR_GLOBUS_CLIENT_SECRET"
+  }
+}
+```
+
+The repository includes general local examples in `conf/backend_config.json`,
+`conf/frontend_config.json`, and `conf/example_oauth_secrets.json`. These are
+copied into `docker-volumes/integration/...` by `make init`, which is run
+automatically by `make up` when the local volumes have not been initialized.
+Those example files show the configuration structure, but currently do not
+include a complete Globus example.
+
+### Backend Globus and storage settings
+
+For Globus uploads/downloads backed by Dataverse S3 storage, set the Dataverse
+Globus endpoint in `backend_config.json`:
+
+```json
+{
+  "globusEndpoint": "YOUR_GLOBUS_ENDPOINT_UUID",
+  "options": {
+    "defaultDriver": "s3",
+    "pathToOauthSecrets": "/dsdata/oauth/secrets.json",
+    "s3Config": {
+      "awsEndpoint": "https://s3.example.org",
+      "awsRegion": "us-east-1",
+      "awsPathstyle": true,
+      "awsBucket": "dataverse-bucket"
+    }
+  }
+}
+```
+
+### Dataverse settings
+
+Dataverse must also be configured for Globus. In the Dataverse source, the
+Globus upload and download UI checks are still gated by `:UploadMethods` and
+`:DownloadMethods` containing `globus`, respectively. Configure these with the
+standard Dataverse settings API, for example:
+
+```bash
+curl -X PUT -d 'native/http,dvwebloader,globus' \
+  http://localhost:8080/api/admin/settings/:UploadMethods
+
+curl -X PUT -d 'native/http,globus' \
+  http://localhost:8080/api/admin/settings/:DownloadMethods
+
+curl -X PUT -d 'https://your-rdm-integration-host/connect' \
+  http://localhost:8080/api/admin/settings/:GlobusAppUrl
+
+curl -X PUT -d 50 \
+  http://localhost:8080/api/admin/settings/:GlobusPollingInterval
+
+curl -X PUT -d false \
+  http://localhost:8080/api/admin/settings/:GlobusSingleFileTransfer
+```
+
+The Dataverse public guides currently document `:UploadMethods`,
+`:GlobusAppUrl`, `:GlobusPollingInterval`, `:GlobusSingleFileTransfer`, and
+`:GlobusBatchLookupSize`. The `:DownloadMethods` documentation has moved around
+and may be incomplete in current guides, but the Dataverse code still uses it to
+enable Globus dataset/file download actions. Check your Dataverse version if
+you are not running a recent 6.x build.
+
+See the Dataverse installation guide for the current settings API examples,
+Globus settings, and the Dataverse Globus API documentation for the
+upload/download transfer flow:
+
+- [Dataverse configuration settings](https://guides.dataverse.org/en/latest/installation/config.html)
+- [Dataverse Globus Transfer API](https://guides.dataverse.org/en/latest/developers/globus-api.html)
+
+The Dataverse storage configuration must also align with the Globus endpoint.
+In deployments this is typically set through JVM or MicroProfile properties,
+including:
+
+```text
+-Ddataverse.files.s3.download-redirect=true
+-Ddataverse.files.s3.upload-redirect=true
+-Ddataverse.files.s3.managed=true
+-Ddataverse.files.s3.transfer-endpoint-with-basepath=YOUR_GLOBUS_ENDPOINT_UUID
+-Ddataverse.files.s3.globus-token=BASE64_CLIENT_ID_COLON_CLIENT_SECRET
+-Ddataverse.files.s3.upload-out-of-band=true
+```
+
+`dataverse.files.s3.globus-token` is Dataverse's storage-side Globus credential
+and is separate from the user OAuth client configured for `rdm-integration`.
+It is the base64 encoding of the Globus client ID and secret in the form
+`client_id:client_secret`.
 
 **Backend configuration guide:** [README.md#backend-configuration](README.md#backend-configuration)
+**Frontend configuration guide:** [README.md#frontend-configuration](README.md#frontend-configuration)
 
 [↑ Back to Top](#globus-integration-details)
 
