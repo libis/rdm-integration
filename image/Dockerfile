@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.npm \
 ARG CUSTOMIZATIONS=./conf/kul_customizations
 COPY ${CUSTOMIZATIONS} /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/browser/
 
-FROM golang:alpine AS backend-builder
+FROM golang:1.26.3-alpine AS backend-builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
