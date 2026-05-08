@@ -221,6 +221,9 @@ frd-components: ## Rebuild dataverse-frontend reusable bundle, sync into dataver
 	@echo "OK."
 	@echo -n "frd-components: syncing bundle into dataverse webapp ... "
 	mkdir -p $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks $(DATAVERSE_REUSABLE_LOCALES_DST)
+	# Wipe chunks before copy: Vite content-hashes filenames so stale hashes
+	# from previous builds would otherwise pile up in the webapp tree.
+	rm -f $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks/*.js
 	cp $(FRONTEND_DIST_UPLOADER)/reusable-components/dv-tree-view.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/
 	cp $(FRONTEND_DIST_UPLOADER)/reusable-components/dv-uploader.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/
 	cp $(FRONTEND_DIST_UPLOADER)/reusable-components/chunks/*.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks/
