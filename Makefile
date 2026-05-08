@@ -23,6 +23,9 @@ DATAVERSE_EXPLODED := docker-volumes/dataverse/applications/dataverse.war
 DATAVERSE_CLASSES_DST := $(DATAVERSE_EXPLODED)/WEB-INF/classes
 DATAVERSE_CLASSES_SRC := ../dataverse/target/classes
 DATAVERSE_WEBAPP_SRC := ../dataverse/src/main/webapp
+DATAVERSE_REUSABLE_COMPONENTS_DST := $(DATAVERSE_WEBAPP_SRC)/dvwebloader/reusable-components
+DATAVERSE_REUSABLE_LOCALES_DST := $(DATAVERSE_WEBAPP_SRC)/dvwebloader/locales
+FRONTEND_DIST_UPLOADER := ../dataverse-frontend/dist-uploader
 
 build: fmt ## Build Docker image
 	customizations_path="$(CUSTOMIZATIONS)"; \
@@ -207,6 +210,25 @@ frd-dataverse:
 		rm /tmp/pwdfile; \
 		printf "%s\n" "$$output" | awk '\''!/PER0100[03]/ && !/Command deploy completed with warnings./ {print}'\''; \
 		exit $$status'
+
+frd-components: ## Rebuild dataverse-frontend reusable bundle, sync into dataverse webapp, redeploy
+	@if [ ! -f $(DEV_SENTINEL) ]; then \
+		echo "Error: frd-components requires the dev stack (run 'make dev_up' first)." >&2; \
+		exit 1; \
+	fi
+	@echo -n "frd-components: building reusable components bundle "
+	cd ../dataverse-frontend && npm run build-uploader >/dev/null
+	@echo "OK."
+	@echo -n "frd-components: syncing bundle into dataverse webapp ... "
+	mkdir -p $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks $(DATAVERSE_REUSABLE_LOCALES_DST)
+	cp $(FRONTEND_DIST_UPLOADER)/reusable-components/dv-tree-view.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/
+	cp $(FRONTEND_DIST_UPLOADER)/reusable-components/dv-uploader.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/
+	cp $(FRONTEND_DIST_UPLOADER)/reusable-components/chunks/*.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks/
+	if [ -d "$(FRONTEND_DIST_UPLOADER)/locales" ]; then \
+		cp -r $(FRONTEND_DIST_UPLOADER)/locales/. $(DATAVERSE_REUSABLE_LOCALES_DST)/; \
+	fi
+	@echo "OK."
+	@$(MAKE) frd-dataverse
 
 frd-integration:
 	@if [ ! -f $(DEV_SENTINEL) ]; then \

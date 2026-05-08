@@ -134,6 +134,10 @@ services:
         -Ddataverse.ui.allow-review-for-incomplete=false
         -Ddataverse.ui.show-validity-filter=true
         -Ddataverse.feature.api-bearer-auth=true
+        -Ddataverse.feature.api-session-auth=true
+        -Ddataverse.feature.api-session-auth-hardening=true
+        -Ddataverse.feature.react-uploader=true
+        -Ddataverse.feature.react-tree-view=true
         -Ddataverse.netcdf.geo-extract-s3-direct-upload=true
         -Ddataverse.cors.origin=https://libis.github.io
     ports:
