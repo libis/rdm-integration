@@ -244,10 +244,23 @@ frd-integration:
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo '\t OK.'
 
+resync-keycloak-realm: ## Re-sync the live Keycloak realm volume from the canonical config and re-import it
+	@if cmp -s conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json; then \
+		echo "resync-keycloak-realm: live realm matches canonical, nothing to do."; \
+	else \
+		echo "resync-keycloak-realm: canonical realm differs, refreshing and recreating keycloak..."; \
+		mkdir -p docker-volumes/keycloak/conf; \
+		cp conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json; \
+		docker compose -f docker-compose.yml rm -sf keycloak; \
+		docker compose -f docker-compose.yml up -d keycloak; \
+		echo "resync-keycloak-realm: OK."; \
+	fi
+
 dev_up: ## Run the development frontend version locally
 	if [ ! -f docker-volumes/dataverse/data/initialized ]; then \
 		$(MAKE) init; \
 	fi
+	@$(MAKE) resync-keycloak-realm
 	docker compose -f docker-compose.yml -f docker-compose.yml.dev rm -sf dataverse
 	rm -rf docker-volumes/dataverse/applications/*
 	echo "Building dataverse..."
