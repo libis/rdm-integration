@@ -302,9 +302,9 @@ dev_build: fmt ## Build Docker image using local frontend (like dev_up but only 
 	@echo -n "Cleaning up local frontend archive... "
 	@rm -f $(FRONTEND_VERSION).tar.gz
 
-down: ## Stop the server locally
+down: ## Stop the server locally (also catches dev_up's modern_proxy / modern_frontend via --remove-orphans)
 	rm -f $(DEV_SENTINEL)
-	docker compose -f docker-compose.yml down
+	docker compose -f docker-compose.yml down --remove-orphans
 
 fmt: ## Format the go code
 	cd image && go fmt ./app/...
