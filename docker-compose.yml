@@ -134,6 +134,8 @@ services:
         -Ddataverse.ui.allow-review-for-incomplete=false
         -Ddataverse.ui.show-validity-filter=true
         -Ddataverse.feature.api-bearer-auth=true
+        -Ddataverse.feature.api-bearer-auth-provide-missing-claims=true
+        -Ddataverse.feature.api-bearer-auth-use-builtin-user-on-id-match=true
         -Ddataverse.feature.api-session-auth=true
         -Ddataverse.feature.api-session-auth-hardening=false
         -Ddataverse.feature.react-uploader=true
