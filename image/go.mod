@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
 	github.com/aws/smithy-go v1.25.1
 	github.com/cyverse/go-irodsclient v0.19.10
-	github.com/google/go-github v17.0.0+incompatible
+	github.com/google/go-github/v87 v87.0.0
 	github.com/google/uuid v1.6.0
 	github.com/libis/rdm-dataverse-go-api v1.0.8
 	github.com/pkg/sftp v1.13.10

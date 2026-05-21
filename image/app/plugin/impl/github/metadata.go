@@ -6,7 +6,7 @@ import (
 	"integration/app/plugin/types"
 	"strings"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v87/github"
 	"golang.org/x/oauth2"
 )
 
@@ -28,7 +28,10 @@ func Metadata(ctx context.Context, streamParams types.StreamParams) (types.Metad
 	tc := oauth2.NewClient(ctx, ts)
 	defer tc.CloseIdleConnections()
 
-	client := github.NewClient(tc)
+	client, err := github.NewClient(github.WithHTTPClient(tc))
+	if err != nil {
+		return types.MetadataStruct{}, err
+	}
 	res, _, err := client.Repositories.Get(ctx, user, repo)
 	if err != nil {
 		return types.MetadataStruct{}, err
