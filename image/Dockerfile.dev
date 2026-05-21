@@ -1,14 +1,16 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 ARG OAUTH2_POXY_VERSION=v7.15.2
-ARG NODE_VERSION=24-alpine
+ARG NODE_VERSION=26-alpine
+ARG GO_VERSION=1.26.3-alpine
 
 FROM quay.io/oauth2-proxy/oauth2-proxy:${OAUTH2_POXY_VERSION}-alpine
+ARG GO_VERSION
 
 # Pin Go to a specific version regardless of what's in the Alpine repo
 # attached to the oauth2-proxy base. The toolchain is copied from the
 # official golang image; bumping the tag below bumps the Go version
 # used in this dev container.
-COPY --from=golang:1.26.3-alpine /usr/local/go /usr/local/go
+COPY --from=golang:${GO_VERSION} /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 RUN apk update && apk add --no-cache \

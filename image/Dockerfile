@@ -1,6 +1,7 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
 ARG OAUTH2_POXY_VERSION=v7.15.2
-ARG NODE_VERSION=24-alpine
+ARG NODE_VERSION=26-alpine
+ARG GO_VERSION=1.26.3-alpine
 
 FROM node:${NODE_VERSION} AS frontend-builder
 
@@ -26,7 +27,7 @@ RUN --mount=type=cache,target=/root/.npm \
 ARG CUSTOMIZATIONS=./conf/kul_customizations
 COPY ${CUSTOMIZATIONS} /app/rdm-integration-frontend-${FRONTEND_VERSION}/dist/datasync/browser/
 
-FROM golang:1.26.3-alpine AS backend-builder
+FROM golang:${GO_VERSION} AS backend-builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
