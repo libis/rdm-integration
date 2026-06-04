@@ -73,6 +73,9 @@ services:
       ENABLE_JDWP: 0
       API_DEBUG: "false"
       MP_CONFIG_PROFILE: prod
+      # Required by the URL-signing fix: requestSignedUrl errors if this is empty (maps to
+      # dataverse.api.signing-secret via MicroProfile). Test-only value.
+      DATAVERSE_API_SIGNING_SECRET: "test-signing-secret-for-fix-verification"
       JVM_ARGS: >-
         -Ddataverse.timerServer=true
         -Xmx24g
