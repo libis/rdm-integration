@@ -44,6 +44,12 @@ services:
       - ./docker-volumes/integration/conf/oauth2-proxy.cfg:/oauth2-proxy.cfg
       - ./image:/workspace/backend
       - ../rdm-integration-frontend:/workspace/rdm-integration-frontend
+      # Keep the frontend's node_modules inside the container instead of
+      # sharing the host's. The host is glibc and this container is Alpine
+      # (musl); platform-specific optional deps (rollup/esbuild native
+      # binaries) differ, so a host-installed tree breaks `ng serve`. This
+      # anonymous volume masks the host dir and the entrypoint populates it.
+      - /workspace/rdm-integration-frontend/node_modules
       - ./docker-volumes/integration/go-mod-cache:/home/app/go/pkg/mod
       - ./docker-volumes/integration/go-build-cache:/home/app/.cache/go-build
 

@@ -47,6 +47,15 @@ RUN mkdir -p /home/app/go/bin /home/app/go/pkg /home/app/.cache/go-build \
 WORKDIR /workspace/backend
 COPY ./image /workspace/backend
 
+# Pre-create the frontend's node_modules dir owned by app. The dev compose
+# mounts an anonymous volume here to keep the container's musl-built deps
+# separate from the host's glibc tree; Docker seeds that volume from the
+# image's directory at this path, so creating it as app (before `USER app`)
+# makes the volume app-owned. Otherwise it defaults to root and the
+# in-container `npm ci` in dev-entrypoint.sh fails with EACCES.
+RUN mkdir -p /workspace/rdm-integration-frontend/node_modules \
+    && chown app:app /workspace/rdm-integration-frontend/node_modules
+
 COPY ./image/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
 RUN chmod +x /usr/local/bin/dev-entrypoint.sh
 
