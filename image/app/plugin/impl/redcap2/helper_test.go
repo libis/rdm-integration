@@ -37,6 +37,7 @@ type fakeRedcap struct {
 	longitudinal bool
 	failReport   bool
 	metadataCSV  string // overrides testMetadataCSV when set
+	projectJSON  string // overrides the default project info payload when set
 	dataCSV      string // overrides testDataCSV when set
 	dataJSON     string // overrides testDataJSON when set
 	eavCSV       string // served for type=eav csv requests when set
@@ -103,6 +104,10 @@ func (f *fakeRedcap) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		_, _ = w.Write([]byte(metadata))
 	case "project":
+		if f.projectJSON != "" {
+			_, _ = w.Write([]byte(f.projectJSON))
+			return
+		}
 		longitudinalFlag := "0"
 		if longitudinal {
 			longitudinalFlag = "1"

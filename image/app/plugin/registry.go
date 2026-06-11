@@ -55,10 +55,11 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 		Streams: redcap.Streams,
 	},
 	"redcap2": {
-		Query:   redcap2.Query,
-		Options: redcap2.Options,
-		Search:  nil,
-		Streams: redcap2.Streams,
+		Query:    redcap2.Query,
+		Options:  redcap2.Options,
+		Search:   nil,
+		Streams:  redcap2.Streams,
+		Metadata: redcap2.Metadata,
 	},
 	"osf": {
 		Query:    osf.Query,
