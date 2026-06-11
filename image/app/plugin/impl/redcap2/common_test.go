@@ -98,7 +98,7 @@ func TestParsePluginOptionsUnknownValuesFallBackToDefaults(t *testing.T) {
 		"dataFormat": "xml",
 		"recordType": "wide",
 		"csvDelimiter": ";",
-		"rawOrLabel": "other",
+		"rawOrLabel": "both",
 		"rawOrLabelHeaders": "other"
 	}`)
 	if err != nil {
@@ -180,22 +180,16 @@ func TestApplySharedExportParamsDefaults(t *testing.T) {
 	opts, _ := parsePluginOptions("")
 	form := url.Values{}
 	applySharedExportParams(form, opts)
-	if got := form.Get("type"); got != "flat" {
-		t.Errorf("type = %q, want flat", got)
-	}
-	for _, key := range []string{"csvDelimiter", "rawOrLabel", "rawOrLabelHeaders"} {
-		if _, ok := form[key]; ok {
-			t.Errorf("default options should not send %q", key)
-		}
+	if len(form) != 0 {
+		t.Fatalf("default options should send no shared params (type is records-only), got %v", form)
 	}
 }
 
 func TestApplySharedExportParamsNonDefaults(t *testing.T) {
-	opts, _ := parsePluginOptions(`{"recordType":"eav","csvDelimiter":"tab","rawOrLabel":"label","rawOrLabelHeaders":"label"}`)
+	opts, _ := parsePluginOptions(`{"csvDelimiter":"tab","rawOrLabel":"label","rawOrLabelHeaders":"label"}`)
 	form := url.Values{}
 	applySharedExportParams(form, opts)
 	want := map[string]string{
-		"type":              "eav",
 		"csvDelimiter":      "tab",
 		"rawOrLabel":        "label",
 		"rawOrLabelHeaders": "label",
@@ -205,19 +199,46 @@ func TestApplySharedExportParamsNonDefaults(t *testing.T) {
 			t.Errorf("%s = %q, want %q", key, got, value)
 		}
 	}
+	if _, ok := form["type"]; ok {
+		t.Error("type must not be a shared parameter (content=report has no type)")
+	}
 }
 
-func TestApplyRecordOnlyFiltersEmpty(t *testing.T) {
+func TestApplySharedExportParamsJSONSuppressesCSVParams(t *testing.T) {
+	opts, _ := parsePluginOptions(`{"dataFormat":"json","csvDelimiter":"tab","rawOrLabelHeaders":"label"}`)
+	form := url.Values{}
+	applySharedExportParams(form, opts)
+	for _, key := range []string{"csvDelimiter", "rawOrLabelHeaders"} {
+		if _, ok := form[key]; ok {
+			t.Errorf("%s must not be sent for JSON exports", key)
+		}
+	}
+}
+
+func TestApplySharedExportParamsEAVSuppressesHeaderLabels(t *testing.T) {
+	opts, _ := parsePluginOptions(`{"exportMode":"records","recordType":"eav","rawOrLabelHeaders":"label"}`)
+	form := url.Values{}
+	applySharedExportParams(form, opts)
+	if _, ok := form["rawOrLabelHeaders"]; ok {
+		t.Error("rawOrLabelHeaders must not be sent for EAV exports (flat CSV only)")
+	}
+}
+
+func TestApplyRecordOnlyFiltersDefaults(t *testing.T) {
 	opts, _ := parsePluginOptions("")
 	form := url.Values{}
 	applyRecordOnlyFilters(form, opts)
-	if len(form) != 0 {
-		t.Fatalf("expected no record-only params for default options, got %v", form)
+	if got := form.Get("type"); got != "flat" {
+		t.Errorf("type = %q, want flat", got)
+	}
+	if len(form) != 1 {
+		t.Fatalf("expected only type for default options, got %v", form)
 	}
 }
 
 func TestApplyRecordOnlyFiltersFull(t *testing.T) {
 	opts, _ := parsePluginOptions(`{
+		"recordType": "eav",
 		"fields": ["age", "name", "age"],
 		"forms": ["demographics"],
 		"events": ["baseline_arm_1"],
@@ -231,6 +252,7 @@ func TestApplyRecordOnlyFiltersFull(t *testing.T) {
 	form := url.Values{}
 	applyRecordOnlyFilters(form, opts)
 	want := map[string]string{
+		"type":                   "eav",
 		"fields":                 "age,name",
 		"forms":                  "demographics",
 		"events":                 "baseline_arm_1",
@@ -260,69 +282,204 @@ func TestApplyRecordOnlyFiltersKeepsExplicitTimes(t *testing.T) {
 	}
 }
 
-func TestApplyBlankCSV(t *testing.T) {
-	out, header, err := applyBlankCSV([]byte(testDataCSV), ',', map[string]bool{"name": true, "email": true})
-	if err != nil {
-		t.Fatalf("applyBlankCSV returned error: %v", err)
+func TestParseDictionary(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	if !reflect.DeepEqual(dict.fieldOrder, []string{"record_id", "name", "email", "age"}) {
+		t.Errorf("fieldOrder = %v", dict.fieldOrder)
 	}
-	wantHeader := []string{"record_id", "name", "email", "age"}
-	if !reflect.DeepEqual(header, wantHeader) {
-		t.Errorf("header = %v, want %v", header, wantHeader)
+	if dict.fieldType["name"] != "text" {
+		t.Errorf("fieldType[name] = %q, want text", dict.fieldType["name"])
+	}
+	if !reflect.DeepEqual(dict.labelFields["Email Address"], []string{"email"}) {
+		t.Errorf("labelFields[Email Address] = %v, want [email]", dict.labelFields["Email Address"])
+	}
+}
+
+func TestDictionaryFileUploadFields(t *testing.T) {
+	metadata := "field_name,field_type,field_label\n" +
+		"record_id,text,Record ID\n" +
+		"consent_scan,file,Consent Scan\n" +
+		"mri_image,file,MRI Image\n"
+	dict := parseDictionary([]byte(metadata))
+	if got := dict.fileUploadFields(); !reflect.DeepEqual(got, []string{"consent_scan", "mri_image"}) {
+		t.Fatalf("fileUploadFields = %v", got)
+	}
+}
+
+func TestBaseFieldName(t *testing.T) {
+	tests := map[string]string{
+		"phones___1": "phones",
+		"phones":     "phones",
+		"a___b___c":  "a",
+		"___x":       "___x", // no base before the separator
+	}
+	for in, want := range tests {
+		if got := baseFieldName(in); got != want {
+			t.Errorf("baseFieldName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestResolveHeaderFields(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	if got := resolveHeaderFields("phones___2", false, dict); !reflect.DeepEqual(got, []string{"phones"}) {
+		t.Errorf("raw checkbox header = %v, want [phones]", got)
+	}
+	if got := resolveHeaderFields("Email Address", true, dict); !reflect.DeepEqual(got, []string{"email"}) {
+		t.Errorf("label header = %v, want [email]", got)
+	}
+	if got := resolveHeaderFields("Full Name (choice=Other)", true, dict); !reflect.DeepEqual(got, []string{"name"}) {
+		t.Errorf("checkbox label header = %v, want [name]", got)
+	}
+	if got := resolveHeaderFields("redcap_event_name", true, dict); !reflect.DeepEqual(got, []string{"redcap_event_name"}) {
+		t.Errorf("unknown header should resolve to itself, got %v", got)
+	}
+}
+
+func TestBlankFlatCSV(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	out, exported, audit, err := blankFlatCSV([]byte(testDataCSV), ',', map[string]bool{"name": true, "email": true}, false, dict)
+	if err != nil {
+		t.Fatalf("blankFlatCSV returned error: %v", err)
 	}
 	want := "record_id,name,email,age\n1,,,34\n2,,,29\n"
 	if string(out) != want {
 		t.Errorf("blanked CSV = %q, want %q", string(out), want)
 	}
+	if !reflect.DeepEqual(exported, []string{"record_id", "name", "email", "age"}) {
+		t.Errorf("exported = %v", exported)
+	}
+	for _, entry := range audit {
+		if entry.Matched != 1 {
+			t.Errorf("audit %s matched = %d, want 1", entry.Field, entry.Matched)
+		}
+	}
 }
 
-func TestApplyBlankCSVNoMatchingColumns(t *testing.T) {
-	out, header, err := applyBlankCSV([]byte(testDataCSV), ',', map[string]bool{"missing": true})
+func TestBlankFlatCSVCheckboxExpansion(t *testing.T) {
+	dict := parseDictionary([]byte("field_name,field_type,field_label\nrecord_id,text,Record ID\nphones,checkbox,Phone Types\n"))
+	data := "record_id,phones___1,phones___2\n1,555-1234,555-5678\n"
+	out, exported, audit, err := blankFlatCSV([]byte(data), ',', map[string]bool{"phones": true}, false, dict)
 	if err != nil {
-		t.Fatalf("applyBlankCSV returned error: %v", err)
+		t.Fatalf("blankFlatCSV returned error: %v", err)
+	}
+	want := "record_id,phones___1,phones___2\n1,,\n"
+	if string(out) != want {
+		t.Errorf("blanked CSV = %q, want %q", string(out), want)
+	}
+	if !reflect.DeepEqual(exported, []string{"record_id", "phones"}) {
+		t.Errorf("exported = %v, want base names", exported)
+	}
+	if len(audit) != 1 || audit[0].Matched != 2 {
+		t.Errorf("audit = %+v, want phones matched=2", audit)
+	}
+}
+
+func TestBlankFlatCSVLabelHeaders(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	data := "Record ID,Full Name,Email Address,Age\n1,John,john@example.org,34\n"
+	out, exported, audit, err := blankFlatCSV([]byte(data), ',', map[string]bool{"email": true}, true, dict)
+	if err != nil {
+		t.Fatalf("blankFlatCSV returned error: %v", err)
+	}
+	want := "Record ID,Full Name,Email Address,Age\n1,John,,34\n"
+	if string(out) != want {
+		t.Errorf("blanked CSV = %q, want %q", string(out), want)
+	}
+	if !reflect.DeepEqual(exported, []string{"record_id", "name", "email", "age"}) {
+		t.Errorf("exported = %v, want translated field names", exported)
+	}
+	if len(audit) != 1 || audit[0].Matched != 1 {
+		t.Errorf("audit = %+v", audit)
+	}
+}
+
+func TestBlankFlatCSVZeroMatchAudit(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	out, _, audit, err := blankFlatCSV([]byte(testDataCSV), ',', map[string]bool{"missing": true}, false, dict)
+	if err != nil {
+		t.Fatalf("blankFlatCSV returned error: %v", err)
 	}
 	if string(out) != testDataCSV {
-		t.Errorf("data changed despite no matching blank columns")
+		t.Error("data changed despite no matching blank columns")
 	}
-	if len(header) != 4 {
-		t.Errorf("header = %v, want 4 columns", header)
-	}
-}
-
-func TestApplyBlankCSVEmptyInput(t *testing.T) {
-	out, header, err := applyBlankCSV(nil, ',', map[string]bool{"name": true})
-	if err != nil {
-		t.Fatalf("applyBlankCSV returned error: %v", err)
-	}
-	if len(out) != 0 || header != nil {
-		t.Errorf("expected empty passthrough, got out=%q header=%v", out, header)
+	if len(audit) != 1 || audit[0].Matched != 0 || audit[0].Note == "" {
+		t.Errorf("zero-match audit missing note: %+v", audit)
 	}
 }
 
-func TestApplyBlankJSON(t *testing.T) {
-	out, fields, err := applyBlankJSON([]byte(testDataJSON), map[string]bool{"name": true, "email": true})
+func TestBlankEAVCSV(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	data := "record,redcap_event_name,field_name,value\n" +
+		"1,baseline_arm_1,name,John\n" +
+		"1,baseline_arm_1,email,john@example.org\n" +
+		"2,baseline_arm_1,email,jane@example.org\n" +
+		"2,baseline_arm_1,age,29\n"
+	out, exported, audit, err := blankEAVCSV([]byte(data), ',', map[string]bool{"email": true}, dict)
 	if err != nil {
-		t.Fatalf("applyBlankJSON returned error: %v", err)
+		t.Fatalf("blankEAVCSV returned error: %v", err)
 	}
-	wantFields := []string{"age", "email", "name", "record_id"}
-	if !reflect.DeepEqual(fields, wantFields) {
-		t.Errorf("fields = %v, want %v", fields, wantFields)
+	want := "record,redcap_event_name,field_name,value\n" +
+		"1,baseline_arm_1,name,John\n" +
+		"1,baseline_arm_1,email,\n" +
+		"2,baseline_arm_1,email,\n" +
+		"2,baseline_arm_1,age,29\n"
+	if string(out) != want {
+		t.Errorf("blanked EAV CSV = %q, want %q", string(out), want)
+	}
+	if !reflect.DeepEqual(exported, []string{"record_id", "name", "email", "age"}) {
+		t.Errorf("exported = %v (record_id must be seeded)", exported)
+	}
+	if len(audit) != 1 || audit[0].Matched != 2 {
+		t.Errorf("audit = %+v, want email matched=2 rows", audit)
+	}
+}
+
+func TestBlankEAVJSON(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	data := `[{"record":"1","field_name":"name","value":"John"},{"record":"1","field_name":"email","value":"john@example.org"}]`
+	out, exported, audit, err := blankEAVJSON([]byte(data), map[string]bool{"email": true}, dict)
+	if err != nil {
+		t.Fatalf("blankEAVJSON returned error: %v", err)
 	}
 	rows := []map[string]string{}
 	if err := json.Unmarshal(out, &rows); err != nil {
-		t.Fatalf("blanked JSON is invalid: %v", err)
+		t.Fatalf("blanked EAV JSON invalid: %v", err)
 	}
-	for i, row := range rows {
-		if row["name"] != "" || row["email"] != "" {
-			t.Errorf("row %d not blanked: %v", i, row)
-		}
-		if row["record_id"] == "" || row["age"] == "" {
-			t.Errorf("row %d lost non-blanked values: %v", i, row)
-		}
+	if rows[1]["value"] != "" || rows[0]["value"] != "John" {
+		t.Errorf("unexpected EAV JSON blanking: %v", rows)
+	}
+	if !reflect.DeepEqual(exported, []string{"record_id", "name", "email"}) {
+		t.Errorf("exported = %v", exported)
+	}
+	if len(audit) != 1 || audit[0].Matched != 1 {
+		t.Errorf("audit = %+v", audit)
 	}
 }
 
-func TestApplyBlankJSONInvalid(t *testing.T) {
-	if _, _, err := applyBlankJSON([]byte("not json"), nil); err == nil {
+func TestBlankFlatJSONCheckboxExpansion(t *testing.T) {
+	data := `[{"record_id":"1","phones___1":"555-1234","phones___2":"555-5678","age":"34"}]`
+	out, exported, audit, err := blankFlatJSON([]byte(data), map[string]bool{"phones": true})
+	if err != nil {
+		t.Fatalf("blankFlatJSON returned error: %v", err)
+	}
+	rows := []map[string]string{}
+	if err := json.Unmarshal(out, &rows); err != nil {
+		t.Fatalf("blanked JSON invalid: %v", err)
+	}
+	if rows[0]["phones___1"] != "" || rows[0]["phones___2"] != "" || rows[0]["age"] != "34" {
+		t.Errorf("unexpected JSON blanking: %v", rows)
+	}
+	if !reflect.DeepEqual(exported, []string{"age", "phones", "record_id"}) {
+		t.Errorf("exported = %v, want sorted base names", exported)
+	}
+	if len(audit) != 1 || audit[0].Matched != 2 {
+		t.Errorf("audit = %+v, want phones matched=2", audit)
+	}
+}
+
+func TestBlankFlatJSONInvalid(t *testing.T) {
+	if _, _, _, err := blankFlatJSON([]byte("not json"), nil); err == nil {
 		t.Fatal("expected error for invalid JSON input")
 	}
 }
@@ -332,9 +489,9 @@ func TestFilterMetadataCSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filterMetadataCSV returned error: %v", err)
 	}
-	want := "field_name,form_name,field_type,identifier\n" +
-		"record_id,demographics,text,\n" +
-		"age,demographics,text,\n"
+	want := "field_name,form_name,field_type,field_label,identifier\n" +
+		"record_id,demographics,text,Record ID,\n" +
+		"age,demographics,text,Age,\n"
 	if string(out) != want {
 		t.Errorf("filtered metadata = %q, want %q", string(out), want)
 	}
@@ -377,6 +534,23 @@ func TestDetectLongitudinal(t *testing.T) {
 	}
 }
 
+func TestProjectIdentity(t *testing.T) {
+	id, title := projectIdentity([]byte(`{"project_id":42,"project_title":"Demo Study"}`))
+	if title != "Demo Study" {
+		t.Errorf("title = %q", title)
+	}
+	if num, ok := id.(float64); !ok || num != 42 {
+		t.Errorf("id = %v (%T), want 42", id, id)
+	}
+	id, title = projectIdentity([]byte(`[{"project_id":"7","project_title":"Array Form"}]`))
+	if id != "7" || title != "Array Form" {
+		t.Errorf("array form: id=%v title=%q", id, title)
+	}
+	if id, title = projectIdentity([]byte(`not json`)); id != nil || title != "" {
+		t.Errorf("invalid payload should yield empty identity, got %v %q", id, title)
+	}
+}
+
 func TestDeduplicatedSelectItems(t *testing.T) {
 	got := deduplicatedSelectItems([]string{" b", "a", "b", ""})
 	want := []types.SelectItem{
@@ -404,10 +578,16 @@ func TestDeduplicatedSelectItemsWithIdentifiers(t *testing.T) {
 }
 
 func TestMakeManifestReportMode(t *testing.T) {
-	opts, _ := parsePluginOptions(`{"exportMode":"report","reportId":"7","variables":[{"name":"email","anonymization":"blank"}]}`)
+	opts, _ := parsePluginOptions(`{"exportMode":"report","reportId":"7","recordType":"eav","variables":[{"name":"email","anonymization":"blank"}]}`)
+	extras := manifestExtras{
+		Audit:            []anonymizationAudit{{Field: "email", Mode: "blank", Matched: 1}},
+		FileUploadFields: []string{"consent_scan"},
+		ProjectID:        float64(1),
+		ProjectTitle:     "Demo",
+	}
 	data, err := makeManifest(opts, "7", "redcap/report-7/data.csv", "redcap/report-7/metadata.csv",
 		"redcap/report-7/project_info.json", "redcap/report-7/events.csv", "redcap/report-7/form_event_mapping.csv",
-		"14.5.5", []string{"something failed"})
+		"14.5.5", []string{"something failed"}, extras)
 	if err != nil {
 		t.Fatalf("makeManifest returned error: %v", err)
 	}
@@ -421,12 +601,24 @@ func TestMakeManifestReportMode(t *testing.T) {
 	if manifest["report_id"] != "7" {
 		t.Errorf("report_id = %v, want 7", manifest["report_id"])
 	}
-	if manifest["redcap_version"] != "14.5.5" {
-		t.Errorf("redcap_version = %v, want 14.5.5", manifest["redcap_version"])
+	export := manifest["export"].(map[string]interface{})
+	if export["record_type"] != "flat" {
+		t.Errorf("report-mode record_type = %v, want forced flat (no type param)", export["record_type"])
 	}
 	files := manifest["files"].(map[string]interface{})
 	if files["events"] != "redcap/report-7/events.csv" || files["form_event_mapping"] != "redcap/report-7/form_event_mapping.csv" {
 		t.Errorf("longitudinal files missing from manifest: %v", files)
+	}
+	project := manifest["project"].(map[string]interface{})
+	if project["title"] != "Demo" {
+		t.Errorf("project = %v", project)
+	}
+	attachments := manifest["attachments"].(map[string]interface{})
+	if attachments["exported"] != false {
+		t.Errorf("attachments.exported = %v, want false", attachments["exported"])
+	}
+	if _, ok := manifest["anonymization_audit"]; !ok {
+		t.Error("anonymization_audit missing from manifest")
 	}
 	if _, ok := manifest["variables"]; !ok {
 		t.Error("variables missing from manifest")
@@ -439,7 +631,7 @@ func TestMakeManifestReportMode(t *testing.T) {
 func TestMakeManifestRecordsMode(t *testing.T) {
 	opts, _ := parsePluginOptions(`{"exportMode":"records"}`)
 	data, err := makeManifest(opts, "", "redcap/records/data.csv", "redcap/records/metadata.csv",
-		"redcap/records/project_info.json", "", "", "", nil)
+		"redcap/records/project_info.json", "", "", "", nil, manifestExtras{})
 	if err != nil {
 		t.Fatalf("makeManifest returned error: %v", err)
 	}
@@ -450,7 +642,7 @@ func TestMakeManifestRecordsMode(t *testing.T) {
 	if _, ok := manifest["report_id"]; ok {
 		t.Error("records-mode manifest should not contain report_id")
 	}
-	for _, key := range []string{"variables", "warnings"} {
+	for _, key := range []string{"variables", "warnings", "attachments", "anonymization_audit", "project", "dictionary_fields_not_exported"} {
 		if _, ok := manifest[key]; ok {
 			t.Errorf("empty %s should be omitted from manifest", key)
 		}
@@ -460,6 +652,21 @@ func TestMakeManifestRecordsMode(t *testing.T) {
 		if _, ok := files[key]; ok {
 			t.Errorf("non-longitudinal manifest should not list %s", key)
 		}
+	}
+}
+
+func TestMakeManifestZeroMatchAuditAddsWarning(t *testing.T) {
+	opts, _ := parsePluginOptions(`{"exportMode":"records"}`)
+	extras := manifestExtras{Audit: []anonymizationAudit{{Field: "ghost", Mode: "blank", Matched: 0, Note: "field not present in export"}}}
+	data, err := makeManifest(opts, "", "d", "m", "p", "", "", "", nil, extras)
+	if err != nil {
+		t.Fatalf("makeManifest returned error: %v", err)
+	}
+	manifest := map[string]interface{}{}
+	_ = json.Unmarshal(data, &manifest)
+	warnings, ok := manifest["warnings"].([]interface{})
+	if !ok || len(warnings) == 0 || !strings.Contains(warnings[0].(string), "ghost") {
+		t.Fatalf("expected zero-match warning, got %v", manifest["warnings"])
 	}
 }
 

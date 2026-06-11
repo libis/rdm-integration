@@ -6,6 +6,7 @@
 
 - [Summary](#summary)
 - [Current Implementation Status (2026-03-10)](#current-implementation-status-2026-03-10)
+- [Review, Research, And Decisions (2026-06-11)](#review-research-and-decisions-2026-06-11)
 - [Export Mode Design](#export-mode-design)
 - [Target User Flow](#target-user-flow)
 - [Syncable File Model](#syncable-file-model)
@@ -91,10 +92,62 @@ Key point: manual export/save was required in the old `redcap` plugin because it
 
 ### Not Implemented Yet
 
-1. XML data export.
-2. Advanced de-identification modes beyond `blank` (drop/mask/pseudonymize/encrypt).
-3. DDI-CDI/Croissant/RO-Crate metadata exporters.
-4. Attachment/file-field download modes.
+1. Advanced de-identification modes beyond `blank` (`drop`, HMAC `pseudonymize`) — Phase 4. Reversible encryption is **out of scope** (decision 2026-06-11).
+2. DDI-CDI/Croissant/RO-Crate metadata exporters — Phase 5 (all three in one phase, from one normalized model; decision 2026-06-11).
+3. Attachment/file-field download — **deferred**; file-upload fields are documented in the manifest instead (decision 2026-06-11).
+4. XML data export (note: `content=report` also accepts `format=odm`; a metadata-only `content=project_xml` sidecar is planned in Phase 5).
+
+[↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Review, Research, And Decisions](#review-research-and-decisions-2026-06-11)
+
+---
+
+## Review, Research, And Decisions (2026-06-11)
+
+A full review of the branch against main plus web research on the REDCap API (triangulated from PHPCap, REDCap.jl, PyCap, REDCapR sources and university changelog mirrors), the integration landscape, and metadata standards produced these findings and decisions.
+
+### Verified REDCap API facts
+
+1. **De-identification is enforced server-side by the token user's Data Export Rights** (No Access `0` / Full `1` / De-Identified `2` / Remove All Identifier Fields `3`, per instrument). "De-Identified" strips tagged identifiers + unvalidated text + notes fields, hashes the record ID, and **removes** date fields on API exports (date *shifting* is an interactive-export option only, not available via API). Token rights are therefore the institutional de-id baseline; the plugin's per-variable transforms are a second layer.
+2. `content=report` accepts `report_id`, `format` (`csv`/`json`/`xml`/`odm`), `rawOrLabel`, `rawOrLabelHeaders`, `exportCheckboxLabel`, `csvDelimiter`, `decimalCharacter` — and **no `type` parameter** (reports are always flat) and no record filters. Our parameter routing was already correct; the UI offered a Record type toggle in report mode that had no effect (fixed in Phase 3.9).
+3. **`rawOrLabel=both` is not a real parameter** of REDCap 13.x–15.x (a PyCap docstring fossil; PHPCap/REDCap.jl/REDCapR/.NET all validate `raw|label`). Removed from the UI.
+4. `rawOrLabelHeaders` applies to CSV flat exports only. `csvDelimiter` applies to CSV only (also accepts `;`, `|`, `^` besides comma/tab).
+5. EAV exports have columns `record, [redcap_event_name,] field_name, value` — field names appear as *row values*, not headers. Checkbox fields in flat exports expand to `field___code` columns. Both break naive header-name blanking (fixed in Phase 3.9).
+6. `content=project_xml&returnMetadataOnly=true` returns complete project metadata (CDISC ODM 1.3.1, incl. value labels) in one call — the recognized archival gold standard. Never export it *with* data (would bypass blanking).
+7. Attachments: `content=file` exports exactly one file per call (record × field × event × instance); no batch endpoint. Confirms deferral.
+8. Useful newer parameters to consider later: `exportBlankForGrayFormStatus` (13.x), `combineCheckboxOptions` (15.6.0+, collapses checkbox expansion), `decimalCharacter`, `exportCheckboxLabel`. Project info exports `project_pi_email` since 15.5.20.
+
+### Landscape
+
+1. rdm-integration is the **only REDCap→Dataverse integration referenced in the official Dataverse guides**; no competing maintained tool exists (Fiocruz effort unreleased; datalad-redcap is a stalled prototype that validates our idempotent-hash model).
+2. Closest design relative: **Yale YES3 Exporter** (export-specific dictionaries with per-field distributions, de-id conditioning incl. REDCap-compatible date shifting + record-ID hashing, versioned export specs, audit trail) — the model for our manifest/audit evolution.
+3. Nobody has published a REDCap→DDI-CDI or REDCap→Croissant mapping — genuine novelty space.
+4. Manifest best practice (union of YES3/REDCapExporter/datalad-redcap): REDCap version, project id/title, exporting user + export-rights level, exact API parameters, de-id transforms applied, per-file checksums.
+
+### Metadata standards
+
+1. **Croissant**: 1.0 (2024-03), 1.1 (2026-01). **Dataverse 6.10 (2026-03) ships a built-in Croissant exporter**, but it cannot recover variable labels/value lists from CSVs — a deposited `croissant.json` built from the REDCap dictionary complements it exactly. Validate with `mlcroissant`. Consumed today by Google Dataset Search, NeurIPS (required), HF/Kaggle/OpenML.
+2. **RO-Crate**: 1.2 (2025-06) formalizes detached crates; **Process Run Crate** profile fits export-run provenance; Dataverse has a beta previewer that renders a deposited `ro-crate-metadata.json`; KU Leuven already maintains gdcc/exporter-ro-crate.
+3. **DDI-CDI**: 1.0 final (2025-01), JSON-LD encoding, no production consumers yet — but LIBIS maintains cdi-viewer (SHACL validation) and this repo already has a DDI-CDI pipeline; strategic in-house value remains high.
+
+### Decisions (2026-06-11)
+
+1. **Default de-id policy**: blank identifier-tagged fields by default (current auto-detection), layered on token export-rights as baseline. `drop`/HMAC `pseudonymize` become opt-in per field in Phase 4.
+2. **Reversible encryption**: out of scope (irreversible transforms only).
+3. **Metadata exporters**: all three (Croissant + RO-Crate + DDI-CDI) in a single phase from one normalized metadata model, generated during export as bundle virtual files (selectable in the compare tree).
+4. **Attachments**: deferred; the manifest documents the project's file-upload fields as not-exported references.
+
+### Review findings driving Phase 3.9
+
+Both repos build and pass all tests; architecture and `pluginOptions` job-lifecycle wiring (compare → Redis job → worker → Streams) verified sound. The gaps are all in the de-identification path, where silent failure is unacceptable:
+
+1. **P1 — Blanking silently no-ops in EAV mode** (field names are row values in the `field_name` column, not headers). Applies to CSV and JSON EAV.
+2. **P1 — Blanking silently no-ops with label headers** (`rawOrLabelHeaders=label` makes headers labels; rules carry field names).
+3. **P1 — Checkbox fields leak**: flat exports expand to `field___code` columns that name-equality matching misses; identifier auto-detection misses them too.
+4. **P1 — Frontend: variables never load on the first-time report flow** (no trigger on report-ID entry, no reload button) — identifier auto-blanking silently skipped on exactly the first-use path.
+5. **P2 — `metadata.csv` near-empty in EAV/label-header modes** (filtered by data headers, which are not field names in those modes).
+6. **P2 — UI offered nonexistent API options** (`rawOrLabel=both`; Record type in report mode).
+7. **P3 — Bundle cache** holds full exports in RAM with TTL-only eviction (size cap added); compare→store TTL gap can rebuild against changed data (next compare detects it — documented behavior).
+8. **P3 — Manifest** lacked export-rights context, project identity, attachment documentation, and per-rule anonymization audit.
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Export Mode Design](#export-mode-design)
 
@@ -219,18 +272,20 @@ Design requirements:
 
 1. `exportMode`: `report` or `records`
 2. `dataFormat`: `csv` or `json`
-3. `recordType`: `flat` or `eav`
-4. `csvDelimiter`: comma or tab
-5. `rawOrLabel`: `raw`, `label`, or `both`
-6. `rawOrLabelHeaders`: `raw` or `label`
-7. `variables[]` with anonymization mode: `none` or `blank`
+3. `csvDelimiter`: comma or tab (CSV format only; REDCap also accepts `;`, `|`, `^` — not yet exposed)
+4. `rawOrLabel`: `raw` or `label` (`both` removed — not a real REDCap API parameter)
+5. `rawOrLabelHeaders`: `raw` or `label` (CSV flat exports only)
+6. `variables[]` with anonymization mode: `none` or `blank`
 
 ### Report Mode Only
 
-8. `reportId` (required — entered manually; REDCap API has no report-listing endpoint)
+7. `reportId` (required — entered manually; REDCap API has no report-listing endpoint)
+
+Note: report exports are always flat — `content=report` has no `type` parameter.
 
 ### Records Mode Only
 
+8. `recordType`: `flat` or `eav` (records mode only; blanking is EAV-aware)
 9. `fields`
 10. `forms`
 11. `events`
@@ -239,22 +294,16 @@ Design requirements:
 14. `dateRangeBegin`
 15. `dateRangeEnd`
 16. `exportSurveyFields`: include survey identifier and timestamp fields (default `false`)
-17. `exportDataAccessGroups`: include Data Access Group field (default `false`)
+17. `exportDataAccessGroups`: include Data Access Group field (default `false`; REDCap only honors it when the project has DAGs and the API user is not in a DAG)
 
-### Planned Controls
+### Possible Future Controls
 
-1. XML output support
+1. `exportCheckboxLabel`, `decimalCharacter`, `exportBlankForGrayFormStatus`, `combineCheckboxOptions` (15.6.0+)
+2. Additional CSV delimiters (`;`, `|`, `^`)
 
-### Attachment Controls
+### Attachments (Decision 2026-06-11: Deferred)
 
-1. `include_attachments`: default `false`
-2. `attachments_mode`: `reference-only` or `download`
-3. `attachments_max_size_mb`
-
-Rationale:
-
-1. For many projects, upload/file fields should remain references in MVP.
-2. Full attachment download can be expensive and should be explicit.
+File-upload fields are **not downloaded**. The manifest lists the project's file-upload fields (detected from `field_type=file` in the dictionary) so deposits document that binaries exist in REDCap but were deliberately not exported. Rationale: the API allows only one file per call (expensive at scale), and attachment content (consent scans, images) is the most identifying material in a project — none of the tabular de-identification machinery can inspect it. Any future download mode must be opt-in, size-capped, and flagged as not de-identified.
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ REDCap Built-In De-Identification Parameters](#redcap-built-in-de-identification-parameters)
 
@@ -342,48 +391,32 @@ Both changes are backward-compatible with the existing payload structure.
 
 ## De-Identification And Encryption
 
-### Policy Model
+### Layered Model (Decisions 2026-06-11)
 
-De-identification should be policy-driven, not ad-hoc. The built-in REDCap parameters described [above](#redcap-built-in-de-identification-parameters) should be used as the first layer (server-side stripping), with our policy model applied as a second layer (client-side transforms).
+De-identification is policy-driven and layered:
 
-Suggested policy file (`redcap2-policy.json`):
-
-1. `drop_fields`: remove columns entirely
-2. `blank_fields`: keep column but replace all values with empty values
-3. `mask_rules`: regex or function-based transforms
-4. `pseudonymize_fields`: deterministic irreversible tokenization
-5. `encrypt_fields`: reversible encryption
+1. **Layer 0 — Token export rights (server-side, strongest).** REDCap enforces the token user's Data Export Rights on every API export: "De-Identified" strips tagged identifiers + free-text + notes, hashes the record ID, and removes dates; "Remove All Identifier Fields" strips tagged fields. Institutions should issue de-identified-rights tokens where possible. The plugin records the effective stripping in the manifest (dictionary-vs-export column diff).
+2. **Layer 1 — Built-in suppression parameters.** `exportSurveyFields=false`, `exportDataAccessGroups=false` (implemented, default off).
+3. **Layer 2 — Per-variable client-side transforms.** `blank` (implemented, EAV/checkbox/label-header aware as of Phase 3.9), `drop` and deterministic HMAC `pseudonymize` (Phase 4).
 
 ### Methods
 
-1. **Server-side suppression (NEW — via built-in REDCap parameters)**
-   - `exportSurveyFields=false`: suppress survey identifier and timestamp fields
-   - `exportDataAccessGroups=false`: suppress data access group field
-   - safest option — data never leaves REDCap
-2. **Drop**
-   - safest client-side option for direct identifiers
-3. **Blank**
-   - preserves schema, no values
-   - can be auto-applied to REDCap identifier-tagged fields
-4. **Deterministic pseudonymization (non-reversible)**
-   - e.g. HMAC-based token with secret key
-   - consistent per value, not reversible
-5. **Reversible encryption**
-   - only if strictly required
-   - requires key management, key rotation, audit policy, and strict access controls
+1. **Blank** (default for identifier-tagged fields)
+   - preserves schema, no values; auto-applied to REDCap identifier-tagged fields, user can override
+2. **Drop** (Phase 4)
+   - removes the column entirely; safest for direct identifiers when schema preservation is not needed
+3. **Deterministic pseudonymization (Phase 4, non-reversible)**
+   - HMAC-SHA256 token with a secret key; consistent per value, not reversible
+4. **Reversible encryption — OUT OF SCOPE** (decision 2026-06-11)
+   - "anonymized and reversible" is not anonymous; if linkability is needed, use deterministic pseudonymization and treat the key as sensitive
 
-Important:
+### Defaults
 
-1. "Anonymized and reversible" is not anonymous in strict privacy sense.
-2. If reversibility is needed, call it pseudonymization/encryption and treat it as sensitive.
-
-### Recommended Defaults
-
-1. Use server-side suppression (`exportSurveyFields=false`, `exportDataAccessGroups=false`) as the baseline.
-2. Auto-blank REDCap identifier-tagged fields (detected from metadata) by default; allow user override.
-3. Default to `blank` or `drop` for any remaining known identifiers.
-4. Make reversible encryption opt-in and disabled by default.
-5. Store no raw keys in job payloads or logs.
+1. Token export-rights as institutional baseline (documented, recorded in manifest).
+2. Server-side suppression toggles default off (survey fields, DAGs excluded by default).
+3. Auto-blank REDCap identifier-tagged fields (detected from metadata) by default; user can override.
+4. Flag unvalidated text/notes fields as PHI-risk in the variables UI (Phase 4) — free text is the recognized weak point.
+5. Store no raw keys or values in job payloads or logs; every transform is recorded in the manifest's anonymization audit.
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Metadata Outputs](#metadata-outputs)
 
@@ -391,43 +424,26 @@ Important:
 
 ## Metadata Outputs
 
-Requested targets:
+Decision (2026-06-11): **all three exporters in a single phase**, generated from one normalized metadata model **during export** as virtual files in the same bundle (deterministic, cacheable, individually selectable in the compare tree).
 
-1. DDI-CDI
-2. Croissant (including CDIF profile compatibility target)
-3. RO-Crate
+Targets and their research-validated value:
 
-### Recommended Strategy
+1. **Croissant 1.0** (`croissant.json`) — highest external value, lowest effort. Complements Dataverse 6.10's built-in Croissant exporter, which cannot recover variable labels/value lists from CSVs. RecordSet/Field model maps near-1:1 from the REDCap dictionary (field→Field, label→description, choices→`sc:Enumeration` RecordSets, validation→dataType); FileObjects carry the bundle's MD5 hashes. Validate with `mlcroissant` in CI. Target 1.0 for Dataverse-ecosystem consistency; 1.1/RAI later.
+2. **RO-Crate 1.2** (`ro-crate-metadata.json`) — packaging + provenance. Use the **Process Run Crate** profile to describe the export run (REDCap instance/project/version, export parameters, tool version, timestamp). Rendered by the Dataverse beta previewer; aligns with KU Leuven's gdcc/exporter-ro-crate work. Plain schema.org JSON-LD — writable from Go without a library.
+3. **DDI-CDI 1.0** (`ddi-cdi.jsonld`) — highest fidelity (variable cascade, substantive/sentinel value domains for missing codes, wide-table structure), strategic for KU Leuven (existing in-repo DDI-CDI pipeline + LIBIS cdi-viewer for SHACL validation), and genuine novelty (no published REDCap→DDI-CDI mapping exists). Reuse existing ddi-cdi helpers where practical, enriched with dictionary labels/value domains the generic CSV profiler cannot infer.
 
-Use one internal normalized metadata model, then fan out to exporters.
+Normalized model (one struct, three emitters):
 
-Normalized model should include:
+1. project-level metadata (`project_info` + dictionary)
+2. table/file-level metadata (bundle files, hashes, sizes, delimiters)
+3. variable-level metadata (names, labels, types, validation, checkbox expansions)
+4. code lists/value labels (`select_choices_or_calculations`)
+5. provenance (source mode/report, options, timestamps, anonymization audit, REDCap version)
 
-1. project-level metadata
-2. table/file-level metadata
-3. variable-level metadata
-4. code lists/value labels
-5. provenance (source report/mode, options, timestamp)
+Additional Phase 5 items:
 
-Then:
-
-1. emit `*.jsonld` for DDI-CDI
-2. emit `croissant.json` (or JSON-LD form as needed by tooling)
-3. emit `ro-crate-metadata.json`
-
-### Integration with Existing DDI-CDI Stack
-
-Option A:
-
-1. Generate CSV + metadata sidecars in `redcap2`
-2. Use existing DDI-CDI generation pipeline on resulting tabular files
-
-Option B:
-
-1. Add a direct REDCap->DDI-CDI generator path
-2. Reuse helper code from existing `ddi-cdi` components where practical
-
-MVP recommendation: Option A.
+1. Implement the plugin `Metadata()` hook (registry already supports it; github/gitlab set the precedent) to prefill Dataverse citation metadata from project info (title, PI name, `project_pi_email` on 15.5.20+, notes).
+2. Optional metadata-only CDISC ODM sidecar via `content=project_xml&returnMetadataOnly=true` (`project_metadata.xml`) — one API call, archival gold standard. Never with data (would bypass blanking).
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Architecture In rdm-integration](#architecture-in-rdm-integration)
 
@@ -529,34 +545,49 @@ Current generic request model is string-heavy (`option`, `repoName`, etc.). `plu
 7. ~~Auto-detect identifier-tagged fields from metadata and pre-blank them.~~
 8. ~~Add unit tests for each parameter combination.~~
 
+### Phase 3.9: De-Id Correctness And API Fidelity [In Progress — 2026-06-11]
+
+Fixes the review findings before new features (see [Review, Research, And Decisions](#review-research-and-decisions-2026-06-11)):
+
+1. EAV-aware blanking: blank the `value` cell of rows whose `field_name` matches a blanked field (CSV and JSON EAV).
+2. Checkbox-aware matching: a blank rule for `field` also matches expanded `field___code` columns.
+3. Label-header support: when `rawOrLabelHeaders=label`, translate headers back to field names via the dictionary (incl. `Label (choice=...)` checkbox headers) before blanking and metadata filtering.
+4. Anonymization audit in the manifest: per-rule match counts; warnings for rules that matched nothing.
+5. Correct `metadata.csv` filtering per mode (EAV field_name values; label-header translation; checkbox base names).
+6. Frontend: load variables on report-ID entry (blur) + explicit Reload button; concurrent-load guard.
+7. Remove `rawOrLabel=both` (not a real API parameter); record type control restricted to records mode; stop sending `type` to `content=report`; send `csvDelimiter`/`rawOrLabelHeaders` only when applicable.
+8. Manifest enrichment: project id/title, file-upload-field documentation (attachments decision), dictionary-vs-export column diff (reveals token-rights stripping).
+9. Bundle cache size cap (bound PII residency in RAM).
+
 ### Phase 4: De-Identification Engine [Next]
 
-1. Add policy schema and validation.
-2. Implement field-level transforms (drop/blank/mask/pseudonymize).
-3. Add optional reversible encryption with key-provider abstraction.
-4. Add audit/provenance output listing transformed fields and method.
-5. Add strict safeguards:
-   - no key logging
-   - no raw-value logging
-   - secure defaults
+1. Add `drop` and deterministic HMAC-SHA256 `pseudonymize` per-variable modes (policy schema + validation).
+2. Flag unvalidated text/notes fields as PHI-risk in the variables table (field types from the dictionary).
+3. Surface token export-rights context (dictionary-vs-export diff) in the UI, not just the manifest.
+4. Extend the anonymization audit (method, key id — never key material).
+5. Strict safeguards: no key logging, no raw-value logging, secure defaults.
+6. ~~Reversible encryption~~ — out of scope (decision 2026-06-11).
 
 ### Phase 5: Metadata Exporters [Next]
 
-1. Define normalized metadata model.
-2. Implement exporter adapters:
-   - DDI-CDI
-   - Croissant
-   - RO-Crate
-3. Expose format toggles in UI.
-4. Add schema validation tests for each output type.
+1. Define normalized metadata model (project, files, variables, code lists, provenance).
+2. Implement all three exporter adapters in one phase (decision 2026-06-11):
+   - `croissant.json` (Croissant 1.0; validate with mlcroissant in CI)
+   - `ro-crate-metadata.json` (RO-Crate 1.2, Process Run Crate provenance)
+   - `ddi-cdi.jsonld` (DDI-CDI 1.0; reuse in-repo ddi-cdi helpers; validate with cdi-viewer SHACL shapes)
+3. Generate during export as bundle virtual files; expose toggles in UI.
+4. Implement plugin `Metadata()` hook for Dataverse citation prefill from project info.
+5. Optional `project_metadata.xml` (CDISC ODM, metadata-only).
+6. Schema validation tests for each output type.
 
 ### Phase 6: Hardening And Rollout [Next]
 
-1. Performance test with large REDCap projects.
-2. Security review (keys, logs, PII handling, transport).
+1. Performance test with large REDCap projects; configurable HTTP timeout (current client timeout: 5 minutes).
+2. Security review (keys, logs, PII handling, transport, cache residency).
 3. Add operator documentation and troubleshooting.
 4. Run pilot with limited users.
 5. Keep `redcap` plugin as stable fallback until `redcap2` is proven.
+6. Revisit attachments (opt-in, size-capped, flagged as not de-identified) based on pilot feedback.
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Testing Plan](#testing-plan)
 
@@ -594,13 +625,10 @@ Current generic request model is string-heavy (`option`, `repoName`, etc.). `plu
 
 1. ~~Do all target REDCap instances expose report listing?~~ **Resolved:** The standard REDCap API does not expose a report-listing endpoint. Report IDs are entered manually.
 2. ~~Should record mode be a separate flow or a toggle?~~ **Resolved:** Implemented as a toggle on the same settings page.
-3. Which de-identification policy should be default at KU Leuven:
-   - drop identifiers
-   - blank identifiers
-   - deterministic pseudonymization
-4. Are reversible transformations acceptable under institutional policy?
-5. Should metadata outputs be generated during sync, after sync, or both?
-6. Should attachments be supported in MVP or deferred?
+3. ~~Which de-identification policy should be default at KU Leuven?~~ **Resolved (2026-06-11):** Blank identifier-tagged fields by default, layered on token export-rights as the institutional baseline; drop/pseudonymize opt-in per field (Phase 4).
+4. ~~Are reversible transformations acceptable under institutional policy?~~ **Resolved (2026-06-11):** Out of scope. Irreversible transforms only (blank/drop/HMAC pseudonymize).
+5. ~~Should metadata outputs be generated during sync, after sync, or both?~~ **Resolved (2026-06-11):** During export, as virtual files in the bundle (deterministic, cacheable, selectable in the compare tree). All three exporters in one phase.
+6. ~~Should attachments be supported in MVP or deferred?~~ **Resolved (2026-06-11):** Deferred; manifest documents file-upload fields as not-exported references. Future download support must be opt-in, size-capped, and flagged as not de-identified.
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ References](#references)
 

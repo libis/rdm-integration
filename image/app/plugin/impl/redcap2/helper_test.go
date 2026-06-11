@@ -15,11 +15,11 @@ const (
 
 	testDataJSON = `[{"record_id":"1","name":"John","email":"john@example.org","age":"34"},{"record_id":"2","name":"Jane","email":"jane@example.org","age":"29"}]`
 
-	testMetadataCSV = "field_name,form_name,field_type,identifier\n" +
-		"record_id,demographics,text,\n" +
-		"name,demographics,text,y\n" +
-		"email,demographics,text,y\n" +
-		"age,demographics,text,\n"
+	testMetadataCSV = "field_name,form_name,field_type,field_label,identifier\n" +
+		"record_id,demographics,text,Record ID,\n" +
+		"name,demographics,text,Full Name,y\n" +
+		"email,demographics,text,Email Address,y\n" +
+		"age,demographics,text,Age,\n"
 
 	testEventsCSV  = "event_name,arm_num,unique_event_name\nBaseline,1,baseline_arm_1\n"
 	testMappingCSV = "arm_num,unique_event_name,form\n1,baseline_arm_1,demographics\n"
@@ -28,11 +28,19 @@ const (
 
 // fakeRedcap is a minimal in-memory REDCap API stub. It records every form
 // submitted per content type so tests can assert on the exact parameters sent.
+// Fixture overrides allow individual tests to serve EAV, label-header,
+// checkbox, or custom-dictionary payloads.
 type fakeRedcap struct {
 	mu           sync.Mutex
 	forms        map[string][]url.Values
 	longitudinal bool
 	failReport   bool
+	metadataCSV  string // overrides testMetadataCSV when set
+	dataCSV      string // overrides testDataCSV when set
+	dataJSON     string // overrides testDataJSON when set
+	eavCSV       string // served for type=eav csv requests when set
+	eavJSON      string // served for type=eav json requests when set
+	labelCSV     string // served for rawOrLabelHeaders=label csv requests when set
 	server       *httptest.Server
 }
 
@@ -84,11 +92,15 @@ func (f *fakeRedcap) handle(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "report unavailable", http.StatusInternalServerError)
 			return
 		}
-		writeTestData(w, form)
+		f.writeData(w, form)
 	case "record":
-		writeTestData(w, form)
+		f.writeData(w, form)
 	case "metadata":
-		_, _ = w.Write([]byte(testMetadataCSV))
+		metadata := testMetadataCSV
+		if f.metadataCSV != "" {
+			metadata = f.metadataCSV
+		}
+		_, _ = w.Write([]byte(metadata))
 	case "project":
 		longitudinalFlag := "0"
 		if longitudinal {
@@ -106,12 +118,31 @@ func (f *fakeRedcap) handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func writeTestData(w http.ResponseWriter, form url.Values) {
+func (f *fakeRedcap) writeData(w http.ResponseWriter, form url.Values) {
 	if form.Get("format") == "json" {
-		_, _ = w.Write([]byte(testDataJSON))
+		if form.Get("type") == "eav" && f.eavJSON != "" {
+			_, _ = w.Write([]byte(f.eavJSON))
+			return
+		}
+		data := testDataJSON
+		if f.dataJSON != "" {
+			data = f.dataJSON
+		}
+		_, _ = w.Write([]byte(data))
+		return
+	}
+	if form.Get("type") == "eav" && f.eavCSV != "" {
+		_, _ = w.Write([]byte(f.eavCSV))
+		return
+	}
+	if form.Get("rawOrLabelHeaders") == "label" && f.labelCSV != "" {
+		_, _ = w.Write([]byte(f.labelCSV))
 		return
 	}
 	data := testDataCSV
+	if f.dataCSV != "" {
+		data = f.dataCSV
+	}
 	if form.Get("csvDelimiter") == "tab" {
 		data = strings.ReplaceAll(data, ",", "\t")
 	}

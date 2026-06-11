@@ -72,7 +72,20 @@ type bundleStore struct {
 
 const bundleCacheTTL = 5 * time.Minute
 
+// maxCacheableBundleBytes bounds how much exported (potentially sensitive)
+// data a single bundle may pin in process memory; larger bundles are rebuilt
+// on demand instead of cached. Variable so tests can lower it.
+var maxCacheableBundleBytes = 64 << 20
+
 var globalBundleCache = &bundleStore{entries: make(map[string]bundleCacheEntry)}
+
+func (b generatedBundle) size() int {
+	total := 0
+	for _, data := range b.Files {
+		total += len(data)
+	}
+	return total
+}
 
 func (s *bundleStore) get(key string) (generatedBundle, bool) {
 	s.mu.Lock()
@@ -171,11 +184,10 @@ func normalizePluginOptions(opts *pluginOptions) {
 		opts.CsvDelimiter = ","
 	}
 
+	// "both" is not a real REDCap API value (PyCap docstring fossil) — normalize to raw.
 	switch strings.ToLower(strings.TrimSpace(opts.RawOrLabel)) {
 	case "label":
 		opts.RawOrLabel = "label"
-	case "both":
-		opts.RawOrLabel = "both"
 	default:
 		opts.RawOrLabel = "raw"
 	}
@@ -277,25 +289,39 @@ func baseForm(token, content, format string) url.Values {
 	return form
 }
 
-// applySharedExportParams sets parameters valid for both content=report and content=record.
+// isEAV reports whether the export produces EAV-shaped output.
+// Only records-mode exports have a type parameter; reports are always flat.
+func isEAV(opts pluginOptions) bool {
+	return opts.ExportMode == "records" && opts.RecordType == "eav"
+}
+
+// headersAreLabels reports whether the export's column headers will be field
+// labels instead of field names. rawOrLabelHeaders only applies to flat CSV.
+func headersAreLabels(opts pluginOptions) bool {
+	return opts.DataFormat == "csv" && opts.RawOrLabelHeaders == "label" && !isEAV(opts)
+}
+
+// applySharedExportParams sets parameters valid for both content=report and
+// content=record. Note: content=report has no "type" parameter (reports are
+// always flat) — type is set in applyRecordOnlyFilters.
 func applySharedExportParams(form url.Values, opts pluginOptions) {
-	if opts.RecordType != "" {
-		form.Set("type", opts.RecordType)
-	}
-	if opts.CsvDelimiter == "\t" {
+	if opts.DataFormat == "csv" && opts.CsvDelimiter == "\t" {
 		form.Set("csvDelimiter", "tab")
 	}
-	if opts.RawOrLabel != "" && opts.RawOrLabel != "raw" {
-		form.Set("rawOrLabel", opts.RawOrLabel)
+	if opts.RawOrLabel == "label" {
+		form.Set("rawOrLabel", "label")
 	}
-	if opts.RawOrLabelHeaders != "" && opts.RawOrLabelHeaders != "raw" {
-		form.Set("rawOrLabelHeaders", opts.RawOrLabelHeaders)
+	if headersAreLabels(opts) {
+		form.Set("rawOrLabelHeaders", "label")
 	}
 }
 
 // applyRecordOnlyFilters sets parameters only valid for content=record exports.
 // These parameters are not supported by the content=report endpoint.
 func applyRecordOnlyFilters(form url.Values, opts pluginOptions) {
+	if opts.RecordType != "" {
+		form.Set("type", opts.RecordType)
+	}
 	if len(opts.Fields) > 0 {
 		form.Set("fields", strings.Join(opts.Fields, ","))
 	}
@@ -374,29 +400,168 @@ func writeCSV(rows [][]string, delimiter rune) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func applyBlankCSV(data []byte, delimiter rune, blanks map[string]bool) ([]byte, []string, error) {
-	rows, err := parseCSV(data, delimiter)
-	if err != nil {
-		return nil, nil, err
+// dictionary holds the parsed data-dictionary information needed for blanking,
+// label-header translation, metadata filtering, and manifest documentation.
+type dictionary struct {
+	fieldOrder  []string            // field names in dictionary order
+	fieldType   map[string]string   // field_name -> field_type
+	labelFields map[string][]string // field_label -> field names (labels can collide)
+}
+
+func parseDictionary(metadataCSV []byte) dictionary {
+	dict := dictionary{
+		fieldType:   map[string]string{},
+		labelFields: map[string][]string{},
 	}
-	if len(rows) == 0 {
-		return data, nil, nil
+	rows, err := parseCSV(metadataCSV, ',')
+	if err != nil || len(rows) == 0 {
+		return dict
 	}
-	header := append([]string(nil), rows[0]...)
-	if len(blanks) == 0 {
-		return data, header, nil
-	}
-	indices := make([]int, 0, len(header))
-	for i, field := range header {
-		if blanks[field] {
-			indices = append(indices, i)
+	nameIdx, typeIdx, labelIdx := -1, -1, -1
+	for i, col := range rows[0] {
+		switch strings.ToLower(strings.TrimSpace(col)) {
+		case "field_name":
+			nameIdx = i
+		case "field_type":
+			typeIdx = i
+		case "field_label":
+			labelIdx = i
 		}
 	}
-	if len(indices) == 0 {
-		return data, header, nil
+	if nameIdx < 0 {
+		return dict
+	}
+	for _, row := range rows[1:] {
+		if nameIdx >= len(row) {
+			continue
+		}
+		name := strings.TrimSpace(row[nameIdx])
+		if name == "" {
+			continue
+		}
+		dict.fieldOrder = append(dict.fieldOrder, name)
+		if typeIdx >= 0 && typeIdx < len(row) {
+			dict.fieldType[name] = strings.ToLower(strings.TrimSpace(row[typeIdx]))
+		}
+		if labelIdx >= 0 && labelIdx < len(row) {
+			label := strings.TrimSpace(row[labelIdx])
+			if label != "" {
+				dict.labelFields[label] = append(dict.labelFields[label], name)
+			}
+		}
+	}
+	return dict
+}
+
+// fileUploadFields returns the dictionary fields of type "file" — per-record
+// attachments that are documented in the manifest but never downloaded.
+func (d dictionary) fileUploadFields() []string {
+	res := []string{}
+	for _, name := range d.fieldOrder {
+		if d.fieldType[name] == "file" {
+			res = append(res, name)
+		}
+	}
+	return res
+}
+
+// baseFieldName strips a checkbox expansion suffix: "phones___2" -> "phones".
+func baseFieldName(col string) string {
+	if i := strings.Index(col, "___"); i > 0 {
+		return col[:i]
+	}
+	return col
+}
+
+// resolveHeaderFields maps a data column header to candidate dictionary field
+// names. Raw headers resolve via the checkbox base name; label headers are
+// translated through the dictionary, including "Label (choice=...)" checkbox
+// headers. Unknown headers resolve to themselves so that pseudo-columns
+// (record, redcap_event_name, redcap_survey_identifier, ...) stay stable.
+func resolveHeaderFields(header string, labelHeaders bool, dict dictionary) []string {
+	header = strings.TrimSpace(header)
+	if !labelHeaders {
+		return []string{baseFieldName(header)}
+	}
+	label := header
+	if i := strings.Index(header, " (choice="); i > 0 {
+		label = strings.TrimSpace(header[:i])
+	}
+	if fields, ok := dict.labelFields[label]; ok && len(fields) > 0 {
+		return fields
+	}
+	return []string{baseFieldName(header)}
+}
+
+// anonymizationAudit records the outcome of one blank rule so that silent
+// no-ops are impossible: every requested transform reports how much data it
+// actually touched.
+type anonymizationAudit struct {
+	Field   string `json:"field"`
+	Mode    string `json:"mode"`
+	Matched int    `json:"matched"`
+	Note    string `json:"note,omitempty"`
+}
+
+func buildAudit(blanks map[string]bool, matched map[string]int, unit string) []anonymizationAudit {
+	fields := make([]string, 0, len(blanks))
+	for field := range blanks {
+		fields = append(fields, field)
+	}
+	sort.Strings(fields)
+	audit := make([]anonymizationAudit, 0, len(fields))
+	for _, field := range fields {
+		entry := anonymizationAudit{Field: field, Mode: "blank", Matched: matched[field]}
+		if entry.Matched == 0 {
+			entry.Note = "field not present in export"
+		} else {
+			entry.Note = fmt.Sprintf("blanked %d %s", entry.Matched, unit)
+		}
+		audit = append(audit, entry)
+	}
+	return audit
+}
+
+// blankFlatCSV blanks matching columns of a flat CSV export. A blank rule for
+// field f matches columns named f, checkbox expansions f___code, and — when
+// headers are labels — columns whose label translates back to f.
+// Returns the (possibly rewritten) data, the exported dictionary field names,
+// and the per-rule audit.
+func blankFlatCSV(data []byte, delimiter rune, blanks map[string]bool, labelHeaders bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+	rows, err := parseCSV(data, delimiter)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if len(rows) == 0 {
+		return data, nil, buildAudit(blanks, nil, "columns"), nil
+	}
+	header := rows[0]
+	exported := make([]string, 0, len(header))
+	seen := map[string]bool{}
+	matched := map[string]int{}
+	blankCols := []int{}
+	for i, col := range header {
+		candidates := resolveHeaderFields(col, labelHeaders, dict)
+		for _, field := range candidates {
+			if !seen[field] {
+				seen[field] = true
+				exported = append(exported, field)
+			}
+		}
+		for _, field := range candidates {
+			if blanks[field] {
+				blankCols = append(blankCols, i)
+				matched[field]++
+				break
+			}
+		}
+	}
+	audit := buildAudit(blanks, matched, "columns")
+	if len(blankCols) == 0 {
+		return data, exported, audit, nil
 	}
 	for rowIdx := 1; rowIdx < len(rows); rowIdx++ {
-		for _, colIdx := range indices {
+		for _, colIdx := range blankCols {
 			if colIdx < len(rows[rowIdx]) {
 				rows[rowIdx][colIdx] = ""
 			}
@@ -404,79 +569,215 @@ func applyBlankCSV(data []byte, delimiter rune, blanks map[string]bool) ([]byte,
 	}
 	out, err := writeCSV(rows, delimiter)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return out, header, nil
+	return out, exported, audit, nil
 }
 
-func applyBlankJSON(data []byte, blanks map[string]bool) ([]byte, []string, error) {
+// blankEAVCSV blanks the value cells of EAV-shaped CSV exports
+// (record, [redcap_event_name,] field_name, value): rows whose field_name
+// matches a blanked field get an empty value. Falls back to flat handling if
+// the EAV columns cannot be located.
+func blankEAVCSV(data []byte, delimiter rune, blanks map[string]bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+	rows, err := parseCSV(data, delimiter)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if len(rows) == 0 {
+		return data, nil, buildAudit(blanks, nil, "rows"), nil
+	}
+	fieldIdx, valueIdx := -1, -1
+	for i, col := range rows[0] {
+		switch strings.ToLower(strings.TrimSpace(col)) {
+		case "field_name":
+			fieldIdx = i
+		case "value":
+			valueIdx = i
+		}
+	}
+	if fieldIdx < 0 || valueIdx < 0 {
+		return blankFlatCSV(data, delimiter, blanks, false, dict)
+	}
+	exported := eavExportedFields(dict)
+	seen := map[string]bool{}
+	for _, field := range exported {
+		seen[field] = true
+	}
+	matched := map[string]int{}
+	changed := false
+	for rowIdx := 1; rowIdx < len(rows); rowIdx++ {
+		row := rows[rowIdx]
+		if fieldIdx >= len(row) {
+			continue
+		}
+		field := baseFieldName(strings.TrimSpace(row[fieldIdx]))
+		if field == "" {
+			continue
+		}
+		if !seen[field] {
+			seen[field] = true
+			exported = append(exported, field)
+		}
+		if blanks[field] && valueIdx < len(row) {
+			if row[valueIdx] != "" {
+				row[valueIdx] = ""
+				changed = true
+			}
+			matched[field]++
+		}
+	}
+	audit := buildAudit(blanks, matched, "rows")
+	if !changed {
+		return data, exported, audit, nil
+	}
+	out, err := writeCSV(rows, delimiter)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return out, exported, audit, nil
+}
+
+// eavExportedFields seeds the exported-field set for EAV outputs with the
+// record-ID field (the first dictionary field): EAV rows reference it in the
+// "record" column rather than as a field_name row, and it must stay in the
+// filtered metadata.
+func eavExportedFields(dict dictionary) []string {
+	if len(dict.fieldOrder) > 0 {
+		return []string{dict.fieldOrder[0]}
+	}
+	return []string{}
+}
+
+// blankFlatJSON blanks matching keys of flat JSON exports. JSON exports always
+// use raw field names as keys, so only checkbox base-name matching applies.
+func blankFlatJSON(data []byte, blanks map[string]bool) ([]byte, []string, []anonymizationAudit, error) {
 	rows := make([]map[string]interface{}, 0)
 	if err := json.Unmarshal(data, &rows); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	keys := map[string]bool{}
+	matchedKeys := map[string]string{} // key -> blanked field
 	for _, row := range rows {
 		for k := range row {
 			keys[k] = true
 		}
 	}
-	fields := make([]string, 0, len(keys))
+	exportedSet := map[string]bool{}
+	exported := []string{}
 	for k := range keys {
-		fields = append(fields, k)
+		field := baseFieldName(k)
+		if !exportedSet[field] {
+			exportedSet[field] = true
+			exported = append(exported, field)
+		}
+		if blanks[field] {
+			matchedKeys[k] = field
+		}
 	}
-	sort.Strings(fields)
-
-	if len(blanks) == 0 {
-		return data, fields, nil
+	sort.Strings(exported)
+	matched := map[string]int{}
+	for _, field := range matchedKeys {
+		matched[field]++
 	}
-
+	audit := buildAudit(blanks, matched, "columns")
+	if len(matchedKeys) == 0 {
+		return data, exported, audit, nil
+	}
 	for _, row := range rows {
-		for field := range blanks {
-			if _, ok := row[field]; ok {
-				row[field] = ""
+		for k := range matchedKeys {
+			if _, ok := row[k]; ok {
+				row[k] = ""
 			}
 		}
 	}
-
 	out, err := json.Marshal(rows)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return out, fields, nil
+	return out, exported, audit, nil
 }
 
-func exportReportData(ctx context.Context, baseURL, token string, opts pluginOptions) ([]byte, []string, error) {
+// blankEAVJSON blanks the "value" of EAV JSON rows whose "field_name" matches
+// a blanked field. Falls back to flat handling when rows are not EAV-shaped.
+func blankEAVJSON(data []byte, blanks map[string]bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+	rows := make([]map[string]interface{}, 0)
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return nil, nil, nil, err
+	}
+	isEAVShaped := len(rows) > 0
+	for _, row := range rows {
+		if _, ok := row["field_name"]; !ok {
+			isEAVShaped = false
+			break
+		}
+	}
+	if !isEAVShaped {
+		return blankFlatJSON(data, blanks)
+	}
+	exported := eavExportedFields(dict)
+	seen := map[string]bool{}
+	for _, field := range exported {
+		seen[field] = true
+	}
+	matched := map[string]int{}
+	changed := false
+	for _, row := range rows {
+		name, _ := row["field_name"].(string)
+		field := baseFieldName(strings.TrimSpace(name))
+		if field == "" {
+			continue
+		}
+		if !seen[field] {
+			seen[field] = true
+			exported = append(exported, field)
+		}
+		if blanks[field] {
+			if _, ok := row["value"]; ok {
+				row["value"] = ""
+				changed = true
+			}
+			matched[field]++
+		}
+	}
+	audit := buildAudit(blanks, matched, "rows")
+	if !changed {
+		return data, exported, audit, nil
+	}
+	out, err := json.Marshal(rows)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return out, exported, audit, nil
+}
+
+// processExportData routes the raw API payload through the mode-appropriate
+// blanking implementation and reports the exported dictionary fields plus the
+// anonymization audit.
+func processExportData(data []byte, opts pluginOptions, blanks map[string]bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+	switch {
+	case opts.DataFormat == "json" && isEAV(opts):
+		return blankEAVJSON(data, blanks, dict)
+	case opts.DataFormat == "json":
+		return blankFlatJSON(data, blanks)
+	case isEAV(opts):
+		return blankEAVCSV(data, reportDelimiter(opts), blanks, dict)
+	default:
+		return blankFlatCSV(data, reportDelimiter(opts), blanks, headersAreLabels(opts), dict)
+	}
+}
+
+func fetchReportData(ctx context.Context, baseURL, token string, opts pluginOptions) ([]byte, error) {
 	form := baseForm(token, "report", opts.DataFormat)
 	form.Set("report_id", opts.ReportID)
 	applySharedExportParams(form, opts)
-
-	body, err := redcapRequest(ctx, baseURL, form)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	blanks := blankFields(opts)
-	if opts.DataFormat == "json" {
-		return applyBlankJSON(body, blanks)
-	}
-	return applyBlankCSV(body, reportDelimiter(opts), blanks)
+	return redcapRequest(ctx, baseURL, form)
 }
 
-func exportRecordData(ctx context.Context, baseURL, token string, opts pluginOptions) ([]byte, []string, error) {
+func fetchRecordData(ctx context.Context, baseURL, token string, opts pluginOptions) ([]byte, error) {
 	form := baseForm(token, "record", opts.DataFormat)
 	applySharedExportParams(form, opts)
 	applyRecordOnlyFilters(form, opts)
-
-	body, err := redcapRequest(ctx, baseURL, form)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	blanks := blankFields(opts)
-	if opts.DataFormat == "json" {
-		return applyBlankJSON(body, blanks)
-	}
-	return applyBlankCSV(body, reportDelimiter(opts), blanks)
+	return redcapRequest(ctx, baseURL, form)
 }
 
 // redcapRequestHeaderOnly fetches only the first CSV line of a REDCap response,
@@ -822,7 +1123,22 @@ func sanitizeReportID(reportID string) string {
 	return safe
 }
 
-func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectInfoPath, eventsPath, mappingPath, redcapVersion string, warnings []string) ([]byte, error) {
+// manifestExtras carries the provenance and audit context recorded alongside
+// the export parameters (decisions 2026-06-11: attachments documented, never
+// downloaded; every anonymization rule reports its outcome).
+type manifestExtras struct {
+	Audit                       []anonymizationAudit
+	FileUploadFields            []string
+	ProjectID                   interface{}
+	ProjectTitle                string
+	DictionaryFieldsNotExported []string
+}
+
+func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectInfoPath, eventsPath, mappingPath, redcapVersion string, warnings []string, extras manifestExtras) ([]byte, error) {
+	recordType := opts.RecordType
+	if opts.ExportMode != "records" {
+		recordType = "flat" // content=report has no type parameter
+	}
 	manifest := map[string]interface{}{
 		"plugin":         "redcap2",
 		"export_mode":    opts.ExportMode,
@@ -830,7 +1146,7 @@ func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectI
 		"redcap_version": redcapVersion,
 		"export": map[string]interface{}{
 			"data_format":          opts.DataFormat,
-			"record_type":          opts.RecordType,
+			"record_type":          recordType,
 			"csv_delimiter":        opts.CsvDelimiter,
 			"raw_or_label":         opts.RawOrLabel,
 			"raw_or_label_headers": opts.RawOrLabelHeaders,
@@ -858,6 +1174,31 @@ func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectI
 		manifest["files"].(map[string]string)["form_event_mapping"] = mappingPath
 	}
 
+	if extras.ProjectID != nil || extras.ProjectTitle != "" {
+		manifest["project"] = map[string]interface{}{
+			"id":    extras.ProjectID,
+			"title": extras.ProjectTitle,
+		}
+	}
+	if len(extras.FileUploadFields) > 0 {
+		manifest["attachments"] = map[string]interface{}{
+			"file_upload_fields": extras.FileUploadFields,
+			"exported":           false,
+			"note":               "per-record file attachments are not exported by this plugin",
+		}
+	}
+	if len(extras.Audit) > 0 {
+		manifest["anonymization_audit"] = extras.Audit
+		for _, entry := range extras.Audit {
+			if entry.Matched == 0 {
+				warnings = append(warnings, fmt.Sprintf("anonymization: field %q matched no exported data", entry.Field))
+			}
+		}
+	}
+	if len(extras.DictionaryFieldsNotExported) > 0 {
+		manifest["dictionary_fields_not_exported"] = extras.DictionaryFieldsNotExported
+	}
+
 	if len(opts.Variables) > 0 {
 		manifest["variables"] = opts.Variables
 	}
@@ -868,20 +1209,43 @@ func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectI
 	return json.MarshalIndent(manifest, "", "  ")
 }
 
-func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOptions, reportID string) (generatedBundle, error) {
-	var dataBytes []byte
-	var dataFields []string
-	var err error
-	var basePath string
+// projectIdentity extracts project_id and project_title from a
+// content=project JSON payload (object or single-element array form).
+func projectIdentity(payload []byte) (interface{}, string) {
+	read := func(obj map[string]interface{}) (interface{}, string) {
+		title, _ := obj["project_title"].(string)
+		return obj["project_id"], title
+	}
+	var obj map[string]interface{}
+	if err := json.Unmarshal(payload, &obj); err == nil {
+		return read(obj)
+	}
+	var arr []map[string]interface{}
+	if err := json.Unmarshal(payload, &arr); err == nil && len(arr) > 0 {
+		return read(arr[0])
+	}
+	return nil, ""
+}
 
+func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOptions, reportID string) (generatedBundle, error) {
+	// The dictionary drives blanking, header translation, and metadata
+	// filtering, so it is fetched before the data export.
+	metadataRaw, err := exportMetadataCSV(ctx, baseURL, token, nil)
+	if err != nil {
+		return generatedBundle{}, fmt.Errorf("metadata export failed: %w", err)
+	}
+	dict := parseDictionary(metadataRaw)
+
+	var rawData []byte
+	var basePath string
 	if opts.ExportMode == "records" {
-		dataBytes, dataFields, err = exportRecordData(ctx, baseURL, token, opts)
+		rawData, err = fetchRecordData(ctx, baseURL, token, opts)
 		if err != nil {
 			return generatedBundle{}, fmt.Errorf("record export failed: %w", err)
 		}
 		basePath = "redcap/records"
 	} else {
-		dataBytes, dataFields, err = exportReportData(ctx, baseURL, token, opts)
+		rawData, err = fetchReportData(ctx, baseURL, token, opts)
 		if err != nil {
 			return generatedBundle{}, fmt.Errorf("report export failed: %w", err)
 		}
@@ -889,10 +1253,12 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 		basePath = fmt.Sprintf("redcap/report-%s", safeID)
 	}
 
-	metadataRaw, err := exportMetadataCSV(ctx, baseURL, token, nil)
+	blanks := blankFields(opts)
+	dataBytes, dataFields, audit, err := processExportData(rawData, opts, blanks, dict)
 	if err != nil {
-		return generatedBundle{}, fmt.Errorf("metadata export failed: %w", err)
+		return generatedBundle{}, fmt.Errorf("export processing failed: %w", err)
 	}
+
 	metadataBytes, err := filterMetadataCSV(metadataRaw, dataFields)
 	if err != nil {
 		return generatedBundle{}, fmt.Errorf("metadata filtering failed: %w", err)
@@ -938,6 +1304,29 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 		}
 	}
 
+	projectID, projectTitle := projectIdentity(projectInfoBytes)
+	extras := manifestExtras{
+		Audit:            audit,
+		FileUploadFields: dict.fileUploadFields(),
+		ProjectID:        projectID,
+		ProjectTitle:     projectTitle,
+	}
+	// In an unfiltered flat records export, dictionary fields missing from the
+	// output reveal server-side stripping (token export rights). With filters
+	// or report definitions the diff is expected, so it is not recorded.
+	if opts.ExportMode == "records" && !isEAV(opts) &&
+		len(opts.Fields) == 0 && len(opts.Forms) == 0 && len(opts.Events) == 0 {
+		exported := make(map[string]bool, len(dataFields))
+		for _, field := range dataFields {
+			exported[field] = true
+		}
+		for _, field := range dict.fieldOrder {
+			if !exported[field] {
+				extras.DictionaryFieldsNotExported = append(extras.DictionaryFieldsNotExported, field)
+			}
+		}
+	}
+
 	manifestBytes, err := makeManifest(
 		opts,
 		reportID,
@@ -948,6 +1337,7 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 		mappingPath,
 		redcapVersion,
 		warnings,
+		extras,
 	)
 	if err != nil {
 		return generatedBundle{}, fmt.Errorf("manifest generation failed: %w", err)
@@ -1009,6 +1399,10 @@ func cachedBuildExportBundle(ctx context.Context, baseURL, token string, opts pl
 	if err != nil {
 		return generatedBundle{}, err
 	}
-	globalBundleCache.set(key, bundle)
+	if bundle.size() <= maxCacheableBundleBytes {
+		globalBundleCache.set(key, bundle)
+	} else {
+		logging.Logger.Printf("redcap2: bundle too large to cache (%d bytes), will rebuild on demand", bundle.size())
+	}
 	return bundle, nil
 }

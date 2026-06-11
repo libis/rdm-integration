@@ -72,8 +72,11 @@ func TestQueryReportModeGeneratesBundle(t *testing.T) {
 	}
 
 	form := f.lastForm("report")
-	if form.Get("report_id") != "7" || form.Get("type") != "flat" {
+	if form.Get("report_id") != "7" {
 		t.Errorf("unexpected report form: %v", form)
+	}
+	if _, ok := form["type"]; ok {
+		t.Error("content=report has no type parameter and must not receive one")
 	}
 	if f.calls("record") != 0 {
 		t.Error("report mode must not call the record endpoint")
@@ -153,7 +156,6 @@ func TestQueryRecordsModeSendsFilters(t *testing.T) {
 		"type":                   "eav",
 		"csvDelimiter":           "tab",
 		"rawOrLabel":             "label",
-		"rawOrLabelHeaders":      "label",
 		"fields":                 "age,name",
 		"forms":                  "demographics",
 		"events":                 "baseline_arm_1",
@@ -168,6 +170,9 @@ func TestQueryRecordsModeSendsFilters(t *testing.T) {
 		if got := form.Get(key); got != value {
 			t.Errorf("%s = %q, want %q", key, got, value)
 		}
+	}
+	if _, ok := form["rawOrLabelHeaders"]; ok {
+		t.Error("rawOrLabelHeaders must be suppressed for EAV exports (flat CSV only)")
 	}
 	if f.calls("report") != 0 {
 		t.Error("records mode must not call the report endpoint")

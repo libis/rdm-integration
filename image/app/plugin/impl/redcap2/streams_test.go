@@ -102,6 +102,14 @@ func TestStreamsServesQueryBundleFromCache(t *testing.T) {
 	if manifest["generated_at"] != "2026-06-11T00:00:00Z" {
 		t.Errorf("generated_at = %v, want propagated value", manifest["generated_at"])
 	}
+	project, ok := manifest["project"].(map[string]interface{})
+	if !ok || project["title"] != "Demo" {
+		t.Errorf("manifest project identity = %v, want title Demo", manifest["project"])
+	}
+	audit, ok := manifest["anonymization_audit"].([]interface{})
+	if !ok || len(audit) != 2 {
+		t.Errorf("anonymization_audit = %v, want 2 entries (name, email)", manifest["anonymization_audit"])
+	}
 
 	// The bundle built during Query must be reused by Streams (single build).
 	for _, content := range []string{"report", "metadata", "project", "version"} {
