@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"integration/app/config"
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"io"
@@ -120,10 +121,30 @@ func (s *bundleStore) set(key string, b generatedBundle) {
 	s.entries[key] = bundleCacheEntry{bundle: b, expiresAt: now.Add(bundleCacheTTL)}
 }
 
+// defaultHTTPTimeout bounds a single REDCap API request. Large projects can
+// need more: configure options.redcapHttpTimeout (a Go duration string, e.g.
+// "15m") in the backend config.
+const defaultHTTPTimeout = 5 * time.Minute
+
+// parseHTTPTimeout parses a configured timeout, falling back to the default
+// for empty, invalid, or non-positive values.
+func parseHTTPTimeout(raw string) time.Duration {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return defaultHTTPTimeout
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		logging.Logger.Printf("redcap2: invalid redcapHttpTimeout %q, using default %v", raw, defaultHTTPTimeout)
+		return defaultHTTPTimeout
+	}
+	return d
+}
+
 func getHTTPClient() *http.Client {
 	clientOnce.Do(func() {
 		httpClient = &http.Client{
-			Timeout: 5 * time.Minute,
+			Timeout: parseHTTPTimeout(config.GetConfig().Options.RedcapHttpTimeout),
 			Transport: &http.Transport{
 				MaxIdleConns:        100,
 				MaxIdleConnsPerHost: 10,
@@ -415,6 +436,22 @@ func (p transformPlan) transformValue(field, value string) string {
 		return hex.EncodeToString(mac.Sum(nil))
 	}
 	return value
+}
+
+// memoizedTransform returns a transformValue wrapper that caches results per
+// input value. Used for the EAV record column, where the same record ID
+// recurs once per exported field and recomputing the HMAC dominates the
+// processing cost of large EAV exports.
+func (p transformPlan) memoizedTransform(field string) func(string) string {
+	cache := map[string]string{}
+	return func(value string) string {
+		if cached, ok := cache[value]; ok {
+			return cached
+		}
+		transformed := p.transformValue(field, value)
+		cache[value] = transformed
+		return transformed
+	}
 }
 
 // buildTransformPlan validates the per-variable anonymization choices and the
@@ -781,6 +818,7 @@ func transformEAVCSV(data []byte, delimiter rune, plan transformPlan, dict dicti
 	if recordField != "" && recordIdx >= 0 {
 		recordMode = plan.modes[recordField]
 	}
+	transformRecord := plan.memoizedTransform(recordField)
 	exported := eavExportedFields(dict)
 	seen := map[string]bool{}
 	for _, field := range exported {
@@ -812,7 +850,7 @@ func transformEAVCSV(data []byte, delimiter rune, plan transformPlan, dict dicti
 			changed = true
 		}
 		if recordMode != "" && recordMode != "drop" && recordIdx < len(row) && row[recordIdx] != "" {
-			row[recordIdx] = plan.transformValue(recordField, row[recordIdx])
+			row[recordIdx] = transformRecord(row[recordIdx])
 			changed = true
 			notes[recordField] = "also applied to the EAV record column"
 		}
@@ -967,6 +1005,7 @@ func transformEAVJSON(data []byte, plan transformPlan, dict dictionary) ([]byte,
 	if recordField != "" {
 		recordMode = plan.modes[recordField]
 	}
+	transformRecord := plan.memoizedTransform(recordField)
 	exported := eavExportedFields(dict)
 	seen := map[string]bool{}
 	for _, field := range exported {
@@ -998,7 +1037,7 @@ func transformEAVJSON(data []byte, plan transformPlan, dict dictionary) ([]byte,
 		if recordMode != "" && recordMode != "drop" {
 			if rec, ok := row["record"]; ok {
 				if recStr := jsonValueString(rec); recStr != "" {
-					row["record"] = plan.transformValue(recordField, recStr)
+					row["record"] = transformRecord(recStr)
 					changed = true
 					notes[recordField] = "also applied to the EAV record column"
 				}

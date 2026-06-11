@@ -52,7 +52,8 @@ type OptionalConfig struct {
 	ComputationAccessConfig      []QueueAccess `json:"computationAccessConfig"`
 	DisableDdiCdi                bool          `json:"disableDdiCdi,omitempty"` // set to true to disable DDI-CDI generation feature
 	GlobusWebAppUrl              string        `json:"globusWebAppUrl,omitempty"`
-	WorkspaceRoot                string        `json:"workspaceRoot,omitempty"` // base directory for job workspaces (default: /dsdata)
+	WorkspaceRoot                string        `json:"workspaceRoot,omitempty"`     // base directory for job workspaces (default: /dsdata)
+	RedcapHttpTimeout            string        `json:"redcapHttpTimeout,omitempty"` // Go duration string (e.g. "10m") for REDCap API requests in the redcap2 plugin; default 5m. Large projects may need more.
 }
 
 type QueueAccess struct {

@@ -46,9 +46,9 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		if !ok {
 			return types.StreamsType{}, fmt.Errorf("streams: generated file not found: %s", path)
 		}
-		// Copy payload to ensure stream readers are isolated from map aliasing.
-		data := append([]byte(nil), payload...)
-		res[key] = byteStream(data)
+		// bytes.Reader never mutates the slice and bundle contents are
+		// immutable once built, so the payload is streamed without copying.
+		res[key] = byteStream(payload)
 	}
 
 	return types.StreamsType{

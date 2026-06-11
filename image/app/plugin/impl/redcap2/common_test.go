@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // testKey is a 32-byte HMAC key used by pseudonymization tests.
@@ -156,6 +157,26 @@ func TestNormalizeStringSlice(t *testing.T) {
 	}
 }
 
+func TestParseHTTPTimeout(t *testing.T) {
+	tests := []struct {
+		in   string
+		want time.Duration
+	}{
+		{in: "", want: defaultHTTPTimeout},
+		{in: "  ", want: defaultHTTPTimeout},
+		{in: "15m", want: 15 * time.Minute},
+		{in: "90s", want: 90 * time.Second},
+		{in: "not-a-duration", want: defaultHTTPTimeout},
+		{in: "-5m", want: defaultHTTPTimeout},
+		{in: "0", want: defaultHTTPTimeout},
+	}
+	for _, tt := range tests {
+		if got := parseHTTPTimeout(tt.in); got != tt.want {
+			t.Errorf("parseHTTPTimeout(%q) = %v, want %v", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestGetAPIURL(t *testing.T) {
 	tests := []struct {
 		in   string
@@ -222,12 +243,16 @@ func TestBuildTransformPlanKeyValidation(t *testing.T) {
 	bad.PseudonymizationKey = "!!!not-base64!!!"
 	if _, err := buildTransformPlan(bad); err == nil || !strings.Contains(err.Error(), "base64") {
 		t.Fatalf("invalid base64 must error, got %v", err)
+	} else if strings.Contains(err.Error(), bad.PseudonymizationKey) {
+		t.Fatal("key validation errors must never echo the key material")
 	}
 
 	short := base
 	short.PseudonymizationKey = base64.StdEncoding.EncodeToString([]byte("tooshort"))
 	if _, err := buildTransformPlan(short); err == nil || !strings.Contains(err.Error(), "too short") {
 		t.Fatalf("short key must error, got %v", err)
+	} else if strings.Contains(err.Error(), short.PseudonymizationKey) {
+		t.Fatal("key validation errors must never echo the key material")
 	}
 
 	good := base

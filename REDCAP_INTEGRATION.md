@@ -20,7 +20,8 @@ document is for end users.
 8. [Metadata sidecars and previewers](#metadata-sidecars-and-previewers)
 9. [New dataset metadata prefill](#new-dataset-metadata-prefill)
 10. [The export manifest](#the-export-manifest)
-11. [Limitations and good practice](#limitations-and-good-practice)
+11. [Configuration (operators)](#configuration-operators)
+12. [Limitations and good practice](#limitations-and-good-practice)
 
 ## Overview
 
@@ -211,6 +212,17 @@ Privacy exception: if you filtered by specific record IDs and the record-ID
 field is anonymized, the manifest redacts the record-ID filter (and likewise
 filter logic that references anonymized fields) — otherwise the manifest would
 leak the very values the transforms removed.
+
+## Configuration (operators)
+
+- `options.redcapHttpTimeout` in the backend config (`BACKEND_CONFIG_FILE`):
+  a Go duration string (e.g. `"15m"`) bounding each REDCap API request.
+  Default: `5m`. Raise it if exports of very large projects time out — the
+  export itself is fast (hundreds of MB/s for processing); the timeout covers
+  the REDCap server generating and sending the data.
+- The JSON-LD previewer for `croissant.json` requires registering
+  `conf/dataverse/external-tools/12-jsonld-previewer.json` in Dataverse (the
+  DDI-CDI and RO-Crate previewers use the existing registrations).
 
 ## Limitations and good practice
 

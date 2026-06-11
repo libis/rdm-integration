@@ -582,14 +582,39 @@ Fixes the review findings before new features (see [Review, Research, And Decisi
 6. ~~Schema validation tests~~ — structural Go tests for all three outputs + determinism e2e; external validation documented in the user guide.
 7. New external tool conf: `conf/dataverse/external-tools/12-jsonld-previewer.json` (cdi-viewer registered for bare `application/ld+json`, fires on croissant.json).
 
-### Phase 6: Hardening And Rollout [In Progress — 2026-06-11]
+### Phase 6: Hardening And Rollout [In Progress — 2026-06-12]
 
-1. Performance test with large REDCap projects; configurable HTTP timeout (current client timeout: 5 minutes).
-2. Security review (keys, logs, PII handling, transport, cache residency).
+1. ~~Performance + configurable timeout~~ — done (2026-06-12). `options.redcapHttpTimeout` (Go duration string, default `5m`) in the backend config bounds REDCap API requests. Benchmarks added (`bench_test.go`); measured on dev hardware:
+   - flat CSV, 50k rows × 50 cols (~19 MB), pseudonymize+blank+drop: ~150 MB/s (~0.13 s)
+   - same input, no rules (parse + audit only): ~460 MB/s
+   - EAV CSV, 2.5M value rows (~50 MB) with record-column pseudonymization: ~79 MB/s (~0.64 s) after memoizing record-column HMACs (was ~34 MB/s — the same record ID recurs once per field)
+   - all three sidecars for a 500-variable dictionary: ~7.5 ms
+   Also removed the per-file payload copy in `Streams` (bundle contents are immutable; halves peak memory while streaming).
+2. ~~Security review~~ — done (2026-06-12), see [Security Review](#security-review-2026-06-12).
 3. ~~User documentation~~ — done: [REDCAP_INTEGRATION.md](REDCAP_INTEGRATION.md) (features, key generation/management, PHI disclaimer, sidecars/previewers, manifest reference).
-4. Re-test on pilot (first pilot deploy of Phases 0–3.9 done 2026-06-11 via `make dev_build`).
+4. Re-test on pilot (first pilot deploy of Phases 0–3.9 done 2026-06-11 via `make dev_build`). **Remaining: user re-tests the Phase 4–6 build.**
 5. Keep `redcap` plugin as stable fallback until `redcap2` is proven.
 6. Revisit attachments (opt-in, size-capped, flagged as not de-identified) based on pilot feedback.
+
+### Security Review (2026-06-12)
+
+Scope: redcap2 plugin, key handling end to end, logging, PII residency, transport.
+
+**Verified safe:**
+
+1. **Pseudonymization key path**: frontend holds the key in in-memory state only (`credentials.service.ts` uses signals, no localStorage/sessionStorage), so a page refresh discards it; it transits to the backend inside `pluginOptions` over HTTPS exactly like repository API tokens; in Redis it exists only inside the queued job payload (`LPush`/`RPop` — removed when the worker pops it, re-added only on retry), the same residency as every plugin's token; it is never logged (audited all `Logger` calls in the plugin and the job pipeline), never echoed in validation errors (tested), never written to any generated file (manifest carries only the SHA-256 fingerprint — tested), and enters the bundle cache key only as MD5 input (one-way).
+2. **Logging**: the plugin logs only file counts, export mode, report ID, cache decisions, and sidecar warnings — no record data, no tokens, no key material.
+3. **Transport**: the redcap2 HTTP client builds its own `http.Transport`, so it does **not** inherit the `InsecureSkipVerify: true` that `config.init()` sets on `http.DefaultTransport` — REDCap TLS certificates are verified by this plugin.
+4. **PII residency in memory**: bundle cache is process-local with a 5-minute TTL, 64 MB per-bundle cap (oversized bundles are rebuilt on demand, never cached), and lazy eviction on every set.
+5. **Manifest hygiene**: records filter redacted when the record-ID field is transformed; filter logic redacted when it references transformed fields; client-side drops excluded from the token-rights diff; REDCap API token absent everywhere (POST form body, never URLs or generated files).
+6. **Defaults**: `exportSurveyFields` and `exportDataAccessGroups` are off by default (`redcap_survey_identifier` is often directly identifying).
+
+**Accepted/documented (no change):**
+
+1. Queued job payloads in Redis contain the repo token and, when used, the pseudonymization key — pre-existing posture shared by all plugins; mitigate by restricting Redis access (password support exists: `pathToRedisPassword`).
+2. REDCap error bodies are surfaced to the user verbatim; REDCap error messages do not echo submitted record data.
+3. `common/get_metadata.go` logs the citation-metadata response (project title, PI, ...) — pre-existing app-wide behavior, not record data.
+4. The global `http.DefaultTransport` certificate-verification skip in `config.init()` is app-wide and predates this work; flagged for a future app-level review, out of redcap2 scope.
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Testing Plan](#testing-plan)
 
