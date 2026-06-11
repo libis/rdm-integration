@@ -67,6 +67,7 @@ Key point: manual export/save was required in the old `redcap` plugin because it
    - `exportSurveyFields` and `exportDataAccessGroups` exposed as records-mode toggles (server-side suppression).
    - Identifier-tagged fields auto-detected from `content=metadata` (`identifier` column) and pre-selected as `blank` in the variable anonymization table; users can override to `none`.
 10. Existing `redcap` plugin remains available and unchanged for fallback.
+11. Unit test suite (2026-06-11) covering option parsing/normalization, report-vs-records parameter routing, blank anonymization (CSV and JSON), virtual node generation, hash determinism, bundle caching, and the variables/Options flow (~91% statement coverage, `image/app/plugin/impl/redcap2/*_test.go`).
 
 ### Generated File Layout (Implemented)
 
@@ -526,7 +527,7 @@ Current generic request model is string-heavy (`option`, `repoName`, etc.). `plu
 5. ~~Add report/records mode toggle to frontend.~~
 6. ~~Expose `exportSurveyFields` and `exportDataAccessGroups` as records-mode toggles.~~
 7. ~~Auto-detect identifier-tagged fields from metadata and pre-blank them.~~
-8. Add unit tests for each parameter combination.
+8. ~~Add unit tests for each parameter combination.~~
 
 ### Phase 4: De-Identification Engine [Next]
 
