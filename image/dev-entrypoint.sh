@@ -18,6 +18,13 @@ cd /workspace/backend || {
 
 if [ -n "${FRONTEND_DEV_DIR:-}" ] && [ -d "${FRONTEND_DEV_DIR}" ]; then
   FRONTEND_DEV_PORT="${FRONTEND_DEV_PORT:-4200}"
+  if [ ! -x "${FRONTEND_DEV_DIR}/node_modules/.bin/ng" ]; then
+    echo "dev-entrypoint: installing frontend dependencies (in-container, musl)"
+    (
+      cd "${FRONTEND_DEV_DIR}" && \
+        { npm ci || npm install; }
+    )
+  fi
   echo "dev-entrypoint: starting Angular dev server on port ${FRONTEND_DEV_PORT}"
   (
     cd "${FRONTEND_DEV_DIR}" && \

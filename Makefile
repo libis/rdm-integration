@@ -23,6 +23,9 @@ DATAVERSE_EXPLODED := docker-volumes/dataverse/applications/dataverse.war
 DATAVERSE_CLASSES_DST := $(DATAVERSE_EXPLODED)/WEB-INF/classes
 DATAVERSE_CLASSES_SRC := ../dataverse/target/classes
 DATAVERSE_WEBAPP_SRC := ../dataverse/src/main/webapp
+DATAVERSE_REUSABLE_COMPONENTS_DST := $(DATAVERSE_WEBAPP_SRC)/dvwebloader/reusable-components
+DATAVERSE_REUSABLE_LOCALES_DST := $(DATAVERSE_WEBAPP_SRC)/dvwebloader/locales
+FRONTEND_DIST_REUSABLE_COMPONENTS := ../dataverse-frontend/dist-reusable-components
 
 build: fmt ## Build Docker image
 	customizations_path="$(CUSTOMIZATIONS)"; \
@@ -208,6 +211,28 @@ frd-dataverse:
 		printf "%s\n" "$$output" | awk '\''!/PER0100[03]/ && !/Command deploy completed with warnings./ {print}'\''; \
 		exit $$status'
 
+frd-components: ## Rebuild dataverse-frontend reusable bundle, sync into dataverse webapp, redeploy
+	@if [ ! -f $(DEV_SENTINEL) ]; then \
+		echo "Error: frd-components requires the dev stack (run 'make dev_up' first)." >&2; \
+		exit 1; \
+	fi
+	@echo -n "frd-components: building reusable components bundle "
+	cd ../dataverse-frontend && npm run build-reusable-components >/dev/null
+	@echo "OK."
+	@echo -n "frd-components: syncing bundle into dataverse webapp ... "
+	mkdir -p $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks $(DATAVERSE_REUSABLE_LOCALES_DST)
+	# Wipe chunks before copy: Vite content-hashes filenames so stale hashes
+	# from previous builds would otherwise pile up in the webapp tree.
+	rm -f $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks/*.js
+	cp $(FRONTEND_DIST_REUSABLE_COMPONENTS)/reusable-components/dv-tree-view.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/
+	cp $(FRONTEND_DIST_REUSABLE_COMPONENTS)/reusable-components/dv-uploader.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/
+	cp $(FRONTEND_DIST_REUSABLE_COMPONENTS)/reusable-components/chunks/*.js $(DATAVERSE_REUSABLE_COMPONENTS_DST)/chunks/
+	if [ -d "$(FRONTEND_DIST_REUSABLE_COMPONENTS)/locales" ]; then \
+		cp -r $(FRONTEND_DIST_REUSABLE_COMPONENTS)/locales/. $(DATAVERSE_REUSABLE_LOCALES_DST)/; \
+	fi
+	@echo "OK."
+	@$(MAKE) frd-dataverse
+
 frd-integration:
 	@if [ ! -f $(DEV_SENTINEL) ]; then \
 		echo "Error: frd-integration requires the dev stack (run 'make dev_up' first)." >&2; \
@@ -219,10 +244,23 @@ frd-integration:
 		[[ $$? -gt 0 ]] && echo -n 'x' || echo -n '.'; sleep 1; done && true
 	@echo '\t OK.'
 
+resync-keycloak-realm: ## Re-sync the live Keycloak realm volume from the canonical config and re-import it
+	@if cmp -s conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json; then \
+		echo "resync-keycloak-realm: live realm matches canonical, nothing to do."; \
+	else \
+		echo "resync-keycloak-realm: canonical realm differs, refreshing and recreating keycloak..."; \
+		mkdir -p docker-volumes/keycloak/conf; \
+		cp conf/keycloak/test-realm.json docker-volumes/keycloak/conf/test-realm.json; \
+		docker compose -f docker-compose.yml rm -sf keycloak; \
+		docker compose -f docker-compose.yml up -d keycloak; \
+		echo "resync-keycloak-realm: OK."; \
+	fi
+
 dev_up: ## Run the development frontend version locally
 	if [ ! -f docker-volumes/dataverse/data/initialized ]; then \
 		$(MAKE) init; \
 	fi
+	@$(MAKE) resync-keycloak-realm
 	docker compose -f docker-compose.yml -f docker-compose.yml.dev rm -sf dataverse
 	rm -rf docker-volumes/dataverse/applications/*
 	echo "Building dataverse..."
@@ -264,9 +302,9 @@ dev_build: fmt ## Build Docker image using local frontend (like dev_up but only 
 	@echo -n "Cleaning up local frontend archive... "
 	@rm -f $(FRONTEND_VERSION).tar.gz
 
-down: ## Stop the server locally
+down: ## Stop the server locally (also catches dev_up's modern_proxy / modern_frontend via --remove-orphans)
 	rm -f $(DEV_SENTINEL)
-	docker compose -f docker-compose.yml down
+	docker compose -f docker-compose.yml down --remove-orphans
 
 fmt: ## Format the go code
 	cd image && go fmt ./app/...

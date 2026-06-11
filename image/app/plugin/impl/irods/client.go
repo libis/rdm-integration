@@ -203,11 +203,11 @@ func getConnectionInfo(zone, token string) (ConnectionInfo, error) {
 	if err != nil {
 		return ConnectionInfo{}, err
 	}
-	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v1/irods/zones/" + zoneId + "/connection_info"
+	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v2/kuleuven/irods/zone/" + zoneId + "/connection-info"
 	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	res := ConnectionInfo{}
-	request, _ := http.NewRequestWithContext(shortContext, "GET", url, nil)
+	request, _ := http.NewRequestWithContext(shortContext, "POST", url, nil)
 	request.Header.Add("accept", "application/json")
 	request.Header.Add("Authorization", "Bearer "+token)
 	response, err := http.DefaultClient.Do(request)
@@ -234,7 +234,7 @@ func getZoneId(zone, token string) (string, error) {
 }
 
 func getZones(token string) ([]Zone, error) {
-	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v1/irods/zones"
+	url := "https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be/v2/kuleuven/irods/zones"
 	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	res := []Zone{}

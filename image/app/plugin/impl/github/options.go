@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v87/github"
 	"golang.org/x/oauth2"
 )
 
@@ -30,9 +30,12 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 	)
 	tc := oauth2.NewClient(ctx, ts)
 	defer tc.CloseIdleConnections()
-	client := github.NewClient(tc)
+	client, err := github.NewClient(github.WithHTTPClient(tc))
+	if err != nil {
+		return nil, err
+	}
 
-	opt := &github.ListOptions{Page: 1, PerPage: 100}
+	opt := &github.BranchListOptions{ListOptions: github.ListOptions{Page: 1, PerPage: 100}}
 	b, _, err := client.Repositories.ListBranches(ctx, user, repo, opt)
 	if err != nil {
 		return nil, err

@@ -699,7 +699,7 @@
     "clientAuthenticatorType" : "client-secret",
     "secret" : "94XHrfNRwXsjqTqApRrwWmhDLDHpIYV8",
     "redirectUris" : [ "*" ],
-    "webOrigins" : [ ],
+    "webOrigins" : [ "http://localhost:8000" ],
     "notBefore" : 0,
     "bearerOnly" : false,
     "consentRequired" : false,
@@ -707,7 +707,7 @@
     "implicitFlowEnabled" : false,
     "directAccessGrantsEnabled" : true,
     "serviceAccountsEnabled" : false,
-    "publicClient" : false,
+    "publicClient" : true,
     "frontchannelLogout" : true,
     "protocol" : "openid-connect",
     "attributes" : {

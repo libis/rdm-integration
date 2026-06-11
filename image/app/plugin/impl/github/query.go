@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v87/github"
 	"golang.org/x/oauth2"
 )
 
@@ -39,7 +39,10 @@ func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node
 	}
 	defer tc.CloseIdleConnections()
 
-	client := github.NewClient(tc)
+	client, err := github.NewClient(github.WithHTTPClient(tc))
+	if err != nil {
+		return nil, err
+	}
 	user := ""
 	repo := ""
 	splitted := strings.Split(req.RepoName, "/")

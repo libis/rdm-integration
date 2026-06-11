@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/google/uuid"
 )
 
@@ -274,6 +275,25 @@ func doHash(ctx context.Context, dataverseKey, user, persistentId string, node t
 	r := hashingReader{reader, hasher}
 	_, err = io.Copy(io.Discard, r)
 	return hasher.Sum(nil), err
+}
+
+// isNotFound returns true when the error indicates the object/file does not
+// exist (S3 NoSuchKey / 404, or local file-not-found).
+func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if os.IsNotExist(err) {
+		return true
+	}
+	var re *smithyhttp.ResponseError
+	if errors.As(err, &re) && re.HTTPStatusCode() == 404 {
+		return true
+	}
+	if strings.Contains(err.Error(), "NoSuchKey") {
+		return true
+	}
+	return false
 }
 
 func trimProtocol(persistentId string) (string, error) {

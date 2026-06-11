@@ -44,8 +44,65 @@ services:
       - ./docker-volumes/integration/conf/oauth2-proxy.cfg:/oauth2-proxy.cfg
       - ./image:/workspace/backend
       - ../rdm-integration-frontend:/workspace/rdm-integration-frontend
+      # Keep the frontend's node_modules inside the container instead of
+      # sharing the host's. The host is glibc and this container is Alpine
+      # (musl); platform-specific optional deps (rollup/esbuild native
+      # binaries) differ, so a host-installed tree breaks `ng serve`. This
+      # anonymous volume masks the host dir and the entrypoint populates it.
+      - /workspace/rdm-integration-frontend/node_modules
       - ./docker-volumes/integration/go-mod-cache:/home/app/go/pkg/mod
       - ./docker-volumes/integration/go-build-cache:/home/app/.cache/go-build
+
+  # Vite dev server for the IQSS dataverse-frontend SPA. Mounts the
+  # sibling ../dataverse-frontend checkout so saving a source file
+  # triggers an HMR push to the browser through modern_proxy. The
+  # dev-env vite.config.ts is mounted on top of the project's own
+  # vite.config.ts because it sets `base: '/modern'`, listens on
+  # 0.0.0.0:5173, and configures `server.hmr.clientPort: 8000` — the
+  # combination that makes HMR work behind the nginx reverse proxy.
+  modern_frontend:
+    container_name: "modern_frontend"
+    hostname: modern_frontend
+    build:
+      context: ../dataverse-frontend
+      dockerfile: ./dev.Dockerfile
+      network: host
+    expose:
+      - "5173"
+    stdin_open: true
+    networks:
+      - dataverse
+    volumes:
+      - ../dataverse-frontend:/usr/src/app
+      - ../dataverse-frontend/dev-env/vite.config.ts:/usr/src/app/vite.config.ts
+      # Override the SPA's runtime config so OIDC endpoints point at
+      # keycloak.localhost:8090 (the canonical issuer for this stack).
+      - ./dev/modern-config.js:/usr/src/app/public/config.js:ro
+      # Mask the host's dev-env subdir so the container only sees the
+      # project's own vite config injected above.
+      - /usr/src/app/dev-env
+      # Use the container-built node_modules instead of whatever is on
+      # the host (which may be empty or out of sync).
+      - /usr/src/app/node_modules
+
+  # Reverse proxy that gives the SPA a same-origin entrypoint with
+  # Dataverse's API. Routes /modern -> modern_frontend (Vite) with
+  # WebSocket upgrade for HMR; everything else -> dataverse:8080.
+  # Same-origin design eliminates browser CORS for /api calls; MinIO
+  # uploads remain cross-origin but MinIO ships permissive CORS by
+  # default so no explicit allowlist is needed.
+  modern_proxy:
+    container_name: "modern_proxy"
+    image: nginx:stable
+    ports:
+      - "8000:80"
+    networks:
+      - dataverse
+    depends_on:
+      - dataverse
+      - modern_frontend
+    volumes:
+      - ./dev/modern-nginx.conf:/etc/nginx/nginx.conf:ro
 
 volumes:
   go-mod-cache:

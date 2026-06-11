@@ -7,10 +7,11 @@ services:
     build:
       dockerfile: ./image/Dockerfile
       args:
-        - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.14.2}
-        - NODE_VERSION=${NODE_VERSION:-24-alpine}
-        - FRONTEND_VERSION=${FRONTEND_VERSION:-2.0.1}
-        - FRONTEND_TAR_GZ=${FRONTEND_TAR_GZ:-https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION:-2.0.1}.tar.gz}
+        - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.15.2}
+        - NODE_VERSION=${NODE_VERSION:-26-alpine}
+        - GO_VERSION=${GO_VERSION:-1.26.3-alpine}
+        - FRONTEND_VERSION=${FRONTEND_VERSION:-2.0.3}
+        - FRONTEND_TAR_GZ=${FRONTEND_TAR_GZ:-https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION:-2.0.3}.tar.gz}
         - NODE_ENV=${NODE_ENV:-production}
         - BASE_HREF=${BASE_HREF:-/}
         - CUSTOMIZATIONS=${CUSTOMIZATIONS:-./docker-volumes/integration/conf/customizations}
@@ -46,7 +47,7 @@ services:
       - keycloak
 
   cache:
-    image: redis:8-alpine
+    image: redis:${REDIS_VERSION:-8-alpine}
     hostname: cache
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     networks:
@@ -62,8 +63,8 @@ services:
     build:
       dockerfile: ./dataverse/Dockerfile
       args:
-        - BASE_VERSION=${BASE_VERSION:-6.9-noble}
-        - DATAVERSE_WAR_URL=${DATAVERSE_WAR_URL:-https://github.com/IQSS/dataverse/releases/download/v6.9/dataverse-6.9.war}
+        - BASE_VERSION=${BASE_VERSION:-6.10.1-noble}
+        - DATAVERSE_WAR_URL=${DATAVERSE_WAR_URL:-https://github.com/IQSS/dataverse/releases/download/v6.10.1/dataverse-6.10.1.war}
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
     restart: unless-stopped
@@ -72,6 +73,9 @@ services:
       ENABLE_JDWP: 0
       API_DEBUG: "false"
       MP_CONFIG_PROFILE: prod
+      # Required by the URL-signing fix: requestSignedUrl errors if this is empty (maps to
+      # dataverse.api.signing-secret via MicroProfile). Test-only value.
+      DATAVERSE_API_SIGNING_SECRET: "test-signing-secret-for-fix-verification"
       JVM_ARGS: >-
         -Ddataverse.timerServer=true
         -Xmx24g
@@ -134,6 +138,12 @@ services:
         -Ddataverse.ui.allow-review-for-incomplete=false
         -Ddataverse.ui.show-validity-filter=true
         -Ddataverse.feature.api-bearer-auth=true
+        -Ddataverse.feature.api-bearer-auth-provide-missing-claims=true
+        -Ddataverse.feature.api-bearer-auth-use-builtin-user-on-id-match=true
+        -Ddataverse.feature.api-session-auth=true
+        -Ddataverse.feature.api-session-auth-hardening=false
+        -Ddataverse.feature.react-uploader=true
+        -Ddataverse.feature.react-tree-view=true
         -Ddataverse.netcdf.geo-extract-s3-direct-upload=true
         -Ddataverse.cors.origin=https://libis.github.io
     ports:
@@ -161,7 +171,7 @@ services:
     container_name: "postgres"
     hostname: postgres
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: postgres:17
+    image: postgres:${POSTGRES_VERSION:-17}
     restart: unless-stopped
     environment:
       - POSTGRES_USER=dataverse
@@ -175,7 +185,7 @@ services:
     container_name: "solr"
     hostname: "solr"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: solr:9.10.1
+    image: solr:${SOLR_VERSION:-9}
     command:
       - "solr-precreate"
       - "collection1"
@@ -191,7 +201,7 @@ services:
     container_name: "smtp"
     hostname: "smtp"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: maildev/maildev:2.2.1
+    image: maildev/maildev:${MAILDEV_VERSION:-2.2.1}
     restart: unless-stopped
     ports:
       - "1080:1080" # web ui
@@ -206,7 +216,7 @@ services:
 
   keycloak:
     container_name: "keycloak"
-    image: 'quay.io/keycloak/keycloak:26.5.2'
+    image: 'quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.6.2}'
     hostname: keycloak
     restart: unless-stopped
     environment:
@@ -228,7 +238,7 @@ services:
     container_name: "localstack"
     hostname: "localstack"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: localstack/localstack:4.13.1
+    image: localstack/localstack:${LOCALSTACK_VERSION:-2026.05.0}
     restart: unless-stopped
     ports:
       - "127.0.0.1:4566:4566"
@@ -248,7 +258,7 @@ services:
     container_name: "minio"
     hostname: "minio"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: minio/minio
+    image: minio/minio:${MINIO_VERSION:-RELEASE.2025-09-07T16-13-09Z}
     restart: on-failure
     ports:
       - "9000:9000"

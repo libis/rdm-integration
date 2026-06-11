@@ -143,6 +143,10 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 		md = mergeMetadata(moreMd, md)
 	}
 
+	for i, a := range md.Author {
+		md.Author[i].AuthorIdentifier = normalizeOrcid(a.AuthorIdentifier)
+	}
+
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 	err = metadataTemplate.Execute(writer, md)
@@ -160,6 +164,17 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	// when no specific file-based provenance was detected.
 	annotateSources(res, sourceByField, getMetadataRequest.Plugin)
 	return res, nil
+}
+
+// normalizeOrcid strips an ORCID URL prefix (e.g. https://orcid.org/) so
+// only the bare 0000-0000-0000-000X identifier reaches Dataverse, which
+// expects the ID alone in the authorIdentifier field.
+func normalizeOrcid(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.Index(s, "orcid.org/"); i >= 0 {
+		s = s[i+len("orcid.org/"):]
+	}
+	return strings.Trim(s, "/")
 }
 
 // recordProvenance records which file populated which Dataverse field(s)

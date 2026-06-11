@@ -10,7 +10,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v87/github"
 	"golang.org/x/oauth2"
 )
 
@@ -33,7 +33,10 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	tc := oauth2.NewClient(ctx, ts)
 	defer tc.CloseIdleConnections()
 
-	client := github.NewClient(tc)
+	client, err := github.NewClient(github.WithHTTPClient(tc))
+	if err != nil {
+		return types.StreamsType{}, err
+	}
 	for k, v := range in {
 		sha := v.Attributes.RemoteHash
 		if !v.Attributes.IsFile || (v.Action != tree.Update && v.Action != tree.Copy) {
@@ -62,14 +65,14 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 
 func GetBlobRaw(client *github.Client, ctx context.Context, owner, repo, sha string, err error) (io.ReadCloser, error) {
 	u := fmt.Sprintf("repos/%v/%v/git/blobs/%v", owner, repo, sha)
-	req, reqErr := client.NewRequest("GET", u, nil)
+	req, reqErr := client.NewRequest(ctx, "GET", u, nil)
 	if reqErr != nil {
 		return nil, reqErr
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3.raw")
 	pr, pw := io.Pipe()
 	go func() {
-		_, err = client.Do(ctx, req, pw)
+		_, err = client.Do(req, pw)
 		pw.Close()
 	}()
 	return pr, nil

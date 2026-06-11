@@ -196,6 +196,9 @@ export BACKEND_CONFIG_FILE=../conf/backend_config.json
 **Example backend configuration:** [conf/backend_config.json](conf/backend_config.json)
 **Demo Dataverse example:** [conf/backend_config_demo.json](conf/backend_config_demo.json)
 
+Globus requires additional frontend plugin, OAuth secret, Dataverse setting,
+and storage configuration. See [GLOBUS_INTEGRATION.md](GLOBUS_INTEGRATION.md#configuration).
+
 **Dataverse File System Drivers**
 
 The application can directly upload files to the Dataverse file system. Two drivers are supported:
@@ -295,7 +298,7 @@ Each entry in `plugins` can contain:
 | `repoNameFieldHasInit` | Enable initial search |
 | `parseSourceUrlField` | Parse repo name from source URL |
 | `tokenName` | Unique name for credential storage |
-| `tokenGetter` | OAuth configuration object |
+| `tokenGetter` | OAuth configuration object; for Globus, this includes the Globus authorization `URL` and Confidential Client `oauth_client_id` |
 
 Additional supported fields:
 
