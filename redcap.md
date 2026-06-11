@@ -75,27 +75,25 @@ Key point: manual export/save was required in the old `redcap` plugin because it
 **Report mode** (`exportMode: "report"`):
 
 1. `redcap/report-<id>/data.csv` or `data.json`
-2. `redcap/report-<id>/metadata.csv` (filtered to exported fields)
+2. `redcap/report-<id>/metadata.csv` (filtered to exported fields; dropped variables excluded)
 3. `redcap/report-<id>/project_info.json`
 4. `redcap/report-<id>/events.csv` (longitudinal projects)
 5. `redcap/report-<id>/form_event_mapping.csv` (longitudinal projects)
-6. `redcap/report-<id>/manifest.json` (export config + timestamp + REDCap version + warnings)
+6. `redcap/report-<id>/project_metadata.xml` (CDISC ODM, metadata only; failure-tolerant)
+7. `redcap/report-<id>/croissant.json` (Croissant 1.0, mime `application/ld+json`)
+8. `redcap/report-<id>/ro-crate-metadata.json` (RO-Crate 1.2, profile mime, exact filename for Dataverse detection)
+9. `redcap/report-<id>/ddi-cdi.jsonld` (DDI-CDI 1.0, DDI-CDI profile mime)
+10. `redcap/report-<id>/manifest.json` (export config + timestamp + REDCap version + audit + warnings)
 
-**Records mode** (`exportMode: "records"`):
-
-1. `redcap/records/data.csv` or `data.json`
-2. `redcap/records/metadata.csv` (filtered to exported fields)
-3. `redcap/records/project_info.json`
-4. `redcap/records/events.csv` (longitudinal projects)
-5. `redcap/records/form_event_mapping.csv` (longitudinal projects)
-6. `redcap/records/manifest.json`
+**Records mode** (`exportMode: "records"`): same layout under `redcap/records/`.
 
 ### Not Implemented Yet
 
-1. Advanced de-identification modes beyond `blank` (`drop`, HMAC `pseudonymize`) — Phase 4. Reversible encryption is **out of scope** (decision 2026-06-11).
-2. DDI-CDI/Croissant/RO-Crate metadata exporters — Phase 5 (all three in one phase, from one normalized model; decision 2026-06-11).
+1. ~~Advanced de-identification modes beyond `blank`~~ — **done** (Phase 4, 2026-06-11): `drop` + HMAC-SHA256 `pseudonymize` with researcher-managed base64 key. Reversible encryption remains **out of scope** (decision 2026-06-11).
+2. ~~DDI-CDI/Croissant/RO-Crate metadata exporters~~ — **done** (Phase 5, 2026-06-11): all three generated on every export from one normalized model (no toggles; deselectable per file in compare — decision revision 2026-06-11), plus `project_metadata.xml` (ODM, metadata-only).
 3. Attachment/file-field download — **deferred**; file-upload fields are documented in the manifest instead (decision 2026-06-11).
-4. XML data export (note: `content=report` also accepts `format=odm`; a metadata-only `content=project_xml` sidecar is planned in Phase 5).
+4. XML **data** export (the metadata-only `content=project_xml` sidecar shipped in Phase 5).
+5. Remaining hardening (Phase 6): configurable HTTP timeout, performance test with large projects, security review, pilot re-test.
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Review, Research, And Decisions](#review-research-and-decisions-2026-06-11)
 
@@ -135,6 +133,8 @@ A full review of the branch against main plus web research on the REDCap API (tr
 2. **Reversible encryption**: out of scope (irreversible transforms only).
 3. **Metadata exporters**: all three (Croissant + RO-Crate + DDI-CDI) in a single phase from one normalized metadata model, generated during export as bundle virtual files (selectable in the compare tree).
 4. **Attachments**: deferred; the manifest documents the project's file-upload fields as not-exported references.
+5. **No sidecar toggles** (revision, 2026-06-11): the sidecars are always generated; users deselect unwanted files in the compare step instead of pre-toggling generation. The ODM sidecar is likewise always generated (failure-tolerant).
+6. **Pseudonymization keys are researcher-managed** (2026-06-11): base64 key pasted in the UI (min 16 bytes decoded, recommended `openssl rand -base64 32`); server stores nothing, manifest records a SHA-256 fingerprint only.
 
 ### Review findings driving Phase 3.9
 
@@ -443,7 +443,7 @@ Normalized model (one struct, three emitters):
 Additional Phase 5 items:
 
 1. Implement the plugin `Metadata()` hook (registry already supports it; github/gitlab set the precedent) to prefill Dataverse citation metadata from project info (title, PI name, `project_pi_email` on 15.5.20+, notes).
-2. Optional metadata-only CDISC ODM sidecar via `content=project_xml&returnMetadataOnly=true` (`project_metadata.xml`) — one API call, archival gold standard. Never with data (would bypass blanking).
+2. Metadata-only CDISC ODM sidecar via `content=project_xml&returnMetadataOnly=true` (`project_metadata.xml`) — one API call, archival gold standard, always generated (failure-tolerant). Never with data (would bypass the transforms).
 
 [↑ Back to Top](#redcap2-plugin-design-status-and-implementation-plan) | [→ Architecture In rdm-integration](#architecture-in-rdm-integration)
 
@@ -545,7 +545,7 @@ Current generic request model is string-heavy (`option`, `repoName`, etc.). `plu
 7. ~~Auto-detect identifier-tagged fields from metadata and pre-blank them.~~
 8. ~~Add unit tests for each parameter combination.~~
 
-### Phase 3.9: De-Id Correctness And API Fidelity [In Progress — 2026-06-11]
+### Phase 3.9: De-Id Correctness And API Fidelity [Completed — 2026-06-11]
 
 Fixes the review findings before new features (see [Review, Research, And Decisions](#review-research-and-decisions-2026-06-11)):
 
@@ -559,33 +559,35 @@ Fixes the review findings before new features (see [Review, Research, And Decisi
 8. Manifest enrichment: project id/title, file-upload-field documentation (attachments decision), dictionary-vs-export column diff (reveals token-rights stripping).
 9. Bundle cache size cap (bound PII residency in RAM).
 
-### Phase 4: De-Identification Engine [Next]
+### Phase 4: De-Identification Engine [Completed — 2026-06-11]
 
-1. Add `drop` and deterministic HMAC-SHA256 `pseudonymize` per-variable modes (policy schema + validation).
-2. Flag unvalidated text/notes fields as PHI-risk in the variables table (field types from the dictionary).
-3. Surface token export-rights context (dictionary-vs-export diff) in the UI, not just the manifest.
-4. Extend the anonymization audit (method, key id — never key material).
-5. Strict safeguards: no key logging, no raw-value logging, secure defaults.
+1. ~~Add `drop` and deterministic HMAC-SHA256 `pseudonymize` per-variable modes~~ — done. Key: researcher-managed base64 (min 16 bytes, validated client- and server-side with the `openssl rand -base64 32` hint); pseudonyms are full lowercase-hex HMAC-SHA256; empty cells stay empty. EAV: record-ID transforms also rewrite the `record` linking column; dropping the record-ID field in EAV is rejected. Rules match checkbox expansion columns by their own name as well as the base name.
+2. ~~Flag unvalidated text/notes fields as PHI-risk~~ — done via `SelectItem.Note` + warning icon in the variables table.
+3. Token export-rights context: documented in the manifest (`dictionary_fields_not_exported`, excluding client-side drops) and in the user guide; no extra UI surface (kept light).
+4. ~~Extend the anonymization audit~~ — done (mode + matched counts + record-column notes; `anonymization` manifest section with method + key fingerprint).
+5. ~~Safeguards~~ — done: key never logged or echoed; manifest redacts the `records` filter when the record-ID field is transformed and `filterLogic` when it references transformed fields; cache key covers the key (hashed).
 6. ~~Reversible encryption~~ — out of scope (decision 2026-06-11).
+7. Fixed along the way: the variables list is now always fetched with raw, comma-delimited headers (label-header and tab-delimiter exports previously yielded rule names that never matched).
 
-### Phase 5: Metadata Exporters [Next]
+### Phase 5: Metadata Exporters [Completed — 2026-06-11]
 
-1. Define normalized metadata model (project, files, variables, code lists, provenance).
-2. Implement all three exporter adapters in one phase (decision 2026-06-11):
-   - `croissant.json` (Croissant 1.0; validate with mlcroissant in CI)
-   - `ro-crate-metadata.json` (RO-Crate 1.2, Process Run Crate provenance)
-   - `ddi-cdi.jsonld` (DDI-CDI 1.0; reuse in-repo ddi-cdi helpers; validate with cdi-viewer SHACL shapes)
-3. Generate during export as bundle virtual files; expose toggles in UI.
-4. Implement plugin `Metadata()` hook for Dataverse citation prefill from project info.
-5. Optional `project_metadata.xml` (CDISC ODM, metadata-only).
-6. Schema validation tests for each output type.
+1. ~~Normalized metadata model~~ — done (`sidecars.go`: files with md5/size/encoding, variables joined from the post-transform data columns and the dictionary incl. code lists, provenance, key fingerprint).
+2. ~~All three exporters~~ — done:
+   - `croissant.json` (Croissant 1.0, canonical context, FileObject distribution, CSV RecordSet with schema.org dataTypes; no RecordSet for JSON exports). Mime `application/ld+json`; validate manually with `mlcroissant validate --jsonld`.
+   - `ro-crate-metadata.json` (RO-Crate 1.2, detached crate, Process Run Crate provenance: CreateAction + plugin/REDCap SoftwareApplication). Mime = Dataverse 6.3+ filename-detection string = RO-Crate previewer contentType.
+   - `ddi-cdi.jsonld` (DDI-CDI 1.0 JSON-LD mirroring `cdi_generator_jsonld.py` structure — WideDataSet/WideDataStructure/LogicalRecord/InstanceVariables/CodeLists/PrimaryKey/PhysicalSegmentLayout — so the cdi-viewer SHACL shapes apply). Mime = deployed CDI previewer contentType (`DdiCdiMimeType`).
+3. ~~Generate during export~~ — done; **no UI toggles** (decision revision): always generated, deselectable per file in compare. Per-file mime plumbing added through `tree.Node.Attributes.MimeType` → both upload paths (native multipart Content-Type; direct-upload jsonData mime).
+4. ~~Plugin `Metadata()` hook~~ — done (title, notes+purpose, PI, grant number, IRB number, urn:redcap project id).
+5. ~~`project_metadata.xml`~~ — done (always generated, failure-tolerant warning).
+6. ~~Schema validation tests~~ — structural Go tests for all three outputs + determinism e2e; external validation documented in the user guide.
+7. New external tool conf: `conf/dataverse/external-tools/12-jsonld-previewer.json` (cdi-viewer registered for bare `application/ld+json`, fires on croissant.json).
 
-### Phase 6: Hardening And Rollout [Next]
+### Phase 6: Hardening And Rollout [In Progress — 2026-06-11]
 
 1. Performance test with large REDCap projects; configurable HTTP timeout (current client timeout: 5 minutes).
 2. Security review (keys, logs, PII handling, transport, cache residency).
-3. Add operator documentation and troubleshooting.
-4. Run pilot with limited users.
+3. ~~User documentation~~ — done: [REDCAP_INTEGRATION.md](REDCAP_INTEGRATION.md) (features, key generation/management, PHI disclaimer, sidecars/previewers, manifest reference).
+4. Re-test on pilot (first pilot deploy of Phases 0–3.9 done 2026-06-11 via `make dev_build`).
 5. Keep `redcap` plugin as stable fallback until `redcap2` is proven.
 6. Revisit attachments (opt-in, size-capped, flagged as not de-identified) based on pilot feedback.
 
