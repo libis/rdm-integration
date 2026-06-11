@@ -24,6 +24,7 @@ const (
 	testEventsCSV  = "event_name,arm_num,unique_event_name\nBaseline,1,baseline_arm_1\n"
 	testMappingCSV = "arm_num,unique_event_name,form\n1,baseline_arm_1,demographics\n"
 	testVersion    = "14.5.5"
+	testProjectXML = `<?xml version="1.0" encoding="UTF-8"?><ODM><Study OID="Project.Demo"/></ODM>`
 )
 
 // fakeRedcap is a minimal in-memory REDCap API stub. It records every form
@@ -109,6 +110,8 @@ func (f *fakeRedcap) handle(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"project_id":1,"project_title":"Demo","is_longitudinal":"` + longitudinalFlag + `"}`))
 	case "version":
 		_, _ = w.Write([]byte(testVersion))
+	case "project_xml":
+		_, _ = w.Write([]byte(testProjectXML))
 	case "event":
 		_, _ = w.Write([]byte(testEventsCSV))
 	case "formEventMapping":

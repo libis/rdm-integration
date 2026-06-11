@@ -3,6 +3,7 @@
 package core
 
 import (
+	"fmt"
 	"hash"
 	"io"
 	"mime/multipart"
@@ -48,10 +49,11 @@ type FileWriter struct {
 	part2        io.Writer
 	writer       *multipart.Writer
 	filename     string
+	mimeType     string
 }
 
-func NewFileWriter(filename string, part1bytes []byte, writer *multipart.Writer) *FileWriter {
-	return &FileWriter{false, part1bytes, nil, writer, filename}
+func NewFileWriter(filename, mimeType string, part1bytes []byte, writer *multipart.Writer) *FileWriter {
+	return &FileWriter{false, part1bytes, nil, writer, filename, mimeType}
 }
 
 func (f *FileWriter) Write(p []byte) (int, error) {
@@ -59,7 +61,16 @@ func (f *FileWriter) Write(p []byte) (int, error) {
 		part1, _ := f.writer.CreateFormField("jsonData")
 		part1.Write(f.part1bytes)
 		f.part1written = true
-		f.part2, _ = f.writer.CreateFormFile("file", f.filename)
+		if f.mimeType != "" {
+			// An explicit mime type overrides destination-side type detection
+			// (CreateFormFile would hardcode application/octet-stream).
+			header := make(map[string][]string)
+			header["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s"`, f.filename)}
+			header["Content-Type"] = []string{f.mimeType}
+			f.part2, _ = f.writer.CreatePart(header)
+		} else {
+			f.part2, _ = f.writer.CreateFormFile("file", f.filename)
+		}
 	}
 	n, err := f.part2.Write(p)
 	return n, err

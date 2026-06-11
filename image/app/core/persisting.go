@@ -248,7 +248,7 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		var h []byte
 		var remoteH []byte
 		var size int64
-		h, remoteH, size, err = write(ctx, v.Attributes.DestinationFile.Id, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.RemoteFileSize)
+		h, remoteH, size, err = write(ctx, v.Attributes.DestinationFile.Id, dataverseKey, user, fileStream, storageIdentifier, persistentId, hashType, remoteHashType, k, v.Attributes.MimeType, v.Attributes.RemoteFileSize)
 		if err != nil {
 			return
 		}

@@ -57,6 +57,9 @@ type pluginOptions struct {
 type generatedBundle struct {
 	ReportID string
 	Files    map[string][]byte
+	// Mime holds explicit mime types for generated files (keyed by path).
+	// Files without an entry rely on destination-side type detection.
+	Mime map[string]string
 }
 
 var (
@@ -474,24 +477,28 @@ func writeCSV(rows [][]string, delimiter rune) ([]byte, error) {
 type dictionary struct {
 	fieldOrder    []string            // field names in dictionary order
 	fieldType     map[string]string   // field_name -> field_type
+	fieldLabel    map[string]string   // field_name -> field_label
 	labelFields   map[string][]string // field_label -> field names (labels can collide)
 	identifier    map[string]bool     // field_name -> tagged as identifier in REDCap
 	validation    map[string]string   // field_name -> text validation type ("" = unvalidated)
+	choices       map[string]string   // field_name -> raw select_choices_or_calculations
 	hasValidation bool                // the validation column was present in the dictionary
 }
 
 func parseDictionary(metadataCSV []byte) dictionary {
 	dict := dictionary{
 		fieldType:   map[string]string{},
+		fieldLabel:  map[string]string{},
 		labelFields: map[string][]string{},
 		identifier:  map[string]bool{},
 		validation:  map[string]string{},
+		choices:     map[string]string{},
 	}
 	rows, err := parseCSV(metadataCSV, ',')
 	if err != nil || len(rows) == 0 {
 		return dict
 	}
-	nameIdx, typeIdx, labelIdx, identifierIdx, validationIdx := -1, -1, -1, -1, -1
+	nameIdx, typeIdx, labelIdx, identifierIdx, validationIdx, choicesIdx := -1, -1, -1, -1, -1, -1
 	for i, col := range rows[0] {
 		switch strings.ToLower(strings.TrimSpace(col)) {
 		case "field_name":
@@ -504,6 +511,8 @@ func parseDictionary(metadataCSV []byte) dictionary {
 			identifierIdx = i
 		case "text_validation_type_or_show_slider_number":
 			validationIdx = i
+		case "select_choices_or_calculations":
+			choicesIdx = i
 		}
 	}
 	if nameIdx < 0 {
@@ -525,7 +534,14 @@ func parseDictionary(metadataCSV []byte) dictionary {
 		if labelIdx >= 0 && labelIdx < len(row) {
 			label := strings.TrimSpace(row[labelIdx])
 			if label != "" {
+				dict.fieldLabel[name] = label
 				dict.labelFields[label] = append(dict.labelFields[label], name)
+			}
+		}
+		if choicesIdx >= 0 && choicesIdx < len(row) {
+			choices := strings.TrimSpace(row[choicesIdx])
+			if choices != "" {
+				dict.choices[name] = choices
 			}
 		}
 		if identifierIdx >= 0 && identifierIdx < len(row) {
@@ -1265,6 +1281,17 @@ func exportCSVContent(ctx context.Context, baseURL, token, content string) ([]by
 	return redcapRequest(ctx, baseURL, form)
 }
 
+// exportProjectXML fetches the CDISC ODM project metadata (metadata only — no
+// record data) for the optional project_metadata.xml sidecar.
+func exportProjectXML(ctx context.Context, baseURL, token string) ([]byte, error) {
+	form := url.Values{}
+	form.Set("token", token)
+	form.Set("content", "project_xml")
+	form.Set("returnMetadataOnly", "true")
+	form.Set("returnFormat", "json")
+	return redcapRequest(ctx, baseURL, form)
+}
+
 func sanitizeReportID(reportID string) string {
 	if reportID == "" {
 		return "unknown"
@@ -1302,7 +1329,8 @@ type manifestExtras struct {
 	DictionaryFieldsNotExported []string
 	TransformModes              map[string]string // field -> transform mode, for echo redaction
 	RecordIDField               string
-	KeyFingerprint              string // SHA-256 fingerprint of the HMAC key (never the key itself)
+	KeyFingerprint              string            // SHA-256 fingerprint of the HMAC key (never the key itself)
+	ExtraFiles                  map[string]string // additional manifest file entries (sidecars, ODM)
 }
 
 // filterLogicFieldRe extracts the field names referenced by a REDCap filter
@@ -1385,6 +1413,11 @@ func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectI
 	}
 	if mappingPath != "" {
 		manifest["files"].(map[string]string)["form_event_mapping"] = mappingPath
+	}
+	for key, path := range extras.ExtraFiles {
+		if path != "" {
+			manifest["files"].(map[string]string)[key] = path
+		}
 	}
 
 	if extras.ProjectID != nil || extras.ProjectTitle != "" {
@@ -1527,6 +1560,15 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 		}
 	}
 
+	// Optional CDISC ODM sidecar (metadata only); failure must not block the export.
+	odmPath := ""
+	if odmBytes, odmErr := exportProjectXML(ctx, baseURL, token); odmErr != nil {
+		warnings = append(warnings, fmt.Sprintf("project metadata (ODM) export failed: %v", odmErr))
+	} else {
+		odmPath = basePath + "/project_metadata.xml"
+		files[odmPath] = odmBytes
+	}
+
 	projectID, projectTitle := projectIdentity(projectInfoBytes)
 	extras := manifestExtras{
 		Audit:            audit,
@@ -1536,6 +1578,12 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 		TransformModes:   plan.modes,
 		RecordIDField:    recordIDField(dict),
 		KeyFingerprint:   plan.keyFingerprint,
+		ExtraFiles: map[string]string{
+			"project_metadata": odmPath,
+			"croissant":        basePath + "/croissant.json",
+			"ro_crate":         basePath + "/ro-crate-metadata.json",
+			"ddi_cdi":          basePath + "/ddi-cdi.jsonld",
+		},
 	}
 	// In an unfiltered flat records export, dictionary fields missing from the
 	// output reveal server-side stripping (token export rights). With filters
@@ -1572,10 +1620,20 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 	}
 	files[basePath+"/manifest.json"] = manifestBytes
 
+	// Metadata sidecars (Croissant, RO-Crate, DDI-CDI) are rendered from one
+	// normalized model over the final bundle contents (incl. manifest.json).
+	// They never block the export; failures are logged.
+	model := buildSidecarModel(opts, plan, dict, basePath, files, dataPath, redcapVersion, projectID, projectTitle)
+	mime := map[string]string{}
+	for _, warning := range addSidecars(model, basePath, files, mime) {
+		logging.Logger.Printf("redcap2: %s", warning)
+	}
+
 	logging.Logger.Printf("redcap2: generated %d virtual files (mode: %s, report: %s)", len(files), opts.ExportMode, reportID)
 	return generatedBundle{
 		ReportID: reportID,
 		Files:    files,
+		Mime:     mime,
 	}, nil
 }
 

@@ -43,10 +43,14 @@ func TestQueryReportModeGeneratesBundle(t *testing.T) {
 	}
 
 	wantPaths := []string{
+		"redcap/report-7/croissant.json",
 		"redcap/report-7/data.csv",
+		"redcap/report-7/ddi-cdi.jsonld",
 		"redcap/report-7/manifest.json",
 		"redcap/report-7/metadata.csv",
 		"redcap/report-7/project_info.json",
+		"redcap/report-7/project_metadata.xml",
+		"redcap/report-7/ro-crate-metadata.json",
 	}
 	gotPaths := make([]string, 0, len(nodes))
 	for path := range nodes {
@@ -55,6 +59,21 @@ func TestQueryReportModeGeneratesBundle(t *testing.T) {
 	sort.Strings(gotPaths)
 	if strings.Join(gotPaths, "|") != strings.Join(wantPaths, "|") {
 		t.Fatalf("paths = %v, want %v", gotPaths, wantPaths)
+	}
+
+	// Sidecars carry explicit mime types so the right previewers fire;
+	// other files rely on destination-side detection.
+	wantMimes := map[string]string{
+		"redcap/report-7/croissant.json":         croissantMimeType,
+		"redcap/report-7/ddi-cdi.jsonld":         ddiCdiMimeType,
+		"redcap/report-7/ro-crate-metadata.json": roCrateMimeType,
+		"redcap/report-7/data.csv":               "",
+		"redcap/report-7/manifest.json":          "",
+	}
+	for path, wantMime := range wantMimes {
+		if got := nodes[path].Attributes.MimeType; got != wantMime {
+			t.Errorf("MimeType(%s) = %q, want %q", path, got, wantMime)
+		}
 	}
 
 	node := nodes["redcap/report-7/data.csv"]
@@ -192,8 +211,8 @@ func TestQueryLongitudinalAddsEventFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Query returned error: %v", err)
 	}
-	if len(nodes) != 6 {
-		t.Fatalf("expected 6 files for longitudinal project, got %d", len(nodes))
+	if len(nodes) != 10 {
+		t.Fatalf("expected 10 files for longitudinal project (incl. events, mapping, ODM, sidecars), got %d", len(nodes))
 	}
 	events, ok := nodes["redcap/report-7/events.csv"]
 	if !ok || events.Attributes.RemoteHash != md5Hex([]byte(testEventsCSV)) {

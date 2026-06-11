@@ -55,6 +55,9 @@ func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node
 				RemoteHash:     md5Hex(data),
 				RemoteHashType: types.Md5,
 				RemoteFileSize: int64(len(data)),
+				// Explicit mime for generated metadata sidecars so the right
+				// previewers fire in Dataverse; empty for other files.
+				MimeType: bundle.Mime[fullPath],
 			},
 		}
 	}

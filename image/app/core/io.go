@@ -129,7 +129,7 @@ func newS3Client(ctx context.Context) (*s3.Client, error) {
 	}), nil
 }
 
-func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
+func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStream types.Stream, storageIdentifier, persistentId, hashType, remoteHashType, id, mimeType string, fileSize int64) (hash []byte, remoteHash []byte, size int64, retErr error) {
 	pid, err := trimProtocol(persistentId)
 	if err != nil {
 		return nil, nil, 0, err
@@ -156,7 +156,7 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 	if s.driver == "file" || !Destination.IsDirectUpload() {
 		wg := &sync.WaitGroup{}
 		async_err := &ErrorHolder{}
-		f, err := getFile(ctx, dbId, wg, dataverseKey, user, persistentId, pid, s, id, async_err)
+		f, err := getFile(ctx, dbId, wg, dataverseKey, user, persistentId, pid, s, id, mimeType, async_err)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -203,9 +203,9 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 	return hasher.Sum(nil), remoteHasher.Sum(nil), sizeHasher.FileSize, nil
 }
 
-func getFile(ctx context.Context, dbId int64, wg *sync.WaitGroup, dataverseKey, user, persistentId, pid string, s storage, id string, async_err *ErrorHolder) (io.WriteCloser, error) {
+func getFile(ctx context.Context, dbId int64, wg *sync.WaitGroup, dataverseKey, user, persistentId, pid string, s storage, id, mimeType string, async_err *ErrorHolder) (io.WriteCloser, error) {
 	if !Destination.IsDirectUpload() {
-		return Destination.WriteOverWire(ctx, dbId, id, dataverseKey, user, persistentId, wg, async_err)
+		return Destination.WriteOverWire(ctx, dbId, id, mimeType, dataverseKey, user, persistentId, wg, async_err)
 	}
 	path := config.GetConfig().Options.PathToFilesDir + pid + "/"
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
