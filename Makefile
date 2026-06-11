@@ -292,12 +292,22 @@ dev_build: fmt ## Build Docker image using local frontend (like dev_up but only 
 		--prefix=rdm-integration-frontend-$(FRONTEND_VERSION)/ \
 		$$(if [[ $$(git stash create) ]]; then git stash create; else git rev-parse HEAD; fi)
 	@echo -n "Building Docker image (STAGE=$(STAGE)) using local frontend... "
+	customizations_path="$(CUSTOMIZATIONS)"; \
+	if [ ! -d "$$customizations_path" ]; then \
+		if [ -d "./conf/kul_customizations" ]; then \
+			echo "CUSTOMIZATIONS path '$$customizations_path' not found; falling back to './conf/kul_customizations'"; \
+			customizations_path="./conf/kul_customizations"; \
+		else \
+			echo "CUSTOMIZATIONS path '$$customizations_path' not found; falling back to './conf/customizations'"; \
+			customizations_path="./conf/customizations"; \
+		fi; \
+	fi; \
 	docker build \
 		--build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) \
 		--build-arg OAUTH2_POXY_VERSION=$(OAUTH2_POXY_VERSION) --build-arg NODE_VERSION=$(NODE_VERSION) \
 		--build-arg FRONTEND_VERSION=$(FRONTEND_VERSION) --build-arg FRONTEND_TAR_GZ=$(FRONTEND_VERSION).tar.gz \
 		--build-arg NODE_ENV=$(NODE_ENV) \
-		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$(CUSTOMIZATIONS) \
+		--build-arg BASE_HREF=$(BUILD_BASE_HREF) --build-arg CUSTOMIZATIONS=$$customizations_path \
 		--tag "$(IMAGE_TAG)" --file image/Dockerfile .
 	@echo -n "Cleaning up local frontend archive... "
 	@rm -f $(FRONTEND_VERSION).tar.gz
