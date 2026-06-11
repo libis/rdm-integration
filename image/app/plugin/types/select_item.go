@@ -7,5 +7,6 @@ type SelectItem struct {
 	Value    interface{}  `json:"value"`
 	Selected bool         `json:"selected,omitempty"`
 	Expanded bool         `json:"expanded,omitempty"`
+	Note     string       `json:"note,omitempty"`
 	Children []SelectItem `json:"children,omitempty"`
 }

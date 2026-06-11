@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"integration/app/plugin/types"
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -165,6 +166,73 @@ func TestEndToEndZeroMatchBlankWarning(t *testing.T) {
 	warnings, ok := manifest["warnings"].([]interface{})
 	if !ok || len(warnings) == 0 {
 		t.Fatalf("expected zero-match warning in manifest, got %v", manifest["warnings"])
+	}
+}
+
+// Drop must remove the column (data and metadata), pseudonymize must rewrite
+// values with deterministic HMACs, and the manifest must redact the records
+// filter (it contains the very identifiers being pseudonymized) while
+// reporting the key fingerprint — never the key.
+func TestEndToEndDropAndPseudonymize(t *testing.T) {
+	f := newFakeRedcap()
+	defer f.close()
+
+	pluginOpts := `{
+		"exportMode": "records",
+		"records": ["1", "2"],
+		"variables": [
+			{"name": "record_id", "anonymization": "pseudonymize"},
+			{"name": "email", "anonymization": "drop"}
+		],
+		"pseudonymizationKey": "` + testKeyBase64() + `"
+	}`
+	data, manifest := queryAndRead(t, f, pluginOpts, "redcap/records/data.csv")
+
+	want := "record_id,name,age\n" +
+		hmacHex("1") + ",John,34\n" +
+		hmacHex("2") + ",Jane,29\n"
+	if string(data) != want {
+		t.Errorf("data.csv = %q, want %q", string(data), want)
+	}
+
+	export := manifest["export"].(map[string]interface{})
+	records, ok := export["records"].(map[string]interface{})
+	if !ok || records["redacted"] != true {
+		t.Errorf("records echo = %v, want redaction (record id field is pseudonymized)", export["records"])
+	}
+	anonymization, ok := manifest["anonymization"].(map[string]interface{})
+	if !ok || anonymization["method"] != "hmac-sha256" || anonymization["key_fingerprint"] == "" {
+		t.Errorf("anonymization = %v, want hmac-sha256 with fingerprint", manifest["anonymization"])
+	}
+	raw, _ := json.Marshal(manifest)
+	if string(raw) == "" || strings.Contains(string(raw), testKeyBase64()) {
+		t.Fatal("manifest must never contain the pseudonymization key")
+	}
+	if _, ok := manifest["dictionary_fields_not_exported"]; ok {
+		t.Errorf("client-side dropped fields must not be reported as token-rights stripping: %v", manifest["dictionary_fields_not_exported"])
+	}
+	if form := f.lastForm("metadata"); form != nil {
+		// metadata.csv must not keep the dropped field's dictionary row
+		metadataData, _ := queryAndRead(t, f, pluginOpts, "redcap/records/metadata.csv")
+		if strings.Contains(string(metadataData), "email") {
+			t.Error("dropped field must be filtered from metadata.csv")
+		}
+	}
+}
+
+// Pseudonymization without a key (or with a bad key) must fail the export
+// loudly instead of silently exporting identifiable data.
+func TestEndToEndPseudonymizeRequiresKey(t *testing.T) {
+	f := newFakeRedcap()
+	defer f.close()
+
+	pluginOpts := `{
+		"exportMode": "records",
+		"variables": [{"name": "record_id", "anonymization": "pseudonymize"}]
+	}`
+	_, err := Query(context.Background(), types.CompareRequest{Url: f.url(), Token: "tok", PluginOptions: pluginOpts}, nil)
+	if err == nil || !strings.Contains(err.Error(), "key") {
+		t.Fatalf("expected missing-key error, got %v", err)
 	}
 }
 

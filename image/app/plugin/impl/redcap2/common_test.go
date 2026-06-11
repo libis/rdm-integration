@@ -4,6 +4,10 @@ package redcap2
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"integration/app/plugin/types"
 	"net/http"
@@ -13,6 +17,21 @@ import (
 	"strings"
 	"testing"
 )
+
+// testKey is a 32-byte HMAC key used by pseudonymization tests.
+var testKey = []byte("0123456789abcdef0123456789abcdef")
+
+func testKeyBase64() string { return base64.StdEncoding.EncodeToString(testKey) }
+
+func testPlan(modes map[string]string) transformPlan {
+	return transformPlan{modes: modes, key: testKey, keyFingerprint: "test-fingerprint"}
+}
+
+func hmacHex(value string) string {
+	mac := hmac.New(sha256.New, testKey)
+	mac.Write([]byte(value))
+	return hex.EncodeToString(mac.Sum(nil))
+}
 
 func TestParsePluginOptionsDefaults(t *testing.T) {
 	for _, raw := range []string{"", "   "} {
@@ -53,8 +72,11 @@ func TestParsePluginOptionsNormalization(t *testing.T) {
 		"fields": [" age", "age", "", "name "],
 		"variables": [
 			{"name": " email ", "anonymization": "BLANK"},
-			{"name": "age", "anonymization": "whatever"}
-		]
+			{"name": "age", "anonymization": "whatever"},
+			{"name": "ssn", "anonymization": "Drop"},
+			{"name": "record_id", "anonymization": "PSEUDONYMIZE"}
+		],
+		"pseudonymizationKey": " c2VjcmV0 "
 	}`)
 	if err != nil {
 		t.Fatalf("parsePluginOptions returned error: %v", err)
@@ -83,9 +105,14 @@ func TestParsePluginOptionsNormalization(t *testing.T) {
 	wantVars := []variableOption{
 		{Name: "email", Anonymization: "blank"},
 		{Name: "age", Anonymization: "none"},
+		{Name: "ssn", Anonymization: "drop"},
+		{Name: "record_id", Anonymization: "pseudonymize"},
 	}
 	if !reflect.DeepEqual(opts.Variables, wantVars) {
 		t.Errorf("Variables = %v, want %v", opts.Variables, wantVars)
+	}
+	if opts.PseudonymizationKey != "c2VjcmV0" {
+		t.Errorf("PseudonymizationKey = %q, want trimmed c2VjcmV0", opts.PseudonymizationKey)
 	}
 	if opts.GeneratedAt != "missing-generated-at" {
 		t.Errorf("GeneratedAt = %q, want missing-generated-at", opts.GeneratedAt)
@@ -164,15 +191,86 @@ func TestSanitizeReportID(t *testing.T) {
 	}
 }
 
-func TestBlankFields(t *testing.T) {
+func TestBuildTransformPlanModes(t *testing.T) {
 	opts := pluginOptions{Variables: []variableOption{
 		{Name: "email", Anonymization: "blank"},
+		{Name: "ssn", Anonymization: "drop"},
 		{Name: "age", Anonymization: "none"},
 		{Name: "", Anonymization: "blank"},
 	}}
-	got := blankFields(opts)
-	if !reflect.DeepEqual(got, map[string]bool{"email": true}) {
-		t.Fatalf("blankFields = %v, want only email", got)
+	plan, err := buildTransformPlan(opts)
+	if err != nil {
+		t.Fatalf("buildTransformPlan returned error: %v", err)
+	}
+	want := map[string]string{"email": "blank", "ssn": "drop"}
+	if !reflect.DeepEqual(plan.modes, want) {
+		t.Fatalf("modes = %v, want %v", plan.modes, want)
+	}
+	if plan.keyFingerprint != "" || plan.key != nil {
+		t.Error("no pseudonymization requested: plan must not carry key material")
+	}
+}
+
+func TestBuildTransformPlanKeyValidation(t *testing.T) {
+	base := pluginOptions{Variables: []variableOption{{Name: "record_id", Anonymization: "pseudonymize"}}}
+
+	if _, err := buildTransformPlan(base); err == nil || !strings.Contains(err.Error(), "openssl rand -base64 32") {
+		t.Fatalf("missing key must error with generation hint, got %v", err)
+	}
+
+	bad := base
+	bad.PseudonymizationKey = "!!!not-base64!!!"
+	if _, err := buildTransformPlan(bad); err == nil || !strings.Contains(err.Error(), "base64") {
+		t.Fatalf("invalid base64 must error, got %v", err)
+	}
+
+	short := base
+	short.PseudonymizationKey = base64.StdEncoding.EncodeToString([]byte("tooshort"))
+	if _, err := buildTransformPlan(short); err == nil || !strings.Contains(err.Error(), "too short") {
+		t.Fatalf("short key must error, got %v", err)
+	}
+
+	good := base
+	good.PseudonymizationKey = testKeyBase64()
+	plan, err := buildTransformPlan(good)
+	if err != nil {
+		t.Fatalf("valid key rejected: %v", err)
+	}
+	if !reflect.DeepEqual(plan.key, testKey) {
+		t.Error("decoded key mismatch")
+	}
+	wantFingerprint := func() string {
+		sum := sha256.Sum256(testKey)
+		return hex.EncodeToString(sum[:])[:16]
+	}()
+	if plan.keyFingerprint != wantFingerprint {
+		t.Errorf("keyFingerprint = %q, want %q", plan.keyFingerprint, wantFingerprint)
+	}
+	if plan.keyFingerprint == good.PseudonymizationKey {
+		t.Error("fingerprint must not equal the key")
+	}
+}
+
+func TestTransformValue(t *testing.T) {
+	plan := testPlan(map[string]string{"email": "blank", "record_id": "pseudonymize"})
+	if got := plan.transformValue("email", "john@example.org"); got != "" {
+		t.Errorf("blank = %q, want empty", got)
+	}
+	got := plan.transformValue("record_id", "1")
+	if got != hmacHex("1") {
+		t.Errorf("pseudonymize = %q, want deterministic HMAC", got)
+	}
+	if len(got) != 64 {
+		t.Errorf("pseudonym length = %d, want 64 hex chars", len(got))
+	}
+	if plan.transformValue("record_id", "1") != got {
+		t.Error("pseudonymization must be deterministic")
+	}
+	if plan.transformValue("record_id", "") != "" {
+		t.Error("empty values must stay empty (missingness is not data)")
+	}
+	if plan.transformValue("age", "34") != "34" {
+		t.Error("fields without a rule must pass through")
 	}
 }
 
@@ -322,8 +420,8 @@ func TestBaseFieldName(t *testing.T) {
 
 func TestResolveHeaderFields(t *testing.T) {
 	dict := parseDictionary([]byte(testMetadataCSV))
-	if got := resolveHeaderFields("phones___2", false, dict); !reflect.DeepEqual(got, []string{"phones"}) {
-		t.Errorf("raw checkbox header = %v, want [phones]", got)
+	if got := resolveHeaderFields("phones___2", false, dict); !reflect.DeepEqual(got, []string{"phones___2", "phones"}) {
+		t.Errorf("raw checkbox header = %v, want expansion plus base", got)
 	}
 	if got := resolveHeaderFields("Email Address", true, dict); !reflect.DeepEqual(got, []string{"email"}) {
 		t.Errorf("label header = %v, want [email]", got)
@@ -336,11 +434,11 @@ func TestResolveHeaderFields(t *testing.T) {
 	}
 }
 
-func TestBlankFlatCSV(t *testing.T) {
+func TestTransformFlatCSVBlank(t *testing.T) {
 	dict := parseDictionary([]byte(testMetadataCSV))
-	out, exported, audit, err := blankFlatCSV([]byte(testDataCSV), ',', map[string]bool{"name": true, "email": true}, false, dict)
+	out, exported, audit, err := transformFlatCSV([]byte(testDataCSV), ',', testPlan(map[string]string{"name": "blank", "email": "blank"}), false, dict)
 	if err != nil {
-		t.Fatalf("blankFlatCSV returned error: %v", err)
+		t.Fatalf("transformFlatCSV returned error: %v", err)
 	}
 	want := "record_id,name,email,age\n1,,,34\n2,,,29\n"
 	if string(out) != want {
@@ -356,31 +454,82 @@ func TestBlankFlatCSV(t *testing.T) {
 	}
 }
 
-func TestBlankFlatCSVCheckboxExpansion(t *testing.T) {
+func TestTransformFlatCSVDrop(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	out, exported, audit, err := transformFlatCSV([]byte(testDataCSV), ',', testPlan(map[string]string{"email": "drop"}), false, dict)
+	if err != nil {
+		t.Fatalf("transformFlatCSV returned error: %v", err)
+	}
+	want := "record_id,name,age\n1,John,34\n2,Jane,29\n"
+	if string(out) != want {
+		t.Errorf("dropped CSV = %q, want %q", string(out), want)
+	}
+	if !reflect.DeepEqual(exported, []string{"record_id", "name", "age"}) {
+		t.Errorf("exported = %v, dropped field must be excluded", exported)
+	}
+	if len(audit) != 1 || audit[0].Mode != "drop" || audit[0].Matched != 1 {
+		t.Errorf("audit = %+v, want drop matched=1", audit)
+	}
+}
+
+func TestTransformFlatCSVPseudonymize(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	out, _, audit, err := transformFlatCSV([]byte(testDataCSV), ',', testPlan(map[string]string{"record_id": "pseudonymize"}), false, dict)
+	if err != nil {
+		t.Fatalf("transformFlatCSV returned error: %v", err)
+	}
+	want := "record_id,name,email,age\n" +
+		hmacHex("1") + ",John,john@example.org,34\n" +
+		hmacHex("2") + ",Jane,jane@example.org,29\n"
+	if string(out) != want {
+		t.Errorf("pseudonymized CSV = %q, want %q", string(out), want)
+	}
+	if len(audit) != 1 || audit[0].Mode != "pseudonymize" || audit[0].Matched != 1 {
+		t.Errorf("audit = %+v", audit)
+	}
+}
+
+func TestTransformFlatCSVCheckboxExpansion(t *testing.T) {
 	dict := parseDictionary([]byte("field_name,field_type,field_label\nrecord_id,text,Record ID\nphones,checkbox,Phone Types\n"))
 	data := "record_id,phones___1,phones___2\n1,555-1234,555-5678\n"
-	out, exported, audit, err := blankFlatCSV([]byte(data), ',', map[string]bool{"phones": true}, false, dict)
+	out, exported, audit, err := transformFlatCSV([]byte(data), ',', testPlan(map[string]string{"phones": "blank"}), false, dict)
 	if err != nil {
-		t.Fatalf("blankFlatCSV returned error: %v", err)
+		t.Fatalf("transformFlatCSV returned error: %v", err)
 	}
 	want := "record_id,phones___1,phones___2\n1,,\n"
 	if string(out) != want {
 		t.Errorf("blanked CSV = %q, want %q", string(out), want)
 	}
-	if !reflect.DeepEqual(exported, []string{"record_id", "phones"}) {
-		t.Errorf("exported = %v, want base names", exported)
+	if !reflect.DeepEqual(exported, []string{"record_id", "phones___1", "phones", "phones___2"}) {
+		t.Errorf("exported = %v, want expansions plus base", exported)
 	}
 	if len(audit) != 1 || audit[0].Matched != 2 {
 		t.Errorf("audit = %+v, want phones matched=2", audit)
 	}
 }
 
-func TestBlankFlatCSVLabelHeaders(t *testing.T) {
+func TestTransformFlatCSVExpansionRule(t *testing.T) {
+	dict := parseDictionary([]byte("field_name,field_type,field_label\nrecord_id,text,Record ID\nphones,checkbox,Phone Types\n"))
+	data := "record_id,phones___1,phones___2\n1,555-1234,555-5678\n"
+	out, _, audit, err := transformFlatCSV([]byte(data), ',', testPlan(map[string]string{"phones___2": "blank"}), false, dict)
+	if err != nil {
+		t.Fatalf("transformFlatCSV returned error: %v", err)
+	}
+	want := "record_id,phones___1,phones___2\n1,555-1234,\n"
+	if string(out) != want {
+		t.Errorf("expansion-rule CSV = %q, want only phones___2 blanked", string(out))
+	}
+	if len(audit) != 1 || audit[0].Field != "phones___2" || audit[0].Matched != 1 {
+		t.Errorf("audit = %+v, want rule on the expansion column to match", audit)
+	}
+}
+
+func TestTransformFlatCSVLabelHeaders(t *testing.T) {
 	dict := parseDictionary([]byte(testMetadataCSV))
 	data := "Record ID,Full Name,Email Address,Age\n1,John,john@example.org,34\n"
-	out, exported, audit, err := blankFlatCSV([]byte(data), ',', map[string]bool{"email": true}, true, dict)
+	out, exported, audit, err := transformFlatCSV([]byte(data), ',', testPlan(map[string]string{"email": "blank"}), true, dict)
 	if err != nil {
-		t.Fatalf("blankFlatCSV returned error: %v", err)
+		t.Fatalf("transformFlatCSV returned error: %v", err)
 	}
 	want := "Record ID,Full Name,Email Address,Age\n1,John,,34\n"
 	if string(out) != want {
@@ -394,30 +543,30 @@ func TestBlankFlatCSVLabelHeaders(t *testing.T) {
 	}
 }
 
-func TestBlankFlatCSVZeroMatchAudit(t *testing.T) {
+func TestTransformFlatCSVZeroMatchAudit(t *testing.T) {
 	dict := parseDictionary([]byte(testMetadataCSV))
-	out, _, audit, err := blankFlatCSV([]byte(testDataCSV), ',', map[string]bool{"missing": true}, false, dict)
+	out, _, audit, err := transformFlatCSV([]byte(testDataCSV), ',', testPlan(map[string]string{"missing": "blank"}), false, dict)
 	if err != nil {
-		t.Fatalf("blankFlatCSV returned error: %v", err)
+		t.Fatalf("transformFlatCSV returned error: %v", err)
 	}
 	if string(out) != testDataCSV {
-		t.Error("data changed despite no matching blank columns")
+		t.Error("data changed despite no matching columns")
 	}
 	if len(audit) != 1 || audit[0].Matched != 0 || audit[0].Note == "" {
 		t.Errorf("zero-match audit missing note: %+v", audit)
 	}
 }
 
-func TestBlankEAVCSV(t *testing.T) {
+func TestTransformEAVCSV(t *testing.T) {
 	dict := parseDictionary([]byte(testMetadataCSV))
 	data := "record,redcap_event_name,field_name,value\n" +
 		"1,baseline_arm_1,name,John\n" +
 		"1,baseline_arm_1,email,john@example.org\n" +
 		"2,baseline_arm_1,email,jane@example.org\n" +
 		"2,baseline_arm_1,age,29\n"
-	out, exported, audit, err := blankEAVCSV([]byte(data), ',', map[string]bool{"email": true}, dict)
+	out, exported, audit, err := transformEAVCSV([]byte(data), ',', testPlan(map[string]string{"email": "blank"}), dict)
 	if err != nil {
-		t.Fatalf("blankEAVCSV returned error: %v", err)
+		t.Fatalf("transformEAVCSV returned error: %v", err)
 	}
 	want := "record,redcap_event_name,field_name,value\n" +
 		"1,baseline_arm_1,name,John\n" +
@@ -435,12 +584,56 @@ func TestBlankEAVCSV(t *testing.T) {
 	}
 }
 
-func TestBlankEAVJSON(t *testing.T) {
+func TestTransformEAVCSVDropRemovesRows(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	data := "record,field_name,value\n" +
+		"1,name,John\n" +
+		"1,email,john@example.org\n" +
+		"2,email,jane@example.org\n"
+	out, exported, audit, err := transformEAVCSV([]byte(data), ',', testPlan(map[string]string{"email": "drop"}), dict)
+	if err != nil {
+		t.Fatalf("transformEAVCSV returned error: %v", err)
+	}
+	want := "record,field_name,value\n1,name,John\n"
+	if string(out) != want {
+		t.Errorf("dropped EAV CSV = %q, want %q", string(out), want)
+	}
+	for _, field := range exported {
+		if field == "email" {
+			t.Error("dropped field must not be in exported list")
+		}
+	}
+	if len(audit) != 1 || audit[0].Mode != "drop" || audit[0].Matched != 2 {
+		t.Errorf("audit = %+v, want drop matched=2 rows", audit)
+	}
+}
+
+func TestTransformEAVCSVRecordColumnPseudonymized(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	data := "record,field_name,value\n" +
+		"1,record_id,1\n" +
+		"1,age,34\n"
+	out, _, audit, err := transformEAVCSV([]byte(data), ',', testPlan(map[string]string{"record_id": "pseudonymize"}), dict)
+	if err != nil {
+		t.Fatalf("transformEAVCSV returned error: %v", err)
+	}
+	want := "record,field_name,value\n" +
+		hmacHex("1") + ",record_id," + hmacHex("1") + "\n" +
+		hmacHex("1") + ",age,34\n"
+	if string(out) != want {
+		t.Errorf("EAV record column = %q, want pseudonymized record column %q", string(out), want)
+	}
+	if len(audit) != 1 || !strings.Contains(audit[0].Note, "record column") {
+		t.Errorf("audit = %+v, want record-column note", audit)
+	}
+}
+
+func TestTransformEAVJSON(t *testing.T) {
 	dict := parseDictionary([]byte(testMetadataCSV))
 	data := `[{"record":"1","field_name":"name","value":"John"},{"record":"1","field_name":"email","value":"john@example.org"}]`
-	out, exported, audit, err := blankEAVJSON([]byte(data), map[string]bool{"email": true}, dict)
+	out, exported, audit, err := transformEAVJSON([]byte(data), testPlan(map[string]string{"email": "blank"}), dict)
 	if err != nil {
-		t.Fatalf("blankEAVJSON returned error: %v", err)
+		t.Fatalf("transformEAVJSON returned error: %v", err)
 	}
 	rows := []map[string]string{}
 	if err := json.Unmarshal(out, &rows); err != nil {
@@ -457,11 +650,44 @@ func TestBlankEAVJSON(t *testing.T) {
 	}
 }
 
-func TestBlankFlatJSONCheckboxExpansion(t *testing.T) {
-	data := `[{"record_id":"1","phones___1":"555-1234","phones___2":"555-5678","age":"34"}]`
-	out, exported, audit, err := blankFlatJSON([]byte(data), map[string]bool{"phones": true})
+func TestTransformEAVJSONRecordColumnAndDrop(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	data := `[{"record":"1","field_name":"record_id","value":"1"},{"record":"1","field_name":"email","value":"john@example.org"},{"record":"1","field_name":"age","value":"34"}]`
+	out, _, audit, err := transformEAVJSON([]byte(data), testPlan(map[string]string{"record_id": "pseudonymize", "email": "drop"}), dict)
 	if err != nil {
-		t.Fatalf("blankFlatJSON returned error: %v", err)
+		t.Fatalf("transformEAVJSON returned error: %v", err)
+	}
+	rows := []map[string]string{}
+	if err := json.Unmarshal(out, &rows); err != nil {
+		t.Fatalf("transformed EAV JSON invalid: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want email row dropped", len(rows))
+	}
+	for _, row := range rows {
+		if row["record"] != hmacHex("1") {
+			t.Errorf("record = %q, want pseudonymized", row["record"])
+		}
+	}
+	if rows[0]["value"] != hmacHex("1") {
+		t.Errorf("record_id value = %q, want pseudonymized", rows[0]["value"])
+	}
+	foundNote := false
+	for _, entry := range audit {
+		if entry.Field == "record_id" && strings.Contains(entry.Note, "record column") {
+			foundNote = true
+		}
+	}
+	if !foundNote {
+		t.Errorf("audit = %+v, want record-column note", audit)
+	}
+}
+
+func TestTransformFlatJSONCheckboxExpansion(t *testing.T) {
+	data := `[{"record_id":"1","phones___1":"555-1234","phones___2":"555-5678","age":"34"}]`
+	out, exported, audit, err := transformFlatJSON([]byte(data), testPlan(map[string]string{"phones": "blank"}))
+	if err != nil {
+		t.Fatalf("transformFlatJSON returned error: %v", err)
 	}
 	rows := []map[string]string{}
 	if err := json.Unmarshal(out, &rows); err != nil {
@@ -478,9 +704,36 @@ func TestBlankFlatJSONCheckboxExpansion(t *testing.T) {
 	}
 }
 
-func TestBlankFlatJSONInvalid(t *testing.T) {
-	if _, _, _, err := blankFlatJSON([]byte("not json"), nil); err == nil {
+func TestTransformFlatJSONDrop(t *testing.T) {
+	data := `[{"record_id":"1","email":"john@example.org","age":"34"}]`
+	out, exported, _, err := transformFlatJSON([]byte(data), testPlan(map[string]string{"email": "drop"}))
+	if err != nil {
+		t.Fatalf("transformFlatJSON returned error: %v", err)
+	}
+	rows := []map[string]string{}
+	if err := json.Unmarshal(out, &rows); err != nil {
+		t.Fatalf("transformed JSON invalid: %v", err)
+	}
+	if _, ok := rows[0]["email"]; ok {
+		t.Error("dropped key must be removed from rows")
+	}
+	if !reflect.DeepEqual(exported, []string{"age", "record_id"}) {
+		t.Errorf("exported = %v, dropped field must be excluded", exported)
+	}
+}
+
+func TestTransformFlatJSONInvalid(t *testing.T) {
+	if _, _, _, err := transformFlatJSON([]byte("not json"), transformPlan{}); err == nil {
 		t.Fatal("expected error for invalid JSON input")
+	}
+}
+
+func TestProcessExportDataRejectsEAVRecordIDDrop(t *testing.T) {
+	dict := parseDictionary([]byte(testMetadataCSV))
+	opts, _ := parsePluginOptions(`{"exportMode":"records","recordType":"eav"}`)
+	_, _, _, err := processExportData([]byte("record,field_name,value\n"), opts, testPlan(map[string]string{"record_id": "drop"}), dict)
+	if err == nil || !strings.Contains(err.Error(), "record id") {
+		t.Fatalf("EAV drop of record id must error, got %v", err)
 	}
 }
 
@@ -551,29 +804,45 @@ func TestProjectIdentity(t *testing.T) {
 	}
 }
 
-func TestDeduplicatedSelectItems(t *testing.T) {
-	got := deduplicatedSelectItems([]string{" b", "a", "b", ""})
+func TestVariableSelectItems(t *testing.T) {
+	metadata := "field_name,field_type,field_label,identifier,text_validation_type_or_show_slider_number\n" +
+		"record_id,text,Record ID,,integer\n" +
+		"name,text,Full Name,y,\n" +
+		"comments,notes,Comments,,\n" +
+		"phones,checkbox,Phone Types,y,\n" +
+		"age,text,Age,,integer\n"
+	dict := parseDictionary([]byte(metadata))
+	got := variableSelectItems([]string{"age", " name ", "name", "comments", "phones___2", "record_id"}, dict)
 	want := []types.SelectItem{
-		{Label: "a", Value: "a"},
-		{Label: "b", Value: "b"},
+		{Label: "age", Value: "age"},
+		{Label: "comments", Value: "comments", Note: "free-text notes field: may contain identifying information"},
+		{Label: "name", Value: "name", Selected: true, Note: "unvalidated text field: may contain identifying information"},
+		{Label: "phones___2", Value: "phones___2", Selected: true},
+		{Label: "record_id", Value: "record_id"},
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("deduplicatedSelectItems = %v, want %v", got, want)
+		t.Fatalf("variableSelectItems = %+v, want %+v", got, want)
 	}
 }
 
-func TestDeduplicatedSelectItemsWithIdentifiers(t *testing.T) {
-	got := deduplicatedSelectItemsWithIdentifiers(
-		[]string{"email", "age", "email", " name "},
-		map[string]bool{"email": true, "name": true},
-	)
-	want := []types.SelectItem{
-		{Label: "age", Value: "age"},
-		{Label: "email", Value: "email", Selected: true},
-		{Label: "name", Value: "name", Selected: true},
+func TestPhiRiskNote(t *testing.T) {
+	metadata := "field_name,field_type,field_label,text_validation_type_or_show_slider_number\n" +
+		"comments,notes,Comments,\n" +
+		"nickname,text,Nickname,\n" +
+		"age,text,Age,integer\n" +
+		"consent,yesno,Consent,\n"
+	dict := parseDictionary([]byte(metadata))
+	if note := phiRiskNote(dict, "comments"); !strings.Contains(note, "notes") {
+		t.Errorf("notes field note = %q", note)
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("deduplicatedSelectItemsWithIdentifiers = %v, want %v", got, want)
+	if note := phiRiskNote(dict, "nickname"); !strings.Contains(note, "unvalidated") {
+		t.Errorf("unvalidated text note = %q", note)
+	}
+	if note := phiRiskNote(dict, "age"); note != "" {
+		t.Errorf("validated text field should have no note, got %q", note)
+	}
+	if note := phiRiskNote(dict, "consent"); note != "" {
+		t.Errorf("yesno field should have no note, got %q", note)
 	}
 }
 
@@ -670,6 +939,90 @@ func TestMakeManifestZeroMatchAuditAddsWarning(t *testing.T) {
 	}
 }
 
+func TestMakeManifestRedactsRecordsFilterWhenRecordIDTransformed(t *testing.T) {
+	opts, _ := parsePluginOptions(`{"exportMode":"records","records":["101","102"],"variables":[{"name":"record_id","anonymization":"pseudonymize"}],"pseudonymizationKey":"` + testKeyBase64() + `"}`)
+	extras := manifestExtras{
+		TransformModes: map[string]string{"record_id": "pseudonymize"},
+		RecordIDField:  "record_id",
+		KeyFingerprint: "abcdef0123456789",
+	}
+	data, err := makeManifest(opts, "", "d", "m", "p", "", "", "", nil, extras)
+	if err != nil {
+		t.Fatalf("makeManifest returned error: %v", err)
+	}
+	if strings.Contains(string(data), "101") || strings.Contains(string(data), "102") {
+		t.Fatal("manifest leaks record ids despite record-id transform")
+	}
+	manifest := map[string]interface{}{}
+	_ = json.Unmarshal(data, &manifest)
+	export := manifest["export"].(map[string]interface{})
+	records, ok := export["records"].(map[string]interface{})
+	if !ok || records["redacted"] != true {
+		t.Fatalf("records echo = %v, want redaction marker", export["records"])
+	}
+	anonymization, ok := manifest["anonymization"].(map[string]interface{})
+	if !ok || anonymization["key_fingerprint"] != "abcdef0123456789" || anonymization["method"] != "hmac-sha256" {
+		t.Fatalf("anonymization section = %v", manifest["anonymization"])
+	}
+	if strings.Contains(string(data), testKeyBase64()) {
+		t.Fatal("manifest must never contain the pseudonymization key")
+	}
+}
+
+func TestMakeManifestKeepsRecordsFilterWithoutRecordIDTransform(t *testing.T) {
+	opts, _ := parsePluginOptions(`{"exportMode":"records","records":["101"],"variables":[{"name":"email","anonymization":"blank"}]}`)
+	extras := manifestExtras{
+		TransformModes: map[string]string{"email": "blank"},
+		RecordIDField:  "record_id",
+	}
+	data, err := makeManifest(opts, "", "d", "m", "p", "", "", "", nil, extras)
+	if err != nil {
+		t.Fatalf("makeManifest returned error: %v", err)
+	}
+	manifest := map[string]interface{}{}
+	_ = json.Unmarshal(data, &manifest)
+	export := manifest["export"].(map[string]interface{})
+	records, ok := export["records"].([]interface{})
+	if !ok || len(records) != 1 || records[0] != "101" {
+		t.Fatalf("records echo = %v, want verbatim filter", export["records"])
+	}
+}
+
+func TestMakeManifestRedactsFilterLogicReferencingTransformedField(t *testing.T) {
+	opts, _ := parsePluginOptions(`{"exportMode":"records","filterLogic":"[email] = \"john@example.org\"","variables":[{"name":"email","anonymization":"blank"}]}`)
+	extras := manifestExtras{
+		TransformModes: map[string]string{"email": "blank"},
+		RecordIDField:  "record_id",
+	}
+	data, err := makeManifest(opts, "", "d", "m", "p", "", "", "", nil, extras)
+	if err != nil {
+		t.Fatalf("makeManifest returned error: %v", err)
+	}
+	if strings.Contains(string(data), "john@example.org") {
+		t.Fatal("manifest leaks filter logic referencing an anonymized field")
+	}
+
+	unrelated, _ := parsePluginOptions(`{"exportMode":"records","filterLogic":"[age] > 30","variables":[{"name":"email","anonymization":"blank"}]}`)
+	data, err = makeManifest(unrelated, "", "d", "m", "p", "", "", "", nil, extras)
+	if err != nil {
+		t.Fatalf("makeManifest returned error: %v", err)
+	}
+	manifest := map[string]interface{}{}
+	_ = json.Unmarshal(data, &manifest)
+	export := manifest["export"].(map[string]interface{})
+	if export["filter_logic"] != "[age] > 30" {
+		t.Fatalf("filter_logic = %v, want verbatim echo for untransformed fields", export["filter_logic"])
+	}
+}
+
+func TestFilterLogicEchoCheckboxReference(t *testing.T) {
+	opts := pluginOptions{FilterLogic: `[phones(2)] = "1"`}
+	extras := manifestExtras{TransformModes: map[string]string{"phones": "drop"}}
+	if _, ok := filterLogicEcho(opts, extras).(map[string]interface{}); !ok {
+		t.Fatal("checkbox reference to a transformed field must redact filter logic")
+	}
+}
+
 func TestBundleCacheKeyStability(t *testing.T) {
 	base, _ := parsePluginOptions(`{"exportMode":"report","reportId":"7","generatedAt":"2026-01-01T00:00:00Z"}`)
 	sameButLater := base
@@ -694,6 +1047,12 @@ func TestBundleCacheKeyStability(t *testing.T) {
 	surveyFields.ExportSurveyFields = true
 	if bundleCacheKey("https://r", "tok", base) == bundleCacheKey("https://r", "tok", surveyFields) {
 		t.Error("exportSurveyFields should change the cache key")
+	}
+
+	otherKey := base
+	otherKey.PseudonymizationKey = testKeyBase64()
+	if bundleCacheKey("https://r", "tok", base) == bundleCacheKey("https://r", "tok", otherKey) {
+		t.Error("pseudonymization key should change the cache key (different keys, different pseudonyms)")
 	}
 
 	if bundleCacheKey("https://r", "tok", base) == bundleCacheKey("https://r", "other", base) {

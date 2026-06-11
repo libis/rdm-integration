@@ -6,8 +6,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/md5"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"integration/app/logging"
@@ -15,6 +19,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -45,6 +50,7 @@ type pluginOptions struct {
 	ExportSurveyFields     bool             `json:"exportSurveyFields"`
 	ExportDataAccessGroups bool             `json:"exportDataAccessGroups"`
 	Variables              []variableOption `json:"variables"`
+	PseudonymizationKey    string           `json:"pseudonymizationKey,omitempty"`
 	GeneratedAt            string           `json:"generatedAt"`
 }
 
@@ -203,11 +209,16 @@ func normalizePluginOptions(opts *pluginOptions) {
 	opts.Forms = normalizeStringSlice(opts.Forms)
 	opts.Events = normalizeStringSlice(opts.Events)
 	opts.Records = normalizeStringSlice(opts.Records)
+	opts.PseudonymizationKey = strings.TrimSpace(opts.PseudonymizationKey)
 	for i := range opts.Variables {
 		opts.Variables[i].Name = strings.TrimSpace(opts.Variables[i].Name)
 		switch strings.ToLower(strings.TrimSpace(opts.Variables[i].Anonymization)) {
 		case "blank":
 			opts.Variables[i].Anonymization = "blank"
+		case "drop":
+			opts.Variables[i].Anonymization = "drop"
+		case "pseudonymize":
+			opts.Variables[i].Anonymization = "pseudonymize"
 		default:
 			opts.Variables[i].Anonymization = "none"
 		}
@@ -366,17 +377,74 @@ func reportDelimiter(opts pluginOptions) rune {
 	return ','
 }
 
-func blankFields(opts pluginOptions) map[string]bool {
-	res := map[string]bool{}
+// minPseudonymizationKeyBytes is the minimum decoded key length accepted for
+// HMAC-SHA256 pseudonymization. 16 bytes (128 bit) is the floor; the UI and
+// docs recommend 32 bytes (openssl rand -base64 32).
+const minPseudonymizationKeyBytes = 16
+
+// transformPlan is the validated per-export anonymization policy: which field
+// gets which irreversible transform, plus the decoded HMAC key when any field
+// is pseudonymized. The raw key never leaves this struct: only the SHA-256
+// fingerprint is reported (manifest/audit), and nothing key-related is logged.
+type transformPlan struct {
+	modes          map[string]string // field -> "blank" | "drop" | "pseudonymize"
+	key            []byte
+	keyFingerprint string // first 16 hex chars of SHA-256(key)
+}
+
+func (p transformPlan) isEmpty() bool { return len(p.modes) == 0 }
+
+func (p transformPlan) mode(field string) string { return p.modes[field] }
+
+// transformValue applies a cell-level transform (blank or pseudonymize).
+// Empty values stay empty: hashing the empty string would replace genuine
+// missingness with a constant that looks like data.
+func (p transformPlan) transformValue(field, value string) string {
+	switch p.modes[field] {
+	case "blank":
+		return ""
+	case "pseudonymize":
+		if value == "" {
+			return ""
+		}
+		mac := hmac.New(sha256.New, p.key)
+		mac.Write([]byte(value))
+		return hex.EncodeToString(mac.Sum(nil))
+	}
+	return value
+}
+
+// buildTransformPlan validates the per-variable anonymization choices and the
+// researcher-provided base64 HMAC key (required iff any field is pseudonymized).
+func buildTransformPlan(opts pluginOptions) (transformPlan, error) {
+	plan := transformPlan{modes: map[string]string{}}
+	usesPseudonymization := false
 	for _, v := range opts.Variables {
-		if v.Name == "" {
+		if v.Name == "" || v.Anonymization == "none" || v.Anonymization == "" {
 			continue
 		}
-		if v.Anonymization == "blank" {
-			res[v.Name] = true
+		plan.modes[v.Name] = v.Anonymization
+		if v.Anonymization == "pseudonymize" {
+			usesPseudonymization = true
 		}
 	}
-	return res
+	if !usesPseudonymization {
+		return plan, nil
+	}
+	if opts.PseudonymizationKey == "" {
+		return transformPlan{}, fmt.Errorf("pseudonymization requires a base64 key (generate one with: openssl rand -base64 32)")
+	}
+	key, err := base64.StdEncoding.DecodeString(opts.PseudonymizationKey)
+	if err != nil {
+		return transformPlan{}, fmt.Errorf("pseudonymization key is not valid base64")
+	}
+	if len(key) < minPseudonymizationKeyBytes {
+		return transformPlan{}, fmt.Errorf("pseudonymization key too short: %d bytes decoded, need at least %d (use: openssl rand -base64 32)", len(key), minPseudonymizationKeyBytes)
+	}
+	plan.key = key
+	fingerprint := sha256.Sum256(key)
+	plan.keyFingerprint = hex.EncodeToString(fingerprint[:])[:16]
+	return plan, nil
 }
 
 func parseCSV(data []byte, delimiter rune) ([][]string, error) {
@@ -400,24 +468,30 @@ func writeCSV(rows [][]string, delimiter rune) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// dictionary holds the parsed data-dictionary information needed for blanking,
-// label-header translation, metadata filtering, and manifest documentation.
+// dictionary holds the parsed data-dictionary information needed for the
+// transforms, label-header translation, metadata filtering, identifier
+// preselection, PHI-risk flagging, and manifest documentation.
 type dictionary struct {
-	fieldOrder  []string            // field names in dictionary order
-	fieldType   map[string]string   // field_name -> field_type
-	labelFields map[string][]string // field_label -> field names (labels can collide)
+	fieldOrder    []string            // field names in dictionary order
+	fieldType     map[string]string   // field_name -> field_type
+	labelFields   map[string][]string // field_label -> field names (labels can collide)
+	identifier    map[string]bool     // field_name -> tagged as identifier in REDCap
+	validation    map[string]string   // field_name -> text validation type ("" = unvalidated)
+	hasValidation bool                // the validation column was present in the dictionary
 }
 
 func parseDictionary(metadataCSV []byte) dictionary {
 	dict := dictionary{
 		fieldType:   map[string]string{},
 		labelFields: map[string][]string{},
+		identifier:  map[string]bool{},
+		validation:  map[string]string{},
 	}
 	rows, err := parseCSV(metadataCSV, ',')
 	if err != nil || len(rows) == 0 {
 		return dict
 	}
-	nameIdx, typeIdx, labelIdx := -1, -1, -1
+	nameIdx, typeIdx, labelIdx, identifierIdx, validationIdx := -1, -1, -1, -1, -1
 	for i, col := range rows[0] {
 		switch strings.ToLower(strings.TrimSpace(col)) {
 		case "field_name":
@@ -426,11 +500,16 @@ func parseDictionary(metadataCSV []byte) dictionary {
 			typeIdx = i
 		case "field_label":
 			labelIdx = i
+		case "identifier":
+			identifierIdx = i
+		case "text_validation_type_or_show_slider_number":
+			validationIdx = i
 		}
 	}
 	if nameIdx < 0 {
 		return dict
 	}
+	dict.hasValidation = validationIdx >= 0
 	for _, row := range rows[1:] {
 		if nameIdx >= len(row) {
 			continue
@@ -449,8 +528,45 @@ func parseDictionary(metadataCSV []byte) dictionary {
 				dict.labelFields[label] = append(dict.labelFields[label], name)
 			}
 		}
+		if identifierIdx >= 0 && identifierIdx < len(row) {
+			switch strings.ToLower(strings.TrimSpace(row[identifierIdx])) {
+			case "y", "yes", "1":
+				dict.identifier[name] = true
+			}
+		}
+		if validationIdx >= 0 && validationIdx < len(row) {
+			dict.validation[name] = strings.ToLower(strings.TrimSpace(row[validationIdx]))
+		}
 	}
 	return dict
+}
+
+// fetchDictionary downloads and parses the project data dictionary.
+func fetchDictionary(ctx context.Context, baseURL, token string) (dictionary, error) {
+	body, err := redcapRequest(ctx, baseURL, baseForm(token, "metadata", "csv"))
+	if err != nil {
+		return dictionary{}, err
+	}
+	return parseDictionary(body), nil
+}
+
+// phiRiskNote returns a warning for fields whose values can carry free-text
+// identifying information even though the field is not identifier-tagged:
+// notes fields and unvalidated text fields. REDCap's own de-identified export
+// rights strip these field types for the same reason.
+func phiRiskNote(dict dictionary, field string) string {
+	base := baseFieldName(field)
+	switch dict.fieldType[base] {
+	case "notes":
+		return "free-text notes field: may contain identifying information"
+	case "text":
+		// Only flag unvalidated text when the dictionary actually carried the
+		// validation column; otherwise every text field would be flagged.
+		if dict.hasValidation && dict.validation[base] == "" {
+			return "unvalidated text field: may contain identifying information"
+		}
+	}
+	return ""
 }
 
 // fileUploadFields returns the dictionary fields of type "file" — per-record
@@ -474,14 +590,20 @@ func baseFieldName(col string) string {
 }
 
 // resolveHeaderFields maps a data column header to candidate dictionary field
-// names. Raw headers resolve via the checkbox base name; label headers are
-// translated through the dictionary, including "Label (choice=...)" checkbox
-// headers. Unknown headers resolve to themselves so that pseudo-columns
-// (record, redcap_event_name, redcap_survey_identifier, ...) stay stable.
+// names. Raw headers resolve to the column name itself plus the checkbox base
+// name, so a transform rule keyed on either "phones___2" or "phones" matches
+// the expansion column. Label headers are translated through the dictionary,
+// including "Label (choice=...)" checkbox headers. Unknown headers resolve to
+// themselves so that pseudo-columns (record, redcap_event_name,
+// redcap_survey_identifier, ...) stay stable.
 func resolveHeaderFields(header string, labelHeaders bool, dict dictionary) []string {
 	header = strings.TrimSpace(header)
 	if !labelHeaders {
-		return []string{baseFieldName(header)}
+		base := baseFieldName(header)
+		if base != header {
+			return []string{header, base}
+		}
+		return []string{header}
 	}
 	label := header
 	if i := strings.Index(header, " (choice="); i > 0 {
@@ -493,7 +615,7 @@ func resolveHeaderFields(header string, labelHeaders bool, dict dictionary) []st
 	return []string{baseFieldName(header)}
 }
 
-// anonymizationAudit records the outcome of one blank rule so that silent
+// anonymizationAudit records the outcome of one transform rule so that silent
 // no-ops are impossible: every requested transform reports how much data it
 // actually touched.
 type anonymizationAudit struct {
@@ -503,100 +625,145 @@ type anonymizationAudit struct {
 	Note    string `json:"note,omitempty"`
 }
 
-func buildAudit(blanks map[string]bool, matched map[string]int, unit string) []anonymizationAudit {
-	fields := make([]string, 0, len(blanks))
-	for field := range blanks {
+func transformVerb(mode string) string {
+	switch mode {
+	case "drop":
+		return "dropped"
+	case "pseudonymize":
+		return "pseudonymized"
+	default:
+		return "blanked"
+	}
+}
+
+func buildAudit(plan transformPlan, matched map[string]int, unit string, notes map[string]string) []anonymizationAudit {
+	fields := make([]string, 0, len(plan.modes))
+	for field := range plan.modes {
 		fields = append(fields, field)
 	}
 	sort.Strings(fields)
 	audit := make([]anonymizationAudit, 0, len(fields))
 	for _, field := range fields {
-		entry := anonymizationAudit{Field: field, Mode: "blank", Matched: matched[field]}
+		entry := anonymizationAudit{Field: field, Mode: plan.modes[field], Matched: matched[field]}
 		if entry.Matched == 0 {
 			entry.Note = "field not present in export"
 		} else {
-			entry.Note = fmt.Sprintf("blanked %d %s", entry.Matched, unit)
+			entry.Note = fmt.Sprintf("%s %d %s", transformVerb(entry.Mode), entry.Matched, unit)
+		}
+		if extra := notes[field]; extra != "" {
+			entry.Note += "; " + extra
 		}
 		audit = append(audit, entry)
 	}
 	return audit
 }
 
-// blankFlatCSV blanks matching columns of a flat CSV export. A blank rule for
-// field f matches columns named f, checkbox expansions f___code, and — when
-// headers are labels — columns whose label translates back to f.
+// transformFlatCSV applies the anonymization plan to a flat CSV export. A rule
+// for field f matches columns named f, checkbox expansions f___code, and —
+// when headers are labels — columns whose label translates back to f.
+// Dropped columns are removed entirely (and excluded from the exported field
+// list so their dictionary rows disappear from metadata.csv); blank and
+// pseudonymize rewrite cell values in place.
 // Returns the (possibly rewritten) data, the exported dictionary field names,
 // and the per-rule audit.
-func blankFlatCSV(data []byte, delimiter rune, blanks map[string]bool, labelHeaders bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+func transformFlatCSV(data []byte, delimiter rune, plan transformPlan, labelHeaders bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
 	rows, err := parseCSV(data, delimiter)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if len(rows) == 0 {
-		return data, nil, buildAudit(blanks, nil, "columns"), nil
+		return data, nil, buildAudit(plan, nil, "columns", nil), nil
 	}
 	header := rows[0]
 	exported := make([]string, 0, len(header))
 	seen := map[string]bool{}
 	matched := map[string]int{}
-	blankCols := []int{}
+	cellField := map[int]string{} // column -> field with a cell-level transform
+	dropCols := map[int]bool{}
 	for i, col := range header {
 		candidates := resolveHeaderFields(col, labelHeaders, dict)
+		var ruleField string
+		for _, field := range candidates {
+			if plan.modes[field] != "" {
+				ruleField = field
+				break
+			}
+		}
+		if ruleField != "" {
+			matched[ruleField]++
+			if plan.modes[ruleField] == "drop" {
+				dropCols[i] = true
+				continue // dropped fields are no longer part of the export
+			}
+			cellField[i] = ruleField
+		}
 		for _, field := range candidates {
 			if !seen[field] {
 				seen[field] = true
 				exported = append(exported, field)
 			}
 		}
-		for _, field := range candidates {
-			if blanks[field] {
-				blankCols = append(blankCols, i)
-				matched[field]++
-				break
-			}
-		}
 	}
-	audit := buildAudit(blanks, matched, "columns")
-	if len(blankCols) == 0 {
+	audit := buildAudit(plan, matched, "columns", nil)
+	if len(cellField) == 0 && len(dropCols) == 0 {
 		return data, exported, audit, nil
 	}
-	for rowIdx := 1; rowIdx < len(rows); rowIdx++ {
-		for _, colIdx := range blankCols {
-			if colIdx < len(rows[rowIdx]) {
-				rows[rowIdx][colIdx] = ""
+	out := make([][]string, 0, len(rows))
+	for rowIdx, row := range rows {
+		newRow := make([]string, 0, len(row))
+		for colIdx, cell := range row {
+			if dropCols[colIdx] {
+				continue
 			}
+			if rowIdx > 0 {
+				if field, ok := cellField[colIdx]; ok {
+					cell = plan.transformValue(field, cell)
+				}
+			}
+			newRow = append(newRow, cell)
 		}
+		out = append(out, newRow)
 	}
-	out, err := writeCSV(rows, delimiter)
+	encoded, err := writeCSV(out, delimiter)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return out, exported, audit, nil
+	return encoded, exported, audit, nil
 }
 
-// blankEAVCSV blanks the value cells of EAV-shaped CSV exports
+// transformEAVCSV applies the anonymization plan to EAV-shaped CSV exports
 // (record, [redcap_event_name,] field_name, value): rows whose field_name
-// matches a blanked field get an empty value. Falls back to flat handling if
-// the EAV columns cannot be located.
-func blankEAVCSV(data []byte, delimiter rune, blanks map[string]bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+// matches a blank/pseudonymize rule get their value cell rewritten, rows
+// matching a drop rule are removed. A transform on the record-ID field (the
+// first dictionary field) is additionally applied to the "record" column of
+// every row — otherwise raw record identifiers would survive in the linking
+// column. Falls back to flat handling if the EAV columns cannot be located.
+func transformEAVCSV(data []byte, delimiter rune, plan transformPlan, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
 	rows, err := parseCSV(data, delimiter)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if len(rows) == 0 {
-		return data, nil, buildAudit(blanks, nil, "rows"), nil
+		return data, nil, buildAudit(plan, nil, "rows", nil), nil
 	}
-	fieldIdx, valueIdx := -1, -1
+	fieldIdx, valueIdx, recordIdx := -1, -1, -1
 	for i, col := range rows[0] {
 		switch strings.ToLower(strings.TrimSpace(col)) {
 		case "field_name":
 			fieldIdx = i
 		case "value":
 			valueIdx = i
+		case "record":
+			recordIdx = i
 		}
 	}
 	if fieldIdx < 0 || valueIdx < 0 {
-		return blankFlatCSV(data, delimiter, blanks, false, dict)
+		return transformFlatCSV(data, delimiter, plan, false, dict)
+	}
+	recordField := recordIDField(dict)
+	recordMode := ""
+	if recordField != "" && recordIdx >= 0 {
+		recordMode = plan.modes[recordField]
 	}
 	exported := eavExportedFields(dict)
 	seen := map[string]bool{}
@@ -604,37 +771,49 @@ func blankEAVCSV(data []byte, delimiter rune, blanks map[string]bool, dict dicti
 		seen[field] = true
 	}
 	matched := map[string]int{}
+	notes := map[string]string{}
 	changed := false
+	out := make([][]string, 0, len(rows))
+	out = append(out, rows[0])
 	for rowIdx := 1; rowIdx < len(rows); rowIdx++ {
 		row := rows[rowIdx]
-		if fieldIdx >= len(row) {
-			continue
+		field := ""
+		if fieldIdx < len(row) {
+			field = baseFieldName(strings.TrimSpace(row[fieldIdx]))
 		}
-		field := baseFieldName(strings.TrimSpace(row[fieldIdx]))
-		if field == "" {
-			continue
-		}
-		if !seen[field] {
+		if field != "" && !seen[field] {
 			seen[field] = true
 			exported = append(exported, field)
 		}
-		if blanks[field] && valueIdx < len(row) {
-			if row[valueIdx] != "" {
-				row[valueIdx] = ""
-				changed = true
-			}
+		if field != "" && plan.modes[field] == "drop" {
 			matched[field]++
+			changed = true
+			continue
 		}
+		if field != "" && plan.modes[field] != "" && valueIdx < len(row) {
+			row[valueIdx] = plan.transformValue(field, row[valueIdx])
+			matched[field]++
+			changed = true
+		}
+		if recordMode != "" && recordMode != "drop" && recordIdx < len(row) && row[recordIdx] != "" {
+			row[recordIdx] = plan.transformValue(recordField, row[recordIdx])
+			changed = true
+			notes[recordField] = "also applied to the EAV record column"
+		}
+		out = append(out, row)
 	}
-	audit := buildAudit(blanks, matched, "rows")
+	// Dropped fields are removed from the export, so their dictionary rows
+	// must not survive in metadata.csv.
+	exported = withoutDroppedFields(exported, plan)
+	audit := buildAudit(plan, matched, "rows", notes)
 	if !changed {
 		return data, exported, audit, nil
 	}
-	out, err := writeCSV(rows, delimiter)
+	encoded, err := writeCSV(out, delimiter)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return out, exported, audit, nil
+	return encoded, exported, audit, nil
 }
 
 // eavExportedFields seeds the exported-field set for EAV outputs with the
@@ -648,15 +827,51 @@ func eavExportedFields(dict dictionary) []string {
 	return []string{}
 }
 
-// blankFlatJSON blanks matching keys of flat JSON exports. JSON exports always
-// use raw field names as keys, so only checkbox base-name matching applies.
-func blankFlatJSON(data []byte, blanks map[string]bool) ([]byte, []string, []anonymizationAudit, error) {
+// recordIDField returns the project's record identifier field: REDCap defines
+// it as the first field of the data dictionary.
+func recordIDField(dict dictionary) string {
+	if len(dict.fieldOrder) > 0 {
+		return dict.fieldOrder[0]
+	}
+	return ""
+}
+
+// withoutDroppedFields removes fields with a drop rule from an exported-field
+// list, so that dropped fields also disappear from the filtered metadata.csv.
+func withoutDroppedFields(fields []string, plan transformPlan) []string {
+	out := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if plan.modes[field] == "drop" {
+			continue
+		}
+		out = append(out, field)
+	}
+	return out
+}
+
+// jsonValueString renders a JSON cell value for transformation. REDCap exports
+// values as strings, but numbers are normalized defensively.
+func jsonValueString(v interface{}) string {
+	switch s := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return s
+	default:
+		return fmt.Sprintf("%v", s)
+	}
+}
+
+// transformFlatJSON applies the anonymization plan to flat JSON exports. JSON
+// exports always use raw field names as keys, so only checkbox base-name
+// matching applies. Dropped keys are removed from every row.
+func transformFlatJSON(data []byte, plan transformPlan) ([]byte, []string, []anonymizationAudit, error) {
 	rows := make([]map[string]interface{}, 0)
 	if err := json.Unmarshal(data, &rows); err != nil {
 		return nil, nil, nil, err
 	}
 	keys := map[string]bool{}
-	matchedKeys := map[string]string{} // key -> blanked field
+	matchedKeys := map[string]string{} // key -> field with a transform rule
 	for _, row := range rows {
 		for k := range row {
 			keys[k] = true
@@ -666,12 +881,22 @@ func blankFlatJSON(data []byte, blanks map[string]bool) ([]byte, []string, []ano
 	exported := []string{}
 	for k := range keys {
 		field := baseFieldName(k)
+		// A rule keyed on the expansion column itself wins over the base field.
+		ruleField := ""
+		if plan.modes[k] != "" {
+			ruleField = k
+		} else if plan.modes[field] != "" {
+			ruleField = field
+		}
+		if ruleField != "" {
+			matchedKeys[k] = ruleField
+		}
+		if plan.modes[ruleField] == "drop" {
+			continue
+		}
 		if !exportedSet[field] {
 			exportedSet[field] = true
 			exported = append(exported, field)
-		}
-		if blanks[field] {
-			matchedKeys[k] = field
 		}
 	}
 	sort.Strings(exported)
@@ -679,15 +904,20 @@ func blankFlatJSON(data []byte, blanks map[string]bool) ([]byte, []string, []ano
 	for _, field := range matchedKeys {
 		matched[field]++
 	}
-	audit := buildAudit(blanks, matched, "columns")
+	audit := buildAudit(plan, matched, "columns", nil)
 	if len(matchedKeys) == 0 {
 		return data, exported, audit, nil
 	}
 	for _, row := range rows {
-		for k := range matchedKeys {
-			if _, ok := row[k]; ok {
-				row[k] = ""
+		for k, field := range matchedKeys {
+			if _, ok := row[k]; !ok {
+				continue
 			}
+			if plan.modes[field] == "drop" {
+				delete(row, k)
+				continue
+			}
+			row[k] = plan.transformValue(field, jsonValueString(row[k]))
 		}
 	}
 	out, err := json.Marshal(rows)
@@ -697,9 +927,11 @@ func blankFlatJSON(data []byte, blanks map[string]bool) ([]byte, []string, []ano
 	return out, exported, audit, nil
 }
 
-// blankEAVJSON blanks the "value" of EAV JSON rows whose "field_name" matches
-// a blanked field. Falls back to flat handling when rows are not EAV-shaped.
-func blankEAVJSON(data []byte, blanks map[string]bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+// transformEAVJSON applies the anonymization plan to EAV JSON rows. Like the
+// CSV variant, a transform on the record-ID field is also applied to the
+// "record" key of every row. Falls back to flat handling when rows are not
+// EAV-shaped.
+func transformEAVJSON(data []byte, plan transformPlan, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
 	rows := make([]map[string]interface{}, 0)
 	if err := json.Unmarshal(data, &rows); err != nil {
 		return nil, nil, nil, err
@@ -712,7 +944,12 @@ func blankEAVJSON(data []byte, blanks map[string]bool, dict dictionary) ([]byte,
 		}
 	}
 	if !isEAVShaped {
-		return blankFlatJSON(data, blanks)
+		return transformFlatJSON(data, plan)
+	}
+	recordField := recordIDField(dict)
+	recordMode := ""
+	if recordField != "" {
+		recordMode = plan.modes[recordField]
 	}
 	exported := eavExportedFields(dict)
 	seen := map[string]bool{}
@@ -720,49 +957,71 @@ func blankEAVJSON(data []byte, blanks map[string]bool, dict dictionary) ([]byte,
 		seen[field] = true
 	}
 	matched := map[string]int{}
+	notes := map[string]string{}
 	changed := false
+	out := make([]map[string]interface{}, 0, len(rows))
 	for _, row := range rows {
 		name, _ := row["field_name"].(string)
 		field := baseFieldName(strings.TrimSpace(name))
-		if field == "" {
-			continue
-		}
-		if !seen[field] {
+		if field != "" && !seen[field] {
 			seen[field] = true
 			exported = append(exported, field)
 		}
-		if blanks[field] {
+		if field != "" && plan.modes[field] == "drop" {
+			matched[field]++
+			changed = true
+			continue
+		}
+		if field != "" && plan.modes[field] != "" {
 			if _, ok := row["value"]; ok {
-				row["value"] = ""
+				row["value"] = plan.transformValue(field, jsonValueString(row["value"]))
 				changed = true
 			}
 			matched[field]++
 		}
+		if recordMode != "" && recordMode != "drop" {
+			if rec, ok := row["record"]; ok {
+				if recStr := jsonValueString(rec); recStr != "" {
+					row["record"] = plan.transformValue(recordField, recStr)
+					changed = true
+					notes[recordField] = "also applied to the EAV record column"
+				}
+			}
+		}
+		out = append(out, row)
 	}
-	audit := buildAudit(blanks, matched, "rows")
+	exported = withoutDroppedFields(exported, plan)
+	audit := buildAudit(plan, matched, "rows", notes)
 	if !changed {
 		return data, exported, audit, nil
 	}
-	out, err := json.Marshal(rows)
+	encoded, err := json.Marshal(out)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return out, exported, audit, nil
+	return encoded, exported, audit, nil
 }
 
 // processExportData routes the raw API payload through the mode-appropriate
-// blanking implementation and reports the exported dictionary fields plus the
-// anonymization audit.
-func processExportData(data []byte, opts pluginOptions, blanks map[string]bool, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+// transform implementation and reports the exported dictionary fields plus the
+// anonymization audit. Dropping the record-ID field is rejected for EAV
+// exports: the record column cannot be removed without destroying the EAV
+// structure, and leaving it would silently keep the identifiers.
+func processExportData(data []byte, opts pluginOptions, plan transformPlan, dict dictionary) ([]byte, []string, []anonymizationAudit, error) {
+	if isEAV(opts) {
+		if field := recordIDField(dict); field != "" && plan.modes[field] == "drop" {
+			return nil, nil, nil, fmt.Errorf("dropping the record id field (%s) is not supported for EAV exports: use pseudonymize or blank instead", field)
+		}
+	}
 	switch {
 	case opts.DataFormat == "json" && isEAV(opts):
-		return blankEAVJSON(data, blanks, dict)
+		return transformEAVJSON(data, plan, dict)
 	case opts.DataFormat == "json":
-		return blankFlatJSON(data, blanks)
+		return transformFlatJSON(data, plan)
 	case isEAV(opts):
-		return blankEAVCSV(data, reportDelimiter(opts), blanks, dict)
+		return transformEAVCSV(data, reportDelimiter(opts), plan, dict)
 	default:
-		return blankFlatCSV(data, reportDelimiter(opts), blanks, headersAreLabels(opts), dict)
+		return transformFlatCSV(data, reportDelimiter(opts), plan, headersAreLabels(opts), dict)
 	}
 }
 
@@ -827,44 +1086,11 @@ func redcapRequestHeaderOnly(ctx context.Context, baseURL string, form url.Value
 	return record, nil
 }
 
-func fallbackFieldsFromMetadata(ctx context.Context, baseURL, token string) ([]string, error) {
-	form := baseForm(token, "metadata", "csv")
-	body, err := redcapRequest(ctx, baseURL, form)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := parseCSV(body, ',')
-	if err != nil || len(rows) == 0 {
-		return nil, err
-	}
-	fieldIdx := -1
-	for i, col := range rows[0] {
-		if strings.EqualFold(strings.TrimSpace(col), "field_name") {
-			fieldIdx = i
-			break
-		}
-	}
-	if fieldIdx < 0 {
-		return nil, nil
-	}
-	res := make([]string, 0, len(rows)-1)
-	seen := map[string]bool{}
-	for _, row := range rows[1:] {
-		if fieldIdx >= len(row) {
-			continue
-		}
-		field := strings.TrimSpace(row[fieldIdx])
-		if field == "" || seen[field] {
-			continue
-		}
-		seen[field] = true
-		res = append(res, field)
-	}
-	sort.Strings(res)
-	return res, nil
-}
-
-func deduplicatedSelectItems(fields []string) []types.SelectItem {
+// variableSelectItems builds a sorted, deduplicated list of SelectItem values
+// for the anonymization table. Identifier-tagged fields (resolved through the
+// checkbox base name) are returned with Selected=true, signalling the frontend
+// to auto-blank them; free-text fields carry a PHI-risk note.
+func variableSelectItems(fields []string, dict dictionary) []types.SelectItem {
 	seen := make(map[string]bool, len(fields))
 	unique := make([]string, 0, len(fields))
 	for _, f := range fields {
@@ -877,106 +1103,48 @@ func deduplicatedSelectItems(fields []string) []types.SelectItem {
 	sort.Strings(unique)
 	out := make([]types.SelectItem, 0, len(unique))
 	for _, field := range unique {
-		out = append(out, types.SelectItem{Label: field, Value: field})
+		out = append(out, types.SelectItem{
+			Label:    field,
+			Value:    field,
+			Selected: dict.identifier[baseFieldName(field)],
+			Note:     phiRiskNote(dict, field),
+		})
 	}
 	return out
 }
 
-// deduplicatedSelectItemsWithIdentifiers builds a sorted, deduplicated list of SelectItem values.
-// Fields present in the identifiers set are returned with Selected=true, signalling the frontend
-// to auto-blank them (they are REDCap identifier-tagged fields).
-func deduplicatedSelectItemsWithIdentifiers(fields []string, identifiers map[string]bool) []types.SelectItem {
-	seen := make(map[string]bool, len(fields))
-	unique := make([]string, 0, len(fields))
-	for _, f := range fields {
-		f = strings.TrimSpace(f)
-		if f != "" && !seen[f] {
-			seen[f] = true
-			unique = append(unique, f)
-		}
-	}
-	sort.Strings(unique)
-	out := make([]types.SelectItem, 0, len(unique))
-	for _, field := range unique {
-		out = append(out, types.SelectItem{Label: field, Value: field, Selected: identifiers[field]})
-	}
-	return out
-}
-
-// identifierFieldsFromMetadata fetches the project metadata and returns a set of field names
-// that REDCap has tagged as identifiers (identifier column = "y" in the data dictionary).
-func identifierFieldsFromMetadata(ctx context.Context, baseURL, token string) (map[string]bool, error) {
-	form := baseForm(token, "metadata", "csv")
-	body, err := redcapRequest(ctx, baseURL, form)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := parseCSV(body, ',')
-	if err != nil || len(rows) == 0 {
-		return nil, err
-	}
-	fieldIdx := -1
-	identifierIdx := -1
-	for i, col := range rows[0] {
-		switch strings.ToLower(strings.TrimSpace(col)) {
-		case "field_name":
-			fieldIdx = i
-		case "identifier":
-			identifierIdx = i
-		}
-	}
-	if fieldIdx < 0 || identifierIdx < 0 {
-		return nil, nil
-	}
-	res := make(map[string]bool)
-	for _, row := range rows[1:] {
-		if fieldIdx >= len(row) || identifierIdx >= len(row) {
-			continue
-		}
-		field := strings.TrimSpace(row[fieldIdx])
-		ident := strings.ToLower(strings.TrimSpace(row[identifierIdx]))
-		if field != "" && (ident == "y" || ident == "yes" || ident == "1") {
-			res[field] = true
-		}
-	}
-	return res, nil
-}
-
-// listVariablesFromReport fetches column headers from a report export (CSV header-only request).
-// Falls back to the full metadata field list if the report header fetch fails.
-// Fields tagged as identifiers in REDCap are returned with Selected=true.
-func listVariablesFromReport(ctx context.Context, baseURL, token, reportID string, opts pluginOptions) ([]types.SelectItem, error) {
-	identifiers, _ := identifierFieldsFromMetadata(ctx, baseURL, token)
+// listVariablesFromReport fetches column headers from a report export (CSV
+// header-only request). The header request is always raw, comma-delimited:
+// transform rules are keyed by field name, so the variable list must contain
+// field names even when the actual export uses label headers or another
+// delimiter. Falls back to the full dictionary field list if the report
+// header fetch fails.
+func listVariablesFromReport(ctx context.Context, baseURL, token, reportID string, _ pluginOptions) ([]types.SelectItem, error) {
+	dict, dictErr := fetchDictionary(ctx, baseURL, token)
 
 	form := baseForm(token, "report", "csv")
 	form.Set("report_id", reportID)
-	applySharedExportParams(form, opts)
 
 	fields, err := redcapRequestHeaderOnly(ctx, baseURL, form, ',')
 	if err != nil {
-		// Fallback: derive field list from project metadata.
-		fields, err = fallbackFieldsFromMetadata(ctx, baseURL, token)
-		if err != nil {
-			return nil, err
+		// Fallback: derive the field list from the data dictionary.
+		if dictErr != nil {
+			return nil, dictErr
 		}
+		fields = dict.fieldOrder
 	}
-	return deduplicatedSelectItemsWithIdentifiers(fields, identifiers), nil
+	return variableSelectItems(fields, dict), nil
 }
 
-// listVariablesFromMetadata returns all project fields from the metadata endpoint.
-// Used for record export mode where there is no report to derive headers from.
-// Fields tagged as identifiers in REDCap (identifier column = "y") are returned
-// with Selected=true so the frontend can auto-blank them.
+// listVariablesFromMetadata returns all project fields from the data
+// dictionary. Used for record export mode where there is no report to derive
+// headers from.
 func listVariablesFromMetadata(ctx context.Context, baseURL, token string) ([]types.SelectItem, error) {
-	identifiers, err := identifierFieldsFromMetadata(ctx, baseURL, token)
+	dict, err := fetchDictionary(ctx, baseURL, token)
 	if err != nil {
 		return nil, err
 	}
-	fields, err := fallbackFieldsFromMetadata(ctx, baseURL, token)
-	if err != nil {
-		return nil, err
-	}
-	return deduplicatedSelectItemsWithIdentifiers(fields, identifiers), nil
+	return variableSelectItems(dict.fieldOrder, dict), nil
 }
 
 func exportMetadataCSV(ctx context.Context, baseURL, token string, fields []string) ([]byte, error) {
@@ -1132,6 +1300,51 @@ type manifestExtras struct {
 	ProjectID                   interface{}
 	ProjectTitle                string
 	DictionaryFieldsNotExported []string
+	TransformModes              map[string]string // field -> transform mode, for echo redaction
+	RecordIDField               string
+	KeyFingerprint              string // SHA-256 fingerprint of the HMAC key (never the key itself)
+}
+
+// filterLogicFieldRe extracts the field names referenced by a REDCap filter
+// logic expression: [field], [field(code)], [event][field], ...
+var filterLogicFieldRe = regexp.MustCompile(`\[([a-zA-Z0-9_]+)`)
+
+// redactedEcho replaces a manifest parameter echo that would leak values of an
+// anonymized field. The manifest documents that redaction happened instead of
+// silently omitting the parameter.
+func redactedEcho(note string) map[string]interface{} {
+	return map[string]interface{}{
+		"redacted": true,
+		"note":     note,
+	}
+}
+
+// recordsEcho returns the manifest echo for the records filter. When the
+// record-ID field is anonymized, echoing the requested record IDs verbatim
+// would leak the very identifiers the transform removed from the data.
+func recordsEcho(opts pluginOptions, extras manifestExtras) interface{} {
+	if len(opts.Records) == 0 {
+		return opts.Records
+	}
+	if extras.RecordIDField != "" && extras.TransformModes[extras.RecordIDField] != "" {
+		return redactedEcho(fmt.Sprintf("%d record ids hidden: the record id field (%s) is anonymized", len(opts.Records), extras.RecordIDField))
+	}
+	return opts.Records
+}
+
+// filterLogicEcho returns the manifest echo for filterLogic. Filter logic can
+// embed literal values ([name] = "John"), so it is redacted whenever it
+// references an anonymized field.
+func filterLogicEcho(opts pluginOptions, extras manifestExtras) interface{} {
+	if opts.FilterLogic == "" || len(extras.TransformModes) == 0 {
+		return opts.FilterLogic
+	}
+	for _, m := range filterLogicFieldRe.FindAllStringSubmatch(opts.FilterLogic, -1) {
+		if extras.TransformModes[baseFieldName(m[1])] != "" {
+			return redactedEcho("filter logic hidden: it references anonymized fields")
+		}
+	}
+	return opts.FilterLogic
 }
 
 func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectInfoPath, eventsPath, mappingPath, redcapVersion string, warnings []string, extras manifestExtras) ([]byte, error) {
@@ -1153,8 +1366,8 @@ func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectI
 			"fields":               opts.Fields,
 			"forms":                opts.Forms,
 			"events":               opts.Events,
-			"records":              opts.Records,
-			"filter_logic":         opts.FilterLogic,
+			"records":              recordsEcho(opts, extras),
+			"filter_logic":         filterLogicEcho(opts, extras),
 			"date_range_begin":     opts.DateRangeBegin,
 			"date_range_end":       opts.DateRangeEnd,
 		},
@@ -1193,6 +1406,13 @@ func makeManifest(opts pluginOptions, reportID, dataPath, metadataPath, projectI
 			if entry.Matched == 0 {
 				warnings = append(warnings, fmt.Sprintf("anonymization: field %q matched no exported data", entry.Field))
 			}
+		}
+	}
+	if extras.KeyFingerprint != "" {
+		manifest["anonymization"] = map[string]interface{}{
+			"method":          "hmac-sha256",
+			"key_fingerprint": extras.KeyFingerprint,
+			"note":            "pseudonyms are hex-encoded HMAC-SHA256 values; the same key reproduces the same pseudonyms across exports",
 		}
 	}
 	if len(extras.DictionaryFieldsNotExported) > 0 {
@@ -1253,8 +1473,11 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 		basePath = fmt.Sprintf("redcap/report-%s", safeID)
 	}
 
-	blanks := blankFields(opts)
-	dataBytes, dataFields, audit, err := processExportData(rawData, opts, blanks, dict)
+	plan, err := buildTransformPlan(opts)
+	if err != nil {
+		return generatedBundle{}, err
+	}
+	dataBytes, dataFields, audit, err := processExportData(rawData, opts, plan, dict)
 	if err != nil {
 		return generatedBundle{}, fmt.Errorf("export processing failed: %w", err)
 	}
@@ -1310,10 +1533,15 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 		FileUploadFields: dict.fileUploadFields(),
 		ProjectID:        projectID,
 		ProjectTitle:     projectTitle,
+		TransformModes:   plan.modes,
+		RecordIDField:    recordIDField(dict),
+		KeyFingerprint:   plan.keyFingerprint,
 	}
 	// In an unfiltered flat records export, dictionary fields missing from the
 	// output reveal server-side stripping (token export rights). With filters
 	// or report definitions the diff is expected, so it is not recorded.
+	// Client-side dropped fields are excluded: their absence is deliberate and
+	// already documented by the anonymization audit.
 	if opts.ExportMode == "records" && !isEAV(opts) &&
 		len(opts.Fields) == 0 && len(opts.Forms) == 0 && len(opts.Events) == 0 {
 		exported := make(map[string]bool, len(dataFields))
@@ -1321,7 +1549,7 @@ func buildExportBundle(ctx context.Context, baseURL, token string, opts pluginOp
 			exported[field] = true
 		}
 		for _, field := range dict.fieldOrder {
-			if !exported[field] {
+			if !exported[field] && plan.modes[field] != "drop" {
 				extras.DictionaryFieldsNotExported = append(extras.DictionaryFieldsNotExported, field)
 			}
 		}
@@ -1378,6 +1606,10 @@ func bundleCacheKey(baseURL, token string, opts pluginOptions) string {
 		ExportSurveyFields:     opts.ExportSurveyFields,
 		ExportDataAccessGroups: opts.ExportDataAccessGroups,
 		Variables:              opts.Variables,
+		// The key participates in the cache key (different keys produce
+		// different pseudonyms) but is only ever used as MD5 input here —
+		// it is never stored or logged in recoverable form.
+		PseudonymizationKey: opts.PseudonymizationKey,
 		// GeneratedAt intentionally excluded
 	}
 	data, _ := json.Marshal(stable)
