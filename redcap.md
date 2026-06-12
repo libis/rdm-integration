@@ -598,7 +598,7 @@ Fixes the review findings before new features (see [Review, Research, And Decisi
    Also removed the per-file payload copy in `Streams` (bundle contents are immutable; halves peak memory while streaming).
 2. ~~Security review~~ — done (2026-06-12), see [Security Review](#security-review-2026-06-12).
 3. ~~User documentation~~ — done: [REDCAP_INTEGRATION.md](REDCAP_INTEGRATION.md) (features, key generation/management, PHI disclaimer, sidecars/previewers, manifest reference).
-4. Re-test on pilot (first pilot deploy of Phases 0–3.9 done 2026-06-11 via `make dev_build`). **Remaining: user re-tests the Phase 4–6 build.**
+4. ~~Re-test on pilot~~ — done (2026-06-12): full Phase 4–6 build deployed and verified end to end (de-id flows, sidecars, all three previewers incl. the new Croissant previewer, clean SHACL validation). Side quests fixed along the way: broken Shibboleth proxy rebuild (rdm-build), cdi-viewer context fallback + rendering fixes, reconnect settings-loss in the frontend.
 5. Keep `redcap` plugin as stable fallback until `redcap2` is proven.
 6. Revisit attachments (opt-in, size-capped, flagged as not de-identified) based on pilot feedback.
 

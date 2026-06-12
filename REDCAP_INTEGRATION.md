@@ -135,6 +135,9 @@ When at least one variable is set to *Pseudonymize*, a key field appears.
 - The key itself never appears in the generated files or logs. The manifest
   records only a *fingerprint* (a hash of the key), so you can verify later
   which key was used.
+- After a page reload or reconnect, your export settings (report ID, mode,
+  filters, anonymization choices) are restored automatically — but the key
+  is not: it lives only in page memory and must be pasted again.
 - Pseudonymization is irreversible: there is no decryption. This is by
   design (institutional decision; reversible encryption is out of scope).
 
