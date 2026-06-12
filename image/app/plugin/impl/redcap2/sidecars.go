@@ -17,10 +17,11 @@ import (
 //     previewer registers for.
 //   - The DDI-CDI mime must stay in sync with common.DdiCdiMimeType and the
 //     contentType in conf/dataverse/external-tools/04-cdi-previewer.json.
-//   - Croissant is JSON-LD; the bare application/ld+json type lets a generic
-//     JSON-LD previewer (conf/dataverse/external-tools/06-jsonld-previewer.json)
-//     pick it up. There is no Croissant-specific previewer or mime convention
-//     (the Croissant 1.0 spec defines no media type).
+//   - Croissant is typed as bare application/ld+json (accurate: it is
+//     JSON-LD; the Croissant 1.0 spec defines no media type). No previewer
+//     fires on it: none exists for Croissant, and the cdi-viewer cannot
+//     render it (croissant.json is a single nested node, not a flattened
+//     @graph document).
 const (
 	roCrateMimeType   = `application/ld+json; profile="http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://w3id.org/ro/crate"`
 	ddiCdiMimeType    = `application/ld+json;profile="http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://ddialliance.org/specification/ddi-cdi/1.0"`
