@@ -287,20 +287,8 @@ func TestBuildDDICDI(t *testing.T) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatalf("ddi-cdi.jsonld is invalid JSON: %v", err)
 	}
-	// The context must be self-contained (inline): referencing the remote
-	// DDI-CDI context URL makes consumers fail silently when it is
-	// unreachable or unparseable (as the hosted copy currently is).
-	context, ok := doc["@context"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("@context = %v, want inline context object", doc["@context"])
-	}
-	if context["cdi"] != "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/" {
-		t.Errorf("cdi prefix = %v", context["cdi"])
-	}
-	for _, class := range []string{"Code", "Category", "Notation", "CodeList", "InstanceVariable", "PhysicalSegmentLayout"} {
-		if _, ok := context[class]; !ok {
-			t.Errorf("inline context missing class term %s", class)
-		}
+	if doc["@context"] != ddiCdiContext {
+		t.Errorf("@context = %v", doc["@context"])
 	}
 
 	byType := map[string][]map[string]interface{}{}
@@ -393,16 +381,8 @@ func TestBuildDDICDIJSONExportSkipsPhysicalLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildDDICDI returned error: %v", err)
 	}
-	doc := map[string]interface{}{}
-	if err := json.Unmarshal(data, &doc); err != nil {
-		t.Fatalf("ddi-cdi.jsonld invalid: %v", err)
-	}
-	for _, entry := range doc["@graph"].([]interface{}) {
-		node := entry.(map[string]interface{})
-		switch node["@type"] {
-		case "PhysicalSegmentLayout", "ValueMapping", "ValueMappingPosition":
-			t.Errorf("JSON exports must not describe a delimited physical layout, got %v", node["@type"])
-		}
+	if strings.Contains(string(data), "PhysicalSegmentLayout") || strings.Contains(string(data), "ValueMapping") {
+		t.Error("JSON exports must not describe a delimited physical layout")
 	}
 }
 

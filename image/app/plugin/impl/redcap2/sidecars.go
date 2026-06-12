@@ -608,127 +608,10 @@ func buildROCrate(m sidecarModel) ([]byte, error) {
 
 // --- DDI-CDI 1.0 ---
 
-// cdiRef defines a JSON-LD term whose values are IRI references.
-func cdiRef(iri string) map[string]interface{} {
-	return map[string]interface{}{"@id": iri, "@type": "@id"}
-}
-
-// cdiLit defines a JSON-LD term whose values are typed literals.
-func cdiLit(iri, dataType string) map[string]interface{} {
-	return map[string]interface{}{"@id": iri, "@type": dataType}
-}
-
-// cdiClass defines a class term with a type-scoped context (JSON-LD 1.1),
-// mirroring the structure of the official DDI-CDI context.
-func cdiClass(name string, terms map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{"@id": "cdi:" + name, "@context": terms}
-}
-
-// ddiCdiInlineContext is a minimal, self-contained JSON-LD context covering
-// exactly the terms this generator emits, with the class-scoped term IRIs
-// copied from the official DDI-CDI 1.0 context
-// (https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld).
-// It is embedded inline instead of referencing that URL: when the remote
-// context cannot be fetched or parsed (it currently contains stray git
-// conflict markers upstream), consumers like the cdi-viewer previewer fall
-// back to an empty context — every compact property key is then silently
-// dropped during expansion and SHACL validation reports mass "less than 1
-// values" violations. An inline context cannot fail to load.
-var ddiCdiInlineContext = buildDdiCdiInlineContext()
-
-func buildDdiCdiInlineContext() map[string]interface{} {
-	component := map[string]interface{}{
-		"isDefinedBy_RepresentedVariable": cdiRef("cdi:DataStructureComponent_isDefinedBy_RepresentedVariable"),
-	}
-	return map[string]interface{}{
-		"cdi": "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/",
-		"xsd": "http://www.w3.org/2001/XMLSchema#",
-		"Code": cdiClass("Code", map[string]interface{}{
-			"denotes":       cdiRef("cdi:Code_denotes_Category"),
-			"uses_Notation": cdiRef("cdi:Code_uses_Notation"),
-		}),
-		"Category": cdiClass("Category", map[string]interface{}{
-			"name": cdiRef("cdi:Concept-name"),
-		}),
-		"Notation": cdiClass("Notation", map[string]interface{}{
-			"content":    cdiRef("cdi:Notation-content"),
-			"represents": cdiRef("cdi:Notation_represents_Category"),
-		}),
-		"CodeList": cdiClass("CodeList", map[string]interface{}{
-			"name":             cdiRef("cdi:EnumerationDomain-name"),
-			"allowsDuplicates": cdiLit("cdi:CodeList-allowsDuplicates", "xsd:boolean"),
-			"has_Code":         cdiRef("cdi:CodeList_has_Code"),
-		}),
-		"TypedString": cdiClass("TypedString", map[string]interface{}{
-			"content": cdiLit("cdi:TypedString-content", "xsd:string"),
-		}),
-		"ObjectName": cdiClass("ObjectName", map[string]interface{}{
-			"name": cdiLit("cdi:ObjectName-name", "xsd:string"),
-		}),
-		"SubstantiveValueDomain": cdiClass("SubstantiveValueDomain", map[string]interface{}{
-			"recommendedDataType": cdiRef("cdi:ValueDomain-recommendedDataType"),
-			"takesValuesFrom":     cdiRef("cdi:SubstantiveValueDomain_takesValuesFrom_EnumerationDomain"),
-		}),
-		"ControlledVocabularyEntry": cdiClass("ControlledVocabularyEntry", map[string]interface{}{
-			"entryValue": cdiLit("cdi:ControlledVocabularyEntry-entryValue", "xsd:string"),
-			"vocabulary": cdiRef("cdi:ControlledVocabularyEntry-vocabulary"),
-		}),
-		"Reference": cdiClass("Reference", map[string]interface{}{
-			"uri": cdiLit("cdi:Reference-uri", "xsd:anyURI"),
-		}),
-		"InstanceVariable": cdiClass("InstanceVariable", map[string]interface{}{
-			"name":             cdiRef("cdi:Concept-name"),
-			"definition":       cdiRef("cdi:Concept-definition"),
-			"has_ValueMapping": cdiRef("cdi:InstanceVariable_has_ValueMapping"),
-			"takesSubstantiveValuesFrom_SubstantiveValueDomain": cdiRef("cdi:RepresentedVariable_takesSubstantiveValuesFrom_SubstantiveValueDomain"),
-		}),
-		"InternationalString": cdiClass("InternationalString", map[string]interface{}{
-			"languageSpecificString": cdiRef("cdi:InternationalString-languageSpecificString"),
-		}),
-		"LanguageString": cdiClass("LanguageString", map[string]interface{}{
-			"content": cdiLit("cdi:LanguageString-content", "xsd:string"),
-		}),
-		"WideDataSet": cdiClass("WideDataSet", map[string]interface{}{
-			"isStructuredBy": cdiRef("cdi:DataSet_isStructuredBy_DataStructure"),
-		}),
-		"WideDataStructure": cdiClass("WideDataStructure", map[string]interface{}{
-			"has_DataStructureComponent": cdiRef("cdi:DataStructure_has_DataStructureComponent"),
-			"has_PrimaryKey":             cdiRef("cdi:DataStructure_has_PrimaryKey"),
-		}),
-		"LogicalRecord": cdiClass("LogicalRecord", map[string]interface{}{
-			"organizes":            cdiRef("cdi:LogicalRecord_organizes_DataSet"),
-			"has_InstanceVariable": cdiRef("cdi:LogicalRecord_has_InstanceVariable"),
-		}),
-		"PrimaryKey": cdiClass("PrimaryKey", map[string]interface{}{
-			"isComposedOf": cdiRef("cdi:PrimaryKey_isComposedOf_PrimaryKeyComponent"),
-		}),
-		"PrimaryKeyComponent": cdiClass("PrimaryKeyComponent", map[string]interface{}{
-			"correspondsTo_DataStructureComponent": cdiRef("cdi:PrimaryKeyComponent_correspondsTo_DataStructureComponent"),
-		}),
-		"IdentifierComponent": cdiClass("IdentifierComponent", component),
-		"MeasureComponent":    cdiClass("MeasureComponent", component),
-		"DimensionComponent":  cdiClass("DimensionComponent", component),
-		"AttributeComponent":  cdiClass("AttributeComponent", component),
-		"ValueMapping": cdiClass("ValueMapping", map[string]interface{}{
-			"defaultValue": cdiLit("cdi:ValueMapping-defaultValue", "xsd:string"),
-		}),
-		"ValueMappingPosition": cdiClass("ValueMappingPosition", map[string]interface{}{
-			"indexes": cdiRef("cdi:ValueMappingPosition_indexes_ValueMapping"),
-			"value":   cdiLit("cdi:ValueMappingPosition-value", "xsd:integer"),
-		}),
-		"PhysicalSegmentLayout": cdiClass("PhysicalSegmentLayout", map[string]interface{}{
-			"allowsDuplicates":         cdiLit("cdi:PhysicalSegmentLayout-allowsDuplicates", "xsd:boolean"),
-			"isDelimited":              cdiLit("cdi:PhysicalSegmentLayout-isDelimited", "xsd:boolean"),
-			"isFixedWidth":             cdiLit("cdi:PhysicalSegmentLayout-isFixedWidth", "xsd:boolean"),
-			"hasHeader":                cdiLit("cdi:PhysicalSegmentLayout-hasHeader", "xsd:boolean"),
-			"headerRowCount":           cdiLit("cdi:PhysicalSegmentLayout-headerRowCount", "xsd:integer"),
-			"delimiter":                cdiLit("cdi:PhysicalSegmentLayout-delimiter", "xsd:string"),
-			"formats":                  cdiRef("cdi:PhysicalSegmentLayout_formats_LogicalRecord"),
-			"has_ValueMapping":         cdiRef("cdi:PhysicalSegmentLayout_has_ValueMapping"),
-			"has_ValueMappingPosition": cdiRef("cdi:PhysicalSegmentLayout_has_ValueMappingPosition"),
-		}),
-	}
-}
+// ddiCdiContext matches the in-repo DDI-CDI generator (cdi_generator_jsonld.py)
+// whose output validates against the official DDI-CDI 1.0 SHACL shapes used by
+// the cdi-viewer previewer.
+const ddiCdiContext = "https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld"
 
 func ddiCdiDataType(v sidecarVariable) string {
 	switch v.FieldType {
@@ -996,7 +879,7 @@ func buildDDICDI(m sidecarModel) ([]byte, error) {
 	}
 
 	doc := map[string]interface{}{
-		"@context": ddiCdiInlineContext,
+		"@context": ddiCdiContext,
 		"@graph":   graph,
 	}
 	return json.MarshalIndent(doc, "", "  ")
