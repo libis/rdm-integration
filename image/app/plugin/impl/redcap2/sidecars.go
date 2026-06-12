@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -44,6 +45,8 @@ type sidecarVariable struct {
 	Label      string
 	FieldType  string // REDCap field type ("" for pseudo-columns)
 	Validation string
+	MinValue   string // text_validation_min from the dictionary
+	MaxValue   string // text_validation_max from the dictionary
 	Identifier bool
 	IsRecordID bool
 	Transform  string // applied anonymization mode ("" if none)
@@ -157,6 +160,8 @@ func buildSidecarVariables(columns []string, opts pluginOptions, plan transformP
 			v.Label = dict.fieldLabel[v.Field]
 			v.FieldType = dict.fieldType[v.Field]
 			v.Validation = dict.validation[v.Field]
+			v.MinValue = dict.validationMin[v.Field]
+			v.MaxValue = dict.validationMax[v.Field]
 			v.Identifier = dict.identifier[v.Field]
 			v.IsRecordID = v.Field == recordField
 			v.Choices = variableChoices(dict, v.Field)
@@ -247,6 +252,15 @@ func bundleFileEncodingFormat(name string, opts pluginOptions) string {
 	return "application/octet-stream"
 }
 
+// publishedDate returns the export timestamp, or false when only the
+// missing-timestamp sentinel is available (datePublished must be ISO 8601).
+func (m sidecarModel) publishedDate() (string, bool) {
+	if m.GeneratedAt == "" || m.GeneratedAt == "missing-generated-at" {
+		return "", false
+	}
+	return m.GeneratedAt, true
+}
+
 // datasetName returns a human-readable dataset name for the sidecars.
 func (m sidecarModel) datasetName() string {
 	if m.ProjectTitle != "" {
@@ -286,44 +300,92 @@ func variableDescription(v sidecarVariable) string {
 	return strings.Join(parts, " — ")
 }
 
+// numericBound parses a REDCap validation min/max into a JSON number.
+// Non-numeric bounds (e.g. date limits) are skipped: schema.org
+// minValue/maxValue expect numbers.
+func numericBound(raw string) (float64, bool) {
+	f, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	return f, err == nil
+}
+
+// propertyValueBase renders the shared part of a schema.org PropertyValue
+// for one variable, following the CDIF 1.1 Discovery profile shape for
+// variableMeasured (name + description required, alternateName, min/max).
+// Code lists are attached by the caller (inline DefinedTerms for Croissant,
+// flattened references for RO-Crate).
+func propertyValueBase(v sidecarVariable) map[string]interface{} {
+	pv := map[string]interface{}{
+		"@type": "PropertyValue",
+		"name":  v.Column,
+	}
+	if desc := variableDescription(v); desc != "" {
+		pv["description"] = desc
+	}
+	if v.Label != "" && v.Label != v.Column {
+		pv["alternateName"] = v.Label
+	}
+	if f, ok := numericBound(v.MinValue); ok {
+		pv["minValue"] = f
+	}
+	if f, ok := numericBound(v.MaxValue); ok {
+		pv["maxValue"] = f
+	}
+	return pv
+}
+
+// definedTermFor renders one code-list entry as a schema.org DefinedTerm
+// (termCode = the value in the data, name = the human label).
+func definedTermFor(c choiceCode) map[string]interface{} {
+	term := map[string]interface{}{
+		"@type":    "DefinedTerm",
+		"termCode": c.Code,
+	}
+	if c.Label != "" {
+		term["name"] = c.Label
+	}
+	return term
+}
+
 // --- Croissant 1.0 ---
 
 // croissantContext is the canonical Croissant 1.0 @context.
 var croissantContext = map[string]interface{}{
-	"@language":     "en",
-	"@vocab":        "https://schema.org/",
-	"citeAs":        "cr:citeAs",
-	"column":        "cr:column",
-	"conformsTo":    "dct:conformsTo",
-	"cr":            "http://mlcommons.org/croissant/",
-	"rai":           "http://mlcommons.org/croissant/RAI/",
-	"data":          map[string]interface{}{"@id": "cr:data", "@type": "@json"},
-	"dataType":      map[string]interface{}{"@id": "cr:dataType", "@type": "@vocab"},
-	"dct":           "http://purl.org/dc/terms/",
-	"examples":      map[string]interface{}{"@id": "cr:examples", "@type": "@json"},
-	"extract":       "cr:extract",
-	"field":         "cr:field",
-	"fileProperty":  "cr:fileProperty",
-	"fileObject":    "cr:fileObject",
-	"fileSet":       "cr:fileSet",
-	"format":        "cr:format",
-	"includes":      "cr:includes",
-	"isLiveDataset": "cr:isLiveDataset",
-	"jsonPath":      "cr:jsonPath",
-	"key":           "cr:key",
-	"md5":           "cr:md5",
-	"parentField":   "cr:parentField",
-	"path":          "cr:path",
-	"recordSet":     "cr:recordSet",
-	"references":    "cr:references",
-	"regex":         "cr:regex",
-	"repeated":      "cr:repeated",
-	"replace":       "cr:replace",
-	"sc":            "https://schema.org/",
-	"separator":     "cr:separator",
-	"source":        "cr:source",
-	"subField":      "cr:subField",
-	"transform":     "cr:transform",
+	"@language":          "en",
+	"@vocab":             "https://schema.org/",
+	"citeAs":             "cr:citeAs",
+	"column":             "cr:column",
+	"conformsTo":         "dct:conformsTo",
+	"cr":                 "http://mlcommons.org/croissant/",
+	"rai":                "http://mlcommons.org/croissant/RAI/",
+	"data":               map[string]interface{}{"@id": "cr:data", "@type": "@json"},
+	"dataType":           map[string]interface{}{"@id": "cr:dataType", "@type": "@vocab"},
+	"dct":                "http://purl.org/dc/terms/",
+	"equivalentProperty": "cr:equivalentProperty",
+	"examples":           map[string]interface{}{"@id": "cr:examples", "@type": "@json"},
+	"extract":            "cr:extract",
+	"field":              "cr:field",
+	"fileProperty":       "cr:fileProperty",
+	"fileObject":         "cr:fileObject",
+	"fileSet":            "cr:fileSet",
+	"format":             "cr:format",
+	"includes":           "cr:includes",
+	"isLiveDataset":      "cr:isLiveDataset",
+	"jsonPath":           "cr:jsonPath",
+	"key":                "cr:key",
+	"md5":                "cr:md5",
+	"parentField":        "cr:parentField",
+	"path":               "cr:path",
+	"recordSet":          "cr:recordSet",
+	"references":         "cr:references",
+	"regex":              "cr:regex",
+	"repeated":           "cr:repeated",
+	"replace":            "cr:replace",
+	"samplingRate":       "cr:samplingRate",
+	"sc":                 "https://schema.org/",
+	"separator":          "cr:separator",
+	"source":             "cr:source",
+	"subField":           "cr:subField",
+	"transform":          "cr:transform",
 }
 
 func croissantDataType(v sidecarVariable) string {
@@ -362,14 +424,37 @@ func buildCroissant(m sidecarModel) ([]byte, error) {
 	}
 
 	doc := map[string]interface{}{
-		"@context":      croissantContext,
-		"@type":         "sc:Dataset",
-		"conformsTo":    "http://mlcommons.org/croissant/1.0",
-		"name":          m.datasetName(),
-		"description":   m.datasetDescription(),
-		"version":       "1.0.0",
-		"datePublished": m.GeneratedAt,
-		"distribution":  distribution,
+		"@context":     croissantContext,
+		"@type":        "sc:Dataset",
+		"conformsTo":   "http://mlcommons.org/croissant/1.0",
+		"name":         m.datasetName(),
+		"description":  m.datasetDescription(),
+		"version":      "1.0.0",
+		"distribution": distribution,
+	}
+	if date, ok := m.publishedDate(); ok {
+		doc["datePublished"] = date
+	}
+
+	// Variable-level metadata as schema.org variableMeasured, following the
+	// CDIF 1.1 Discovery profile shape (Croissant's @vocab is schema.org, so
+	// the terms expand to the right IRIs; mlcroissant accepts them). Code
+	// lists are inline DefinedTerms via valueReference.
+	if len(m.Variables) > 0 {
+		variableMeasured := make([]interface{}, 0, len(m.Variables))
+		for _, v := range m.Variables {
+			pv := propertyValueBase(v)
+			pv["@id"] = "variable/" + v.Column
+			if len(v.Choices) > 0 {
+				terms := make([]interface{}, 0, len(v.Choices))
+				for _, c := range v.Choices {
+					terms = append(terms, definedTermFor(c))
+				}
+				pv["valueReference"] = terms
+			}
+			variableMeasured = append(variableMeasured, pv)
+		}
+		doc["variableMeasured"] = variableMeasured
 	}
 
 	if m.DataFormat == "csv" && len(m.Variables) > 0 {
@@ -427,16 +512,44 @@ func buildROCrate(m sidecarModel) ([]byte, error) {
 	}
 
 	rootDataset := map[string]interface{}{
-		"@id":           "./",
-		"@type":         "Dataset",
-		"name":          m.datasetName(),
-		"description":   m.datasetDescription(),
-		"datePublished": m.GeneratedAt,
-		"hasPart":       hasPart,
-		"mentions":      map[string]interface{}{"@id": "#export-action"},
+		"@id":         "./",
+		"@type":       "Dataset",
+		"name":        m.datasetName(),
+		"description": m.datasetDescription(),
+		"hasPart":     hasPart,
+		"mentions":    map[string]interface{}{"@id": "#export-action"},
+	}
+	if date, ok := m.publishedDate(); ok {
+		rootDataset["datePublished"] = date
 	}
 	if m.ProjectID != nil {
 		rootDataset["identifier"] = fmt.Sprintf("redcap-project-%v", m.ProjectID)
+	}
+
+	// Variable-level metadata as schema.org variableMeasured contextual
+	// entities (CDIF 1.1 Discovery profile shape). RO-Crate JSON-LD is
+	// flattened: every PropertyValue and DefinedTerm is its own graph entity.
+	if len(m.Variables) > 0 {
+		variableRefs := make([]interface{}, 0, len(m.Variables))
+		for _, v := range m.Variables {
+			variableID := "#variable/" + v.Column
+			variableRefs = append(variableRefs, map[string]interface{}{"@id": variableID})
+			pv := propertyValueBase(v)
+			pv["@id"] = variableID
+			if len(v.Choices) > 0 {
+				termRefs := make([]interface{}, 0, len(v.Choices))
+				for _, c := range v.Choices {
+					termID := variableID + "/code/" + safeFragment(c.Code)
+					termRefs = append(termRefs, map[string]interface{}{"@id": termID})
+					term := definedTermFor(c)
+					term["@id"] = termID
+					graph = append(graph, term)
+				}
+				pv["valueReference"] = termRefs
+			}
+			graph = append(graph, pv)
+		}
+		rootDataset["variableMeasured"] = variableRefs
 	}
 	graph = append(graph, rootDataset)
 
@@ -462,10 +575,12 @@ func buildROCrate(m sidecarModel) ([]byte, error) {
 		"name":       "REDCap export",
 		"instrument": map[string]interface{}{"@id": "#rdm-integration-redcap2"},
 		"result":     results,
-		"endTime":    m.GeneratedAt,
 		"description": fmt.Sprintf(
 			"Files generated from the REDCap API (export mode: %s) with client-side anonymization applied as documented in manifest.json",
 			m.ExportMode),
+	}
+	if date, ok := m.publishedDate(); ok {
+		action["endTime"] = date
 	}
 	graph = append(graph, action)
 	graph = append(graph, map[string]interface{}{
@@ -576,33 +691,63 @@ func buildDDICDI(m sidecarModel) ([]byte, error) {
 		variableIDs = append(variableIDs, varID)
 		componentIDs = append(componentIDs, componentID)
 
-		// Code list from the REDCap choices definition.
+		// Code list from the REDCap choices definition. Per the DDI-CDI 1.0
+		// model (and its official SHACL shapes), a Code carries no literal
+		// value itself: it uses a Notation whose TypedString content is the
+		// value as it appears in the data, and denotes a Category that holds
+		// the human-readable label.
 		codeListID := ""
 		if len(v.Choices) > 0 {
 			codeListID = "#" + frag + "_CodeList"
 			codeIDs := []interface{}{}
 			for _, c := range v.Choices {
-				codeID := "#" + frag + "_Code_" + safeFragment(c.Code)
+				codeFrag := frag + "_" + safeFragment(c.Code)
+				codeID := "#" + codeFrag + "_Code"
+				categoryID := "#" + codeFrag + "_Category"
+				notationID := "#" + codeFrag + "_Notation"
 				codeIDs = append(codeIDs, codeID)
-				codeNode := map[string]interface{}{
-					"@id":        codeID,
-					"@type":      "Code",
-					"identifier": c.Code,
+
+				categoryName := c.Label
+				if categoryName == "" {
+					categoryName = c.Code
 				}
-				if c.Label != "" {
-					codeNode["name"] = c.Label
-				}
-				graph = append(graph, codeNode)
+				graph = append(graph, map[string]interface{}{
+					"@id":   categoryID,
+					"@type": "Category",
+					"name": map[string]interface{}{
+						"@type": "ObjectName",
+						"name":  categoryName,
+					},
+				})
+				graph = append(graph, map[string]interface{}{
+					"@id":   notationID,
+					"@type": "Notation",
+					"content": map[string]interface{}{
+						"@type":   "TypedString",
+						"content": c.Code,
+					},
+					"represents": categoryID,
+				})
+				graph = append(graph, map[string]interface{}{
+					"@id":           codeID,
+					"@type":         "Code",
+					"denotes":       categoryID,
+					"uses_Notation": notationID,
+				})
 			}
 			label := v.Label
 			if label == "" {
 				label = v.Column
 			}
 			graph = append(graph, map[string]interface{}{
-				"@id":      codeListID,
-				"@type":    "CodeList",
-				"name":     label + " codes",
-				"has_Code": codeIDs,
+				"@id":   codeListID,
+				"@type": "CodeList",
+				"name": map[string]interface{}{
+					"@type": "ObjectName",
+					"name":  label + " codes",
+				},
+				"allowsDuplicates": false,
+				"has_Code":         codeIDs,
 			})
 		}
 
@@ -684,11 +829,17 @@ func buildDDICDI(m sidecarModel) ([]byte, error) {
 		"@type":          "WideDataSet",
 		"isStructuredBy": "#datastructure",
 	})
-	graph = append(graph, map[string]interface{}{
+	structure := map[string]interface{}{
 		"@id":                        "#datastructure",
 		"@type":                      "WideDataStructure",
 		"has_DataStructureComponent": componentIDs,
-	})
+	}
+	if primaryKeyComponent != "" {
+		// The SHACL shapes require the primary key to be reachable from the
+		// data structure (DataStructure_has_PrimaryKey).
+		structure["has_PrimaryKey"] = "#primaryKey"
+	}
+	graph = append(graph, structure)
 	graph = append(graph, map[string]interface{}{
 		"@id":                  "#logicalRecord",
 		"@type":                "LogicalRecord",
@@ -702,9 +853,9 @@ func buildDDICDI(m sidecarModel) ([]byte, error) {
 			"isComposedOf": "#primaryKeyComponent",
 		})
 		graph = append(graph, map[string]interface{}{
-			"@id":           "#primaryKeyComponent",
-			"@type":         "PrimaryKeyComponent",
-			"correspondsTo": primaryKeyComponent,
+			"@id":                                  "#primaryKeyComponent",
+			"@type":                                "PrimaryKeyComponent",
+			"correspondsTo_DataStructureComponent": primaryKeyComponent,
 		})
 	}
 	if m.DataFormat == "csv" {

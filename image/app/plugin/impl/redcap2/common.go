@@ -518,24 +518,29 @@ type dictionary struct {
 	labelFields   map[string][]string // field_label -> field names (labels can collide)
 	identifier    map[string]bool     // field_name -> tagged as identifier in REDCap
 	validation    map[string]string   // field_name -> text validation type ("" = unvalidated)
+	validationMin map[string]string   // field_name -> text_validation_min
+	validationMax map[string]string   // field_name -> text_validation_max
 	choices       map[string]string   // field_name -> raw select_choices_or_calculations
 	hasValidation bool                // the validation column was present in the dictionary
 }
 
 func parseDictionary(metadataCSV []byte) dictionary {
 	dict := dictionary{
-		fieldType:   map[string]string{},
-		fieldLabel:  map[string]string{},
-		labelFields: map[string][]string{},
-		identifier:  map[string]bool{},
-		validation:  map[string]string{},
-		choices:     map[string]string{},
+		fieldType:     map[string]string{},
+		fieldLabel:    map[string]string{},
+		labelFields:   map[string][]string{},
+		identifier:    map[string]bool{},
+		validation:    map[string]string{},
+		validationMin: map[string]string{},
+		validationMax: map[string]string{},
+		choices:       map[string]string{},
 	}
 	rows, err := parseCSV(metadataCSV, ',')
 	if err != nil || len(rows) == 0 {
 		return dict
 	}
 	nameIdx, typeIdx, labelIdx, identifierIdx, validationIdx, choicesIdx := -1, -1, -1, -1, -1, -1
+	minIdx, maxIdx := -1, -1
 	for i, col := range rows[0] {
 		switch strings.ToLower(strings.TrimSpace(col)) {
 		case "field_name":
@@ -548,6 +553,10 @@ func parseDictionary(metadataCSV []byte) dictionary {
 			identifierIdx = i
 		case "text_validation_type_or_show_slider_number":
 			validationIdx = i
+		case "text_validation_min":
+			minIdx = i
+		case "text_validation_max":
+			maxIdx = i
 		case "select_choices_or_calculations":
 			choicesIdx = i
 		}
@@ -589,6 +598,16 @@ func parseDictionary(metadataCSV []byte) dictionary {
 		}
 		if validationIdx >= 0 && validationIdx < len(row) {
 			dict.validation[name] = strings.ToLower(strings.TrimSpace(row[validationIdx]))
+		}
+		if minIdx >= 0 && minIdx < len(row) {
+			if v := strings.TrimSpace(row[minIdx]); v != "" {
+				dict.validationMin[name] = v
+			}
+		}
+		if maxIdx >= 0 && maxIdx < len(row) {
+			if v := strings.TrimSpace(row[maxIdx]); v != "" {
+				dict.validationMax[name] = v
+			}
 		}
 	}
 	return dict

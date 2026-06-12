@@ -4,19 +4,21 @@ package redcap2
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
 
-const sidecarTestMetadataCSV = "field_name,form_name,field_type,field_label,select_choices_or_calculations,identifier,text_validation_type_or_show_slider_number\n" +
-	"record_id,demographics,text,Record ID,,,\n" +
-	"name,demographics,text,Full Name,,y,\n" +
-	"age,demographics,text,Age,,,integer\n" +
-	"weight,demographics,text,Weight,,,number\n" +
-	"sex,demographics,radio,Sex,\"1, Male | 2, Female\",,\n" +
-	"consent,demographics,yesno,Consent given,,,\n" +
-	"visit_date,demographics,text,Visit Date,,,date_ymd\n"
+const sidecarTestMetadataCSV = "field_name,form_name,field_type,field_label,select_choices_or_calculations,identifier,text_validation_type_or_show_slider_number,text_validation_min,text_validation_max\n" +
+	"record_id,demographics,text,Record ID,,,,,\n" +
+	"name,demographics,text,Full Name,,y,,,\n" +
+	"age,demographics,text,Age,,,integer,0,120\n" +
+	"weight,demographics,text,Weight,,,number,,\n" +
+	"sex,demographics,radio,Sex,\"1, Male | 2, Female\",,,,\n" +
+	"consent,demographics,yesno,Consent given,,,,,\n" +
+	"visit_date,demographics,text,Visit Date,,,date_ymd,2020-01-01,\n"
 
 func sidecarTestModel(t *testing.T, opts pluginOptions, plan transformPlan, dataCSV string) sidecarModel {
 	t.Helper()
@@ -46,7 +48,7 @@ func TestParseChoiceCodes(t *testing.T) {
 }
 
 func TestBuildSidecarVariables(t *testing.T) {
-	opts, _ := parsePluginOptions(`{"exportMode":"records"}`)
+	opts, _ := parsePluginOptions(`{"exportMode":"records","generatedAt":"2026-06-12T00:00:00Z"}`)
 	plan := testPlan(map[string]string{"name": "blank"})
 	model := sidecarTestModel(t, opts, plan,
 		"record_id,name,age,sex,consent,visit_date\n1,John,34,1,1,2026-01-01\n")
@@ -67,10 +69,13 @@ func TestBuildSidecarVariables(t *testing.T) {
 	if byColumn["age"].Validation != "integer" {
 		t.Errorf("age validation = %q", byColumn["age"].Validation)
 	}
+	if byColumn["age"].MinValue != "0" || byColumn["age"].MaxValue != "120" {
+		t.Errorf("age min/max = %q/%q, want 0/120", byColumn["age"].MinValue, byColumn["age"].MaxValue)
+	}
 }
 
 func TestBuildCroissant(t *testing.T) {
-	opts, _ := parsePluginOptions(`{"exportMode":"records"}`)
+	opts, _ := parsePluginOptions(`{"exportMode":"records","generatedAt":"2026-06-12T00:00:00Z"}`)
 	plan := testPlan(map[string]string{"name": "pseudonymize"})
 	plan.keyFingerprint = "abcdef0123456789"
 	model := sidecarTestModel(t, opts, plan,
@@ -123,6 +128,40 @@ func TestBuildCroissant(t *testing.T) {
 			t.Errorf("dataType(%s) = %q, want %q", name, dataTypes[name], wantType)
 		}
 	}
+
+	// Variable-level metadata (CDIF-style variableMeasured).
+	variableMeasured := doc["variableMeasured"].([]interface{})
+	byName := map[string]map[string]interface{}{}
+	for _, entry := range variableMeasured {
+		pv := entry.(map[string]interface{})
+		byName[pv["name"].(string)] = pv
+	}
+	if len(byName) != len(model.Variables) {
+		t.Errorf("variableMeasured has %d entries, want %d", len(byName), len(model.Variables))
+	}
+	age := byName["age"]
+	if age["@type"] != "PropertyValue" || age["minValue"] != float64(0) || age["maxValue"] != float64(120) {
+		t.Errorf("age variableMeasured = %v", age)
+	}
+	sex := byName["sex"]
+	if sex["alternateName"] != "Sex" {
+		t.Errorf("sex alternateName = %v", sex["alternateName"])
+	}
+	terms := sex["valueReference"].([]interface{})
+	if len(terms) != 2 {
+		t.Fatalf("sex valueReference = %v, want 2 DefinedTerms", terms)
+	}
+	firstTerm := terms[0].(map[string]interface{})
+	if firstTerm["@type"] != "DefinedTerm" || firstTerm["termCode"] != "1" || firstTerm["name"] != "Male" {
+		t.Errorf("sex code term = %v", firstTerm)
+	}
+	if _, ok := byName["visit_date"]["minValue"]; ok {
+		t.Error("non-numeric validation bounds must not become minValue")
+	}
+	pseudonymized := byName["name"]
+	if !strings.Contains(pseudonymized["description"].(string), "pseudonymize") {
+		t.Errorf("transform note missing from description: %v", pseudonymized["description"])
+	}
 }
 
 func TestBuildCroissantJSONExportHasNoRecordSet(t *testing.T) {
@@ -142,7 +181,7 @@ func TestBuildCroissantJSONExportHasNoRecordSet(t *testing.T) {
 }
 
 func TestBuildROCrate(t *testing.T) {
-	opts, _ := parsePluginOptions(`{"exportMode":"records"}`)
+	opts, _ := parsePluginOptions(`{"exportMode":"records","generatedAt":"2026-06-12T00:00:00Z"}`)
 	model := sidecarTestModel(t, opts, transformPlan{},
 		"record_id,age\n1,34\n")
 
@@ -187,10 +226,56 @@ func TestBuildROCrate(t *testing.T) {
 	if byID["#rdm-integration-redcap2"] == nil || byID["#redcap"] == nil {
 		t.Error("software application entities missing")
 	}
+
+	// Variables are flattened PropertyValue entities referenced from the root.
+	variableRefs := root["variableMeasured"].([]interface{})
+	if len(variableRefs) != len(model.Variables) {
+		t.Errorf("variableMeasured refs = %d, want %d", len(variableRefs), len(model.Variables))
+	}
+	recordID := byID["#variable/record_id"]
+	if recordID == nil || recordID["@type"] != "PropertyValue" || recordID["name"] != "record_id" {
+		t.Errorf("record_id variable entity = %v", recordID)
+	}
+}
+
+func TestBuildROCrateFlattensCodeLists(t *testing.T) {
+	opts, _ := parsePluginOptions(`{"exportMode":"records","generatedAt":"2026-06-12T00:00:00Z"}`)
+	model := sidecarTestModel(t, opts, transformPlan{},
+		"record_id,sex\n1,1\n")
+
+	data, err := buildROCrate(model)
+	if err != nil {
+		t.Fatalf("buildROCrate returned error: %v", err)
+	}
+	doc := map[string]interface{}{}
+	_ = json.Unmarshal(data, &doc)
+	byID := map[string]map[string]interface{}{}
+	for _, entry := range doc["@graph"].([]interface{}) {
+		node := entry.(map[string]interface{})
+		byID[node["@id"].(string)] = node
+	}
+
+	sex := byID["#variable/sex"]
+	if sex == nil {
+		t.Fatal("missing #variable/sex entity")
+	}
+	termRefs := sex["valueReference"].([]interface{})
+	if len(termRefs) != 2 {
+		t.Fatalf("sex valueReference = %v", termRefs)
+	}
+	// RO-Crate JSON-LD must stay flattened: code terms are their own entities.
+	firstRef := termRefs[0].(map[string]interface{})
+	if len(firstRef) != 1 || firstRef["@id"] != "#variable/sex/code/1" {
+		t.Errorf("term reference must be an @id ref, got %v", firstRef)
+	}
+	term := byID["#variable/sex/code/1"]
+	if term == nil || term["@type"] != "DefinedTerm" || term["termCode"] != "1" || term["name"] != "Male" {
+		t.Errorf("code term entity = %v", term)
+	}
 }
 
 func TestBuildDDICDI(t *testing.T) {
-	opts, _ := parsePluginOptions(`{"exportMode":"records"}`)
+	opts, _ := parsePluginOptions(`{"exportMode":"records","generatedAt":"2026-06-12T00:00:00Z"}`)
 	model := sidecarTestModel(t, opts, transformPlan{},
 		"record_id,age,sex\n1,34,1\n")
 
@@ -230,9 +315,46 @@ func TestBuildDDICDI(t *testing.T) {
 	if len(byType["PrimaryKey"]) != 1 || len(byType["PrimaryKeyComponent"]) != 1 {
 		t.Error("primary key nodes missing")
 	}
-	// sex has a code list with two codes
-	if len(byType["CodeList"]) != 1 || len(byType["Code"]) != 2 {
-		t.Errorf("CodeList/Code = %d/%d, want 1/2", len(byType["CodeList"]), len(byType["Code"]))
+	// The SHACL shapes require the primary key to be reachable from the
+	// structure and the component to use the full association term.
+	if byID["#datastructure"]["has_PrimaryKey"] != "#primaryKey" {
+		t.Errorf("datastructure has_PrimaryKey = %v", byID["#datastructure"]["has_PrimaryKey"])
+	}
+	if byID["#primaryKeyComponent"]["correspondsTo_DataStructureComponent"] == nil {
+		t.Errorf("primaryKeyComponent = %v", byID["#primaryKeyComponent"])
+	}
+	// sex has a code list with two codes; per DDI-CDI each Code uses a
+	// Notation (the value as it appears in the data) and denotes a Category
+	// (the label).
+	if len(byType["CodeList"]) != 1 || len(byType["Code"]) != 2 ||
+		len(byType["Notation"]) != 2 || len(byType["Category"]) != 2 {
+		t.Errorf("CodeList/Code/Notation/Category = %d/%d/%d/%d, want 1/2/2/2",
+			len(byType["CodeList"]), len(byType["Code"]), len(byType["Notation"]), len(byType["Category"]))
+	}
+	code := byID["#sex_1_Code"]
+	if code == nil || code["denotes"] != "#sex_1_Category" || code["uses_Notation"] != "#sex_1_Notation" {
+		t.Fatalf("code node = %v", code)
+	}
+	if _, ok := code["identifier"]; ok {
+		t.Error("Code must not carry a literal identifier (the value lives in the Notation)")
+	}
+	notation := byID["#sex_1_Notation"]
+	content := notation["content"].(map[string]interface{})
+	if content["@type"] != "TypedString" || content["content"] != "1" {
+		t.Errorf("notation content = %v, want TypedString with the data value", content)
+	}
+	category := byID["#sex_1_Category"]
+	categoryName := category["name"].(map[string]interface{})
+	if categoryName["@type"] != "ObjectName" || categoryName["name"] != "Male" {
+		t.Errorf("category name = %v", categoryName)
+	}
+	codeList := byID["#sex_CodeList"]
+	if codeList["allowsDuplicates"] != false {
+		t.Errorf("codeList allowsDuplicates = %v, want false (required by SHACL)", codeList["allowsDuplicates"])
+	}
+	codeListName := codeList["name"].(map[string]interface{})
+	if codeListName["@type"] != "ObjectName" {
+		t.Errorf("codeList name = %v, want ObjectName object", codeList["name"])
 	}
 	// CSV exports describe the physical layout
 	layout := byID["#physicalSegmentLayout"]
@@ -261,6 +383,36 @@ func TestBuildDDICDIJSONExportSkipsPhysicalLayout(t *testing.T) {
 	}
 	if strings.Contains(string(data), "PhysicalSegmentLayout") || strings.Contains(string(data), "ValueMapping") {
 		t.Error("JSON exports must not describe a delimited physical layout")
+	}
+}
+
+// TestDumpSidecarsForValidation writes generated sidecars to SIDECAR_DUMP_DIR
+// for external validation: pyshacl against the official DDI-CDI 1.0 SHACL
+// shapes (the ones bundled with the cdi-viewer previewer) and
+// `mlcroissant validate --jsonld`. Skipped unless the env var is set:
+//
+//	SIDECAR_DUMP_DIR=/tmp/dump go test ./app/plugin/impl/redcap2/ -run TestDumpSidecarsForValidation
+func TestDumpSidecarsForValidation(t *testing.T) {
+	dir := os.Getenv("SIDECAR_DUMP_DIR")
+	if dir == "" {
+		t.Skip("SIDECAR_DUMP_DIR not set")
+	}
+	opts, _ := parsePluginOptions(`{"exportMode":"records","generatedAt":"2026-06-12T00:00:00Z"}`)
+	plan := testPlan(map[string]string{"name": "pseudonymize", "email": "drop"})
+	plan.keyFingerprint = "abcdef0123456789"
+	model := sidecarTestModel(t, opts, plan,
+		"record_id,name,age,weight,sex,consent,visit_date\n1,x,34,70.5,1,1,2026-01-01\n")
+	files := map[string][]byte{}
+	mime := map[string]string{}
+	if warnings := addSidecars(model, "redcap/records", files, mime); len(warnings) != 0 {
+		t.Fatalf("sidecar warnings: %v", warnings)
+	}
+	for path, data := range files {
+		out := filepath.Join(dir, filepath.Base(path))
+		if err := os.WriteFile(out, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("wrote %s", out)
 	}
 }
 

@@ -165,7 +165,17 @@ exported; the manifest documents which fields hold attachments.
 
 The three metadata sidecars are generated from the same normalized model, so
 they always agree with each other and with the anonymized data (e.g. dropped
-variables are absent everywhere, pseudonymized variables are marked):
+variables are absent everywhere, pseudonymized variables are marked).
+
+All three include **variable-level metadata** derived from the data
+dictionary: labels, data types, numeric validation ranges, and code lists
+("1 = Male | 2 = Female"). In `croissant.json` and `ro-crate-metadata.json`
+this appears as schema.org `variableMeasured` entries following the CDIF 1.1
+Discovery-profile shape (code lists as DefinedTerms whose `termCode` is the
+value as it appears in the data); in `ddi-cdi.jsonld` as InstanceVariables
+with value domains and CodeLists (each Code carries the data value in its
+Notation and the label in its Category). The DDI-CDI output validates against
+the official DDI-CDI 1.0 SHACL shapes used by the CDI previewer.
 
 - `ro-crate-metadata.json` is uploaded with the RO-Crate mime type that
   Dataverse (6.3+) also detects by filename; the standard **RO-Crate
