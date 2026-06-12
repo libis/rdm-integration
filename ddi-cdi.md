@@ -172,7 +172,7 @@ The Go backend now assembles a manifest (JSON) that captures dataset context alo
 Within this manifest-driven run, the generator:
 
 - Constructs a DDI-CDI 1.0 compliant JSON-LD document
-- Uses the official DDI-CDI context: `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld`
+- Uses the official DDI-CDI context: `https://docs.ddialliance.org/DDI-CDI/1.0/model/encoding/json-ld/ddi-cdi.jsonld` (the released encoding on the DDI Alliance documentation site; the former ddi-cdi.github.io/m2t-ng copy is a build artifact and currently serves invalid JSON)
 - Describes the dataset structure using WideDataSet, WideDataStructure, and related types
 - Documents each variable with InstanceVariable, RepresentedVariable, and component types
 - Records provenance information (processing timestamp, tools used)
@@ -638,7 +638,7 @@ The core metadata generation is performed by [`cdi_generator_jsonld.py`](image/c
 - **Clean, documented code** with clear function boundaries
 - **Standard Python libraries** (rdflib, chardet, datasketch, python-dateutil)
 - **JSON-LD output** following DDI-CDI 1.0 specification
-- **Official DDI-CDI context** from `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld`
+- **Official DDI-CDI context** from `https://docs.ddialliance.org/DDI-CDI/1.0/model/encoding/json-ld/ddi-cdi.jsonld` (the released encoding on the DDI Alliance documentation site; the former ddi-cdi.github.io/m2t-ng copy is a build artifact and currently serves invalid JSON)
 - **Streaming architecture** for memory efficiency
 - **Modular design** making it easy to add features or fix issues
 
@@ -782,7 +782,7 @@ Future versions may include:
 This feature implements the DDI-CDI 1.0 specification:
 
 - **Namespace**: `http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/`
-- **JSON-LD Context**: `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld`
+- **JSON-LD Context**: `https://docs.ddialliance.org/DDI-CDI/1.0/model/encoding/json-ld/ddi-cdi.jsonld` (the released encoding on the DDI Alliance documentation site; the former ddi-cdi.github.io/m2t-ng copy is a build artifact and currently serves invalid JSON)
 - **SHACL Shapes**: `https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/shacl/ddi-cdi.shacl.ttl`
 - **Documentation**: [https://ddialliance.org/Specification/DDI-CDI/](https://ddialliance.org/Specification/DDI-CDI/)
 
