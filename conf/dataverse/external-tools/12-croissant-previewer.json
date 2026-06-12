@@ -4,7 +4,7 @@
   "toolName": "croissantPreviewer",
   "scope": "file",
   "types": ["preview", "explore"],
-  "toolUrl": "https://libis.github.io/cdi-viewer/index.html?shacl=croissant",
+  "toolUrl": "https://libis.github.io/cdi-viewer/index.html",
   "toolParameters": {
     "queryParameters": [
       {"fileid": "{fileId}"},

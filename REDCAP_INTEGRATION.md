@@ -187,8 +187,8 @@ the official DDI-CDI 1.0 SHACL shapes used by the CDI previewer.
   (`application/ld+json; profile="http://mlcommons.org/croissant/1.0"`),
   mirroring the RO-Crate/DDI-CDI conventions. The **Croissant previewer**
   (`conf/dataverse/external-tools/12-croissant-previewer.json`, the CDI
-  viewer opened with `?shacl=croissant`) displays it and validates against
-  Croissant SHACL shapes. The Croissant CDIF profile ("Semantic Croissant")
+  viewer — it auto-selects its bundled Croissant SHACL shapes from the
+  document's conformsTo) displays and validates it. The Croissant CDIF profile ("Semantic Croissant")
   is still draft-stage; the file targets plain Croissant 1.0 plus the CDIF
   1.1 Discovery shape for variables, and can also be validated with
   `pip install mlcroissant && mlcroissant validate --jsonld croissant.json`.
