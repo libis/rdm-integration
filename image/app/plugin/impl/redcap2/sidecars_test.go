@@ -95,6 +95,9 @@ func TestBuildCroissant(t *testing.T) {
 	if doc["@type"] != "sc:Dataset" || doc["name"] != "Demo" {
 		t.Errorf("type/name = %v/%v", doc["@type"], doc["name"])
 	}
+	if doc["@id"] != "#dataset" {
+		t.Errorf("@id = %v, want #dataset (anonymous roots are unlinkable)", doc["@id"])
+	}
 	if !strings.Contains(doc["description"].(string), "abcdef0123456789") {
 		t.Error("description should mention the pseudonymization key fingerprint")
 	}

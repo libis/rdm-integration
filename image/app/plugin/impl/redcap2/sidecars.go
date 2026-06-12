@@ -426,7 +426,10 @@ func buildCroissant(m sidecarModel) ([]byte, error) {
 	}
 
 	doc := map[string]interface{}{
-		"@context":     croissantContext,
+		"@context": croissantContext,
+		// An addressable root (CDIF Discovery wants an identifiable subject;
+		// an anonymous root is also unlinkable in RDF-based viewers).
+		"@id":          "#dataset",
 		"@type":        "sc:Dataset",
 		"conformsTo":   "http://mlcommons.org/croissant/1.0",
 		"name":         m.datasetName(),
