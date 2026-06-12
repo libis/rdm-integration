@@ -608,10 +608,13 @@ func buildROCrate(m sidecarModel) ([]byte, error) {
 
 // --- DDI-CDI 1.0 ---
 
-// ddiCdiContext matches the in-repo DDI-CDI generator (cdi_generator_jsonld.py)
-// whose output validates against the official DDI-CDI 1.0 SHACL shapes used by
-// the cdi-viewer previewer.
-const ddiCdiContext = "https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld"
+// ddiCdiContext is the DDI-CDI 1.0 JSON-LD context published on the DDI
+// Alliance documentation site — the released encoding. (The previously used
+// ddi-cdi.github.io/m2t-ng URL is a build-tooling Pages artifact and currently
+// serves invalid JSON with unresolved merge-conflict markers.) The output
+// validates against the official DDI-CDI 1.0 SHACL shapes used by the
+// cdi-viewer previewer.
+const ddiCdiContext = "https://docs.ddialliance.org/DDI-CDI/1.0/model/encoding/json-ld/ddi-cdi.jsonld"
 
 func ddiCdiDataType(v sidecarVariable) string {
 	switch v.FieldType {
