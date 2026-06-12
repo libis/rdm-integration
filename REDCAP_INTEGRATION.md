@@ -183,12 +183,14 @@ the official DDI-CDI 1.0 SHACL shapes used by the CDI previewer.
 - `ddi-cdi.jsonld` is uploaded with the DDI-CDI profile mime type registered
   by the **CDI previewer** (`conf/dataverse/external-tools/04-cdi-previewer.json`),
   which validates against the official DDI-CDI 1.0 SHACL shapes.
-- `croissant.json` is uploaded as `application/ld+json` (it is JSON-LD, but
-  framed as a single nested node rather than a flattened `@graph`, so the
-  CDI viewer cannot display it). There is no Croissant-specific previewer in
-  the Dataverse ecosystem yet — the file currently has no preview. The
-  Croissant CDIF profile ("Semantic Croissant") is still draft-stage; the
-  file targets plain Croissant 1.0 and can be validated with
+- `croissant.json` is uploaded with a Croissant-profiled JSON-LD mime type
+  (`application/ld+json; profile="http://mlcommons.org/croissant/1.0"`),
+  mirroring the RO-Crate/DDI-CDI conventions. The **Croissant previewer**
+  (`conf/dataverse/external-tools/12-croissant-previewer.json`, the CDI
+  viewer opened with `?shacl=croissant`) displays it and validates against
+  Croissant SHACL shapes. The Croissant CDIF profile ("Semantic Croissant")
+  is still draft-stage; the file targets plain Croissant 1.0 plus the CDIF
+  1.1 Discovery shape for variables, and can also be validated with
   `pip install mlcroissant && mlcroissant validate --jsonld croissant.json`.
 
 ## New dataset metadata prefill
@@ -230,9 +232,9 @@ leak the very values the transforms removed.
   Default: `5m`. Raise it if exports of very large projects time out — the
   export itself is fast (hundreds of MB/s for processing); the timeout covers
   the REDCap server generating and sending the data.
-- The DDI-CDI and RO-Crate previewers use the existing external-tool
-  registrations; `croissant.json` has no previewer (none exists for
-  Croissant yet).
+- The Croissant previewer for `croissant.json` requires registering
+  `conf/dataverse/external-tools/12-croissant-previewer.json` in Dataverse
+  (the DDI-CDI and RO-Crate previewers use the existing registrations).
 
 ## Limitations and good practice
 

@@ -139,6 +139,14 @@ func TestBuildCroissant(t *testing.T) {
 	if len(byName) != len(model.Variables) {
 		t.Errorf("variableMeasured has %d entries, want %d", len(byName), len(model.Variables))
 	}
+	// CDIF 1.1 Discovery mandatory dataset-level properties.
+	if doc["identifier"] != "redcap-project-1" {
+		t.Errorf("identifier = %v, want redcap-project-1", doc["identifier"])
+	}
+	if doc["dateModified"] != "2026-06-12T00:00:00Z" || doc["datePublished"] != "2026-06-12T00:00:00Z" {
+		t.Errorf("dateModified/datePublished = %v/%v", doc["dateModified"], doc["datePublished"])
+	}
+
 	age := byName["age"]
 	if age["@type"] != "PropertyValue" || age["minValue"] != float64(0) || age["maxValue"] != float64(120) {
 		t.Errorf("age variableMeasured = %v", age)
@@ -210,6 +218,9 @@ func TestBuildROCrate(t *testing.T) {
 	root := byID["./"]
 	if root == nil || root["name"] != "Demo" || root["datePublished"] == "" {
 		t.Errorf("root dataset = %v", root)
+	}
+	if root["dateModified"] != "2026-06-12T00:00:00Z" || root["identifier"] != "redcap-project-1" {
+		t.Errorf("root dateModified/identifier = %v/%v", root["dateModified"], root["identifier"])
 	}
 	hasPart := root["hasPart"].([]interface{})
 	if len(hasPart) != len(model.Files) {

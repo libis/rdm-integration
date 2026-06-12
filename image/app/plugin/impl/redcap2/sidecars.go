@@ -17,15 +17,16 @@ import (
 //     previewer registers for.
 //   - The DDI-CDI mime must stay in sync with common.DdiCdiMimeType and the
 //     contentType in conf/dataverse/external-tools/04-cdi-previewer.json.
-//   - Croissant is typed as bare application/ld+json (accurate: it is
-//     JSON-LD; the Croissant 1.0 spec defines no media type). No previewer
-//     fires on it: none exists for Croissant, and the cdi-viewer cannot
-//     render it (croissant.json is a single nested node, not a flattened
-//     @graph document).
+//   - Croissant gets a profiled JSON-LD mime (the Croissant 1.0 spec defines
+//     no media type; the RFC 6906 profile parameter carries the conformsTo
+//     URI, mirroring the RO-Crate and DDI-CDI conventions). It must stay in
+//     sync with the croissant previewer registrations
+//     (conf/dataverse/external-tools/12-croissant-previewer.json and the
+//     deployment copies): Dataverse matches contentType as an exact string.
 const (
 	roCrateMimeType   = `application/ld+json; profile="http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://w3id.org/ro/crate"`
 	ddiCdiMimeType    = `application/ld+json;profile="http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://ddialliance.org/specification/ddi-cdi/1.0"`
-	croissantMimeType = "application/ld+json"
+	croissantMimeType = `application/ld+json; profile="http://mlcommons.org/croissant/1.0"`
 )
 
 // ddiDataTypeCV is the DDI controlled vocabulary used for variable data types,
@@ -433,8 +434,15 @@ func buildCroissant(m sidecarModel) ([]byte, error) {
 		"version":      "1.0.0",
 		"distribution": distribution,
 	}
+	// identifier and dateModified are mandatory in the CDIF 1.1 Discovery
+	// profile (dateModified: the export timestamp is when this snapshot of
+	// the data last changed).
+	if m.ProjectID != nil {
+		doc["identifier"] = fmt.Sprintf("redcap-project-%v", m.ProjectID)
+	}
 	if date, ok := m.publishedDate(); ok {
 		doc["datePublished"] = date
+		doc["dateModified"] = date
 	}
 
 	// Variable-level metadata as schema.org variableMeasured, following the
@@ -522,6 +530,7 @@ func buildROCrate(m sidecarModel) ([]byte, error) {
 	}
 	if date, ok := m.publishedDate(); ok {
 		rootDataset["datePublished"] = date
+		rootDataset["dateModified"] = date
 	}
 	if m.ProjectID != nil {
 		rootDataset["identifier"] = fmt.Sprintf("redcap-project-%v", m.ProjectID)

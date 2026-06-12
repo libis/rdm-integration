@@ -1,0 +1,23 @@
+{
+  "displayName": "View Croissant metadata",
+  "description": "View Croissant (ML-ready dataset metadata) files with SHACL validation.",
+  "toolName": "croissantPreviewer",
+  "scope": "file",
+  "types": ["preview", "explore"],
+  "toolUrl": "https://libis.github.io/cdi-viewer/index.html?shacl=croissant",
+  "toolParameters": {
+    "queryParameters": [
+      {"fileid": "{fileId}"},
+      {"siteUrl": "{siteUrl}"},
+      {"datasetid": "{datasetId}"},
+      {"datasetversion": "{datasetVersion}"},
+      {"locale": "{localeCode}"}
+    ]
+  },
+  "contentType": "application/ld+json; profile=\"http://mlcommons.org/croissant/1.0\"",
+  "allowedApiCalls": [
+    {"name": "retrieveFileContents", "httpMethod": "GET", "urlTemplate": "/api/v1/access/datafile/{fileId}?gbrecs=true", "timeOut": 3600},
+    {"name": "downloadFile", "httpMethod": "GET", "urlTemplate": "/api/v1/access/datafile/{fileId}?gbrecs=false", "timeOut": 3600},
+    {"name": "getDatasetVersionMetadata", "httpMethod": "GET", "urlTemplate": "/api/v1/datasets/{datasetId}/versions/{datasetVersion}", "timeOut": 3600}
+  ]
+}
