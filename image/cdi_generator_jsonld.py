@@ -69,6 +69,11 @@ import chardet
 from datasketch import HyperLogLog
 from dateutil import parser as dateparser
 
+# Real deposited CSVs carry free-text fields (open survey answers, JSON blobs)
+# far beyond the csv module's 128 KiB default field limit; profiling must not
+# die on them.
+csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
+
 
 # ---- Official DDI-CDI 1.0 JSON-LD Context URL ----
 DDI_CDI_CONTEXT = "https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld"
@@ -1154,11 +1159,14 @@ def _build_catalog_details(
         if related:
             catalog["relatedResource"] = related
     
-    # Type of resource (subjects/keywords as ControlledVocabularyEntry)
-    if rich_metadata.get("subjects"):
+    # Type of resource (subjects/keywords as ControlledVocabularyEntry).
+    # CatalogDetails has no dedicated keyword property in DDI-CDI 1.0, so
+    # keywords ride with the subjects here rather than being dropped.
+    topics = list(rich_metadata.get("subjects", [])) + list(rich_metadata.get("keywords", []))
+    if topics:
         catalog["typeOfResource"] = {
             "@type": "ControlledVocabularyEntry",
-            "entryValue": "; ".join(rich_metadata["subjects"]),
+            "entryValue": "; ".join(topics),
         }
     
     return catalog
