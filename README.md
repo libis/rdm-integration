@@ -199,7 +199,7 @@ export BACKEND_CONFIG_FILE=../conf/backend_config.json
 Globus requires additional frontend plugin, OAuth secret, Dataverse setting,
 and storage configuration. See [GLOBUS_INTEGRATION.md](GLOBUS_INTEGRATION.md#configuration).
 
-**Dataverse File System Drivers**
+#### Dataverse File System Drivers
 
 The application can directly upload files to the Dataverse file system. Two drivers are supported:
 
