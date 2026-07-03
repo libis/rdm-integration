@@ -172,6 +172,20 @@ class TestCSVProcessing(unittest.TestCase):
         self.assertEqual(stats[1].xsd_datatype_name(), "string")   # name
         self.assertEqual(stats[2].xsd_datatype_name(), "integer")  # age
 
+    def test_csv_with_oversized_field(self):
+        """A free-text field beyond the csv module's 128 KiB default limit
+        must profile, not crash (real deposited data carries such fields)."""
+        csv_file = self.test_path / "bigfield.csv"
+        big = "x" * (256 * 1024)
+        csv_file.write_text(f"id,text\n1,{big}\n2,small\n")
+
+        cols, stats, info, _, _ = cdi_gen.stream_profile_csv(
+            csv_file, header=True, compute_md5=False
+        )
+
+        self.assertEqual(cols, ["id", "text"])
+        self.assertEqual(info["rows_read"], 2)
+
     def test_csv_with_missing_values(self):
         """Test CSV with missing/null values"""
         csv_file = self.test_path / "missing.csv"
@@ -312,6 +326,29 @@ class TestMetadataExtraction(unittest.TestCase):
 
         description = cdi_gen.extract_dataset_description(metadata)
         self.assertEqual(description, "A test description")
+
+    def test_catalog_details_emits_keywords(self):
+        """Keywords extracted from the citation block must reach the
+        CatalogDetails node (folded into typeOfResource with the subjects,
+        since DDI-CDI 1.0 CatalogDetails has no keyword property)."""
+        catalog = cdi_gen._build_catalog_details(
+            {
+                "title": "Test Dataset",
+                "subjects": ["Social Sciences"],
+                "keywords": ["elections", "turnout"],
+            }
+        )
+        entry = catalog["typeOfResource"]["entryValue"]
+        self.assertIn("Social Sciences", entry)
+        self.assertIn("elections", entry)
+        self.assertIn("turnout", entry)
+
+    def test_catalog_details_keywords_only(self):
+        """typeOfResource must be emitted even when only keywords exist."""
+        catalog = cdi_gen._build_catalog_details(
+            {"title": "Test Dataset", "keywords": ["elections"]}
+        )
+        self.assertEqual(catalog["typeOfResource"]["entryValue"], "elections")
 
 
 class TestDDIMetadata(unittest.TestCase):

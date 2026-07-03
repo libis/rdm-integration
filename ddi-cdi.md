@@ -383,12 +383,14 @@ When generation completes (either by waiting or returning later):
 
 After generation, you have two options:
 
-**Option A: Download**
+##### Option A: Download
+
 - Click the **"Download"** button to save the JSON-LD file locally
 - File is named `ddi-cdi-[timestamp].jsonld`
 - Useful for archiving or sharing outside of Dataverse
 
-**Option B: Open in Viewer (Recommended)**
+##### Option B: Open in Viewer (Recommended)
+
 - Click the **"Open in Viewer"** button to open the **cdi-viewer** in a new browser window
 - The system first adds your DDI-CDI file to the dataset with the correct MIME type
 - The viewer opens and loads the file directly from Dataverse
