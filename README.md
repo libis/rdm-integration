@@ -57,6 +57,11 @@ Move data reliably and at scale using Globus. Built-in Globus plugin supports bo
 
 **Learn more:** [GLOBUS_INTEGRATION.md](GLOBUS_INTEGRATION.md)
 
+### 🏥 REDCap Export With De-Identification
+Export REDCap reports or records into Dataverse with per-variable anonymization (blank, drop, HMAC pseudonymization with researcher-managed keys), an auditable export manifest, and automatically generated Croissant, RO-Crate, and DDI-CDI metadata sidecars.
+
+**Learn more:** [REDCAP_INTEGRATION.md](REDCAP_INTEGRATION.md)
+
 [↑ Back to Top](#rdm-integration) | [→ Quick Start](#quick-start)
 
 ---
@@ -324,6 +329,7 @@ Comprehensive guides are available for specific features:
 |----------|-------------|
 | [ddi-cdi.md](ddi-cdi.md) | Complete guide to DDI-CDI metadata generation |
 | [GLOBUS_INTEGRATION.md](GLOBUS_INTEGRATION.md) | Globus transfer features, configuration, and comparison |
+| [REDCAP_INTEGRATION.md](REDCAP_INTEGRATION.md) | REDCap export, de-identification, and metadata sidecars user guide |
 | [preview_urls.md](preview_urls.md) | Preview URL support for Globus downloads |
 | [DOWNLOAD_FILTERING.md](DOWNLOAD_FILTERING.md) | How the download UI filters datasets by user permissions |
 

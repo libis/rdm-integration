@@ -18,7 +18,7 @@ type DestinationPlugin struct {
 	CreateNewRepo         func(ctx context.Context, collection, token, userName string, metadata types.Metadata) (string, error)
 	GetDatasetVersion     func(ctx context.Context, datasetDbId, token, userName string) (string, error)
 	GetRepoUrl            func(pid string, draft bool) string
-	WriteOverWire         func(ctx context.Context, dbId int64, nodeMapId, token, user, persistentId string, wg *sync.WaitGroup, async_err *ErrorHolder) (io.WriteCloser, error)
+	WriteOverWire         func(ctx context.Context, dbId int64, nodeMapId, mimeType, token, user, persistentId string, wg *sync.WaitGroup, async_err *ErrorHolder) (io.WriteCloser, error)
 	SaveAfterDirectUpload func(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error
 	CleanupLeftOverFiles  func(ctx context.Context, persistentId, token, user string) error
 	DeleteFile            func(ctx context.Context, token, user string, id int64) error

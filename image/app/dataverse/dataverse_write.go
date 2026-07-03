@@ -180,13 +180,17 @@ func getDefaultLicense(ctx context.Context, user, token string) (map[string]inte
 func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error {
 	jsonData := []api.JsonData{}
 	for i, v := range nodes {
+		mimeType := v.Attributes.MimeType
+		if mimeType == "" {
+			mimeType = "application/octet-stream" // default that will be replaced by Dataverse while adding/replacing the file
+		}
 		jsonData = append(jsonData, api.JsonData{
 			FileToReplaceId:   v.Attributes.DestinationFile.Id,
 			ForceReplace:      v.Attributes.DestinationFile.Id != 0,
 			StorageIdentifier: storageIdentifiers[i],
 			FileName:          v.Name,
 			DirectoryLabel:    v.Path,
-			MimeType:          "application/octet-stream", // default that will be replaced by Dataverse while adding/replacing the file
+			MimeType:          mimeType,
 			TabIngest:         false,
 			Checksum: &api.Checksum{
 				Type:  v.Attributes.DestinationFile.HashType,
@@ -228,7 +232,7 @@ func requestBody(data []byte) (io.Reader, string) {
 	return body, writer.FormDataContentType()
 }
 
-func ApiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persistentId string, wg *sync.WaitGroup, async_err *core.ErrorHolder) (io.WriteCloser, error) {
+func ApiAddReplaceFile(ctx context.Context, dbId int64, id, mimeType, token, user, persistentId string, wg *sync.WaitGroup, async_err *core.ErrorHolder) (io.WriteCloser, error) {
 	if strings.HasSuffix(id, ".zip") {
 		// workaround: upload via SWORD api
 		if dbId != 0 {
@@ -253,7 +257,7 @@ func ApiAddReplaceFile(ctx context.Context, dbId int64, id, token, user, persist
 	jsonDataBytes, _ := json.Marshal(jsonData)
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
-	fw := core.NewFileWriter(filename, jsonDataBytes, writer)
+	fw := core.NewFileWriter(filename, mimeType, jsonDataBytes, writer)
 
 	requestHeader := http.Header{}
 	requestHeader.Add("Content-Type", writer.FormDataContentType())

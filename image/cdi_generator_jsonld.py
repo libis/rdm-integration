@@ -71,7 +71,10 @@ from dateutil import parser as dateparser
 
 
 # ---- Official DDI-CDI 1.0 JSON-LD Context URL ----
-DDI_CDI_CONTEXT = "https://ddi-cdi.github.io/m2t-ng/DDI-CDI_1-0/encoding/json-ld/ddi-cdi.jsonld"
+# The released encoding on the DDI Alliance documentation site. (The previously
+# used ddi-cdi.github.io/m2t-ng URL is a build-tooling Pages artifact and
+# currently serves invalid JSON with unresolved merge-conflict markers.)
+DDI_CDI_CONTEXT = "https://docs.ddialliance.org/DDI-CDI/1.0/model/encoding/json-ld/ddi-cdi.jsonld"
 
 # ---- Generator Version (increment when making changes to track generated files) ----
 GENERATOR_VERSION = "0.8"

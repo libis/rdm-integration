@@ -55,17 +55,14 @@
             "tokenFieldPlaceholder": "Repository API token"
         },
         {
-            "id": "redcap",
-            "name": "Other REDCap",
-            "plugin": "redcap",
+            "id": "redcap2",
+            "name": "Other REDCap (reports beta)",
+            "plugin": "redcap2",
             "pluginName": "REDCap",
-            "optionFieldName": "Folder",
-            "optionFieldPlaceholder": "Select folder",
-            "optionFieldInteractive": true,
             "tokenFieldName": "Project token",
             "tokenFieldPlaceholder": "project token",
             "sourceUrlFieldName": "Source URL",
-            "sourceUrlFieldPlaceholder": "https://your.redcap.server"
+            "sourceUrlFieldPlaceholder": "https://preview.redcap.gbiomed.kuleuven.be"
         },
         {
             "id": "osf",

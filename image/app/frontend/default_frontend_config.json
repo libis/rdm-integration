@@ -69,6 +69,16 @@
             "sourceUrlFieldPlaceholder": "https://your.redcap.server"
         },
         {
+            "id": "redcap2",
+            "name": "REDCap Reports (beta)",
+            "plugin": "redcap2",
+            "pluginName": "REDCap",
+            "tokenFieldName": "Project token",
+            "tokenFieldPlaceholder": "project token",
+            "sourceUrlFieldName": "Source URL",
+            "sourceUrlFieldPlaceholder": "https://your.redcap.server"
+        },
+        {
             "id": "osf",
             "name": "OSF",
             "plugin": "osf",

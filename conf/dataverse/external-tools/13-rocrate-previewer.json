@@ -1,0 +1,19 @@
+{
+  "displayName": "Show RO-Crate content",
+  "description": "View the RO-Crate metadata file.",
+  "toolName": "rocratePreviewer",
+  "scope": "file",
+  "types": ["preview", "explore"],
+  "toolUrl": "https://gdcc.github.io/dataverse-previewers/previewers/v1.5/ROCrate.html",
+  "toolParameters": {
+    "queryParameters": [
+      {"fileid": "{fileId}"},
+      {"siteUrl": "{siteUrl}"},
+      {"key": "{apiToken}"},
+      {"datasetid": "{datasetId}"},
+      {"datasetversion": "{datasetVersion}"},
+      {"locale": "{localeCode}"}
+    ]
+  },
+  "contentType": "application/ld+json; profile=\"http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted https://w3id.org/ro/crate\""
+}

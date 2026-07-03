@@ -1,7 +1,0 @@
-# CODEOWNERS — interim owners for governance and workflows
-# Replace with your org/team handles when available (e.g., @libis/security @libis/privacy).
-
-/governance/*  @ErykKul
-/governance/** @ErykKul
-/policies/*    @ErykKul
-/.github/workflows/* @ErykKul

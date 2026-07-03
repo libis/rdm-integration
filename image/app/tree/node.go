@@ -27,11 +27,16 @@ type Node struct {
 }
 
 type Attributes struct {
-	URL             string          `json:"url"`
-	RemoteHash      string          `json:"remoteHash"`
-	RemoteHashType  string          `json:"remoteHashType"`
-	RemoteFileSize  int64           `json:"remoteFileSize"`
-	IsFile          bool            `json:"isFile"`
+	URL            string `json:"url"`
+	RemoteHash     string `json:"remoteHash"`
+	RemoteHashType string `json:"remoteHashType"`
+	RemoteFileSize int64  `json:"remoteFileSize"`
+	IsFile         bool   `json:"isFile"`
+	// MimeType, when set by a source plugin, is sent to the destination on
+	// upload instead of relying on destination-side type detection. Used for
+	// generated metadata files (e.g. JSON-LD sidecars) whose extension alone
+	// does not yield the mime type that previewers are registered for.
+	MimeType        string          `json:"mimeType,omitempty"`
 	DestinationFile DestinationFile `json:"destinationFile"`
 }
 
