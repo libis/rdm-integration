@@ -24,22 +24,14 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 	res := map[string]tree.Node{}
 	for k, node := range nodes {
 		if node.Attributes.RemoteHashType != "" {
-			value, ok := knownHashes[node.Id].RemoteHashes[node.Attributes.RemoteHashType]
-			if node.Attributes.DestinationFile.Hash != "" && node.Attributes.RemoteHashType == node.Attributes.DestinationFile.HashType {
-				value, ok = node.Attributes.DestinationFile.Hash, true
-			}
 			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
 			redisValue := config.GetRedis().Get(ctx, redisKey).Val()
 			if redisValue == types.Written {
 				node.Attributes.DestinationFile.HashType = node.Attributes.RemoteHashType
-				value, ok = node.Attributes.RemoteHash, true
 			}
-			if redisValue == types.Deleted {
-				value, ok = "", true
-			}
-			if !ok && node.Attributes.DestinationFile.Hash != "" {
+			value, needsRehashJob := resolveDestinationHash(node, knownHashes[node.Id], redisValue)
+			if needsRehashJob {
 				jobNodes[k] = node
-				value = "?"
 			}
 			node.Attributes.DestinationFile.Hash = value
 		}
@@ -60,6 +52,35 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 		}
 	}
 	return res, len(jobNodes) > 0
+}
+
+// resolveDestinationHash determines the destination-side hash (in the remote
+// hash type) used for the equality comparison, and whether a rehashing job is
+// needed to compute it. Cached hashes are only trusted for files that are
+// actually present in the destination: a file removed outside the integration
+// (e.g., via the Dataverse UI) would otherwise keep its cached hash and be
+// shown as present and equal — impossible to re-upload or delete. A fresh
+// "written" marker still takes precedence, so files uploaded moments ago are
+// correctly shown while the destination listing catches up.
+func resolveDestinationHash(node tree.Node, known calculatedHashes, redisValue string) (value string, needsRehashJob bool) {
+	value, ok := known.RemoteHashes[node.Attributes.RemoteHashType]
+	if node.Attributes.DestinationFile.Id == 0 && node.Attributes.DestinationFile.Hash == "" {
+		// not in the destination: ignore hashes cached while the file existed
+		value, ok = "", false
+	}
+	if node.Attributes.DestinationFile.Hash != "" && node.Attributes.RemoteHashType == node.Attributes.DestinationFile.HashType {
+		value, ok = node.Attributes.DestinationFile.Hash, true
+	}
+	if redisValue == types.Written {
+		value, ok = node.Attributes.RemoteHash, true
+	}
+	if redisValue == types.Deleted {
+		value, ok = "", true
+	}
+	if !ok && node.Attributes.DestinationFile.Hash != "" {
+		return "?", true
+	}
+	return value, false
 }
 
 func doRehash(ctx context.Context, dataverseKey, user, persistentId string, nodes map[string]tree.Node, in Job) (out Job, err error) {
