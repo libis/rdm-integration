@@ -276,8 +276,11 @@ func verifyBatchResults(files []addReplaceBatchFileResult, storageIdentifiers []
 				errorMessages = append(errorMessages, f.ErrorMessage)
 			}
 		}
-		return registered, fmt.Errorf("%v out of %v files were not registered by the server (failed storage identifiers: %v): %v",
-			len(failed), len(storageIdentifiers), strings.Join(failed, ", "), strings.Join(errorMessages, "; "))
+		// The server received the files and refused them: retrying the same
+		// content cannot succeed, so fail the job immediately instead of
+		// re-uploading against a deterministic rejection.
+		return registered, types.NewUnrecoverableError(fmt.Errorf("%v out of %v files were not registered by the server (failed storage identifiers: %v): %v",
+			len(failed), len(storageIdentifiers), strings.Join(failed, ", "), strings.Join(errorMessages, "; ")))
 	}
 	return registered, nil
 }

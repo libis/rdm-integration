@@ -4,6 +4,7 @@ package dataverse
 
 import (
 	"encoding/json"
+	"integration/app/plugin/types"
 	"strings"
 	"testing"
 )
@@ -34,6 +35,9 @@ func TestVerifyBatchResultsPartialFailure(t *testing.T) {
 	registered, err := verifyBatchResults(files, identifiers)
 	if err == nil {
 		t.Fatal("expected an error for a partial failure, got nil")
+	}
+	if !types.IsUnrecoverable(err) {
+		t.Error("expected a per-file server rejection to be unrecoverable (no futile re-uploads)")
 	}
 	if !registered["s3://dataverse:aaa-111"] {
 		t.Error("expected the successful file to be registered")
