@@ -31,10 +31,14 @@ type addReplaceFileResponse struct {
 
 // getMessageString extracts a string representation from the Message field
 func (r *addReplaceFileResponse) getMessageString() string {
-	if r.Message == nil {
+	return messageString(r.Message)
+}
+
+func messageString(m interface{}) string {
+	if m == nil {
 		return ""
 	}
-	switch v := r.Message.(type) {
+	switch v := m.(type) {
 	case string:
 		return v
 	default:
@@ -42,6 +46,25 @@ func (r *addReplaceFileResponse) getMessageString() string {
 		b, _ := json.Marshal(v)
 		return string(b)
 	}
+}
+
+// addReplaceBatchResponse captures the per-file results of the addFiles and
+// replaceFiles endpoints. Dataverse reports individual file failures inside a
+// status "OK" response: each entry in Files carries the storageIdentifier it
+// applies to, plus a successMessage, warningMessage or errorMessage.
+type addReplaceBatchResponse struct {
+	Status  string      `json:"status"`
+	Message interface{} `json:"message"`
+	Data    struct {
+		Files []addReplaceBatchFileResult `json:"Files"`
+	} `json:"data"`
+}
+
+type addReplaceBatchFileResult struct {
+	StorageIdentifier string `json:"storageIdentifier"`
+	SuccessMessage    string `json:"successMessage"`
+	WarningMessage    string `json:"warningMessage"`
+	ErrorMessage      string `json:"errorMessage"`
 }
 
 // AddFileWithMimeType adds a file to a dataset with a specific MIME type and returns the file ID.
@@ -177,7 +200,7 @@ func getDefaultLicense(ctx context.Context, user, token string) (map[string]inte
 	return map[string]interface{}{}, nil
 }
 
-func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error {
+func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) (map[string]bool, error) {
 	jsonData := []api.JsonData{}
 	for i, v := range nodes {
 		mimeType := v.Attributes.MimeType
@@ -205,22 +228,58 @@ func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persi
 	}
 	data, err := json.Marshal(jsonData)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	body, formDataContentType := requestBody(data)
-	res := addReplaceFileResponse{}
+	res := addReplaceBatchResponse{}
 	reqHeader := http.Header{}
 	reqHeader.Add("Content-Type", formDataContentType)
 	req := GetRequest(path, "POST", user, token, body, reqHeader)
 	err = api.Do(ctx, req, &res)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if res.Status != "OK" {
-		return fmt.Errorf("writing file failed: %s", res.getMessageString())
+		return nil, fmt.Errorf("writing file failed: %s", messageString(res.Message))
 	}
-	return nil
+	return verifyBatchResults(res.Data.Files, storageIdentifiers)
+}
+
+// verifyBatchResults maps the per-file results onto the submitted storage
+// identifiers and reports which files the server actually registered: a status
+// "OK" response can still contain individual failures. A response without
+// per-file entries keeps the legacy behavior of trusting the overall status.
+func verifyBatchResults(files []addReplaceBatchFileResult, storageIdentifiers []string) (map[string]bool, error) {
+	registered := map[string]bool{}
+	if len(files) == 0 {
+		for _, id := range storageIdentifiers {
+			registered[id] = true
+		}
+		return registered, nil
+	}
+	for _, f := range files {
+		if f.StorageIdentifier != "" && f.ErrorMessage == "" {
+			registered[f.StorageIdentifier] = true
+		}
+	}
+	failed := []string{}
+	for _, id := range storageIdentifiers {
+		if !registered[id] {
+			failed = append(failed, id)
+		}
+	}
+	if len(failed) > 0 {
+		errorMessages := []string{}
+		for _, f := range files {
+			if f.ErrorMessage != "" {
+				errorMessages = append(errorMessages, f.ErrorMessage)
+			}
+		}
+		return registered, fmt.Errorf("%v out of %v files were not registered by the server (failed storage identifiers: %v): %v",
+			len(failed), len(storageIdentifiers), strings.Join(failed, ", "), strings.Join(errorMessages, "; "))
+	}
+	return registered, nil
 }
 
 func requestBody(data []byte) (io.Reader, string) {

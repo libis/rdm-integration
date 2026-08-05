@@ -19,7 +19,7 @@ type DestinationPlugin struct {
 	GetDatasetVersion     func(ctx context.Context, datasetDbId, token, userName string) (string, error)
 	GetRepoUrl            func(pid string, draft bool) string
 	WriteOverWire         func(ctx context.Context, dbId int64, nodeMapId, mimeType, token, user, persistentId string, wg *sync.WaitGroup, async_err *ErrorHolder) (io.WriteCloser, error)
-	SaveAfterDirectUpload func(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) error
+	SaveAfterDirectUpload func(ctx context.Context, replace bool, token, user, persistentId string, storageIdentifiers []string, nodes []tree.Node) (map[string]bool, error)
 	CleanupLeftOverFiles  func(ctx context.Context, persistentId, token, user string) error
 	DeleteFile            func(ctx context.Context, token, user string, id int64) error
 	DeleteFiles           func(ctx context.Context, token, user, persistentId string, ids []int64) error
@@ -30,4 +30,5 @@ type DestinationPlugin struct {
 	GetUserEmail          func(ctx context.Context, token, user string) (string, error)
 	GetDatasetMetadata    func(ctx context.Context, persistentId, token, user string) ([]byte, error)
 	GetDataFileDDI        func(ctx context.Context, token, user string, fileID int64) ([]byte, error)
+	GetMaxFileSize        func(ctx context.Context) int64
 }

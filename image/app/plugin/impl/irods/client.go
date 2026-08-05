@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	plugintypes "integration/app/plugin/types"
 	"io"
 	"net/http"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cyverse/go-irodsclient/fs"
+	"github.com/cyverse/go-irodsclient/irods/common"
 	"github.com/cyverse/go-irodsclient/irods/connection"
 	"github.com/cyverse/go-irodsclient/irods/session"
 	"github.com/cyverse/go-irodsclient/irods/types"
@@ -193,9 +195,30 @@ func (i *IrodsClient) Close() error {
 
 func (i *IrodsClient) StreamFile(irodsPath string) (io.ReadCloser, error) {
 	if i.FileSystem.ExistsFile(irodsPath) {
-		return i.FileSystem.OpenFile(irodsPath, "", "r")
+		reader, err := i.FileSystem.OpenFile(irodsPath, "", "r")
+		return reader, classifyOpenError(irodsPath, err)
 	}
-	return nil, errors.New("file not found")
+	return nil, plugintypes.NewUnrecoverableError(errors.New("file not found: " + irodsPath))
+}
+
+// classifyOpenError marks open failures that retrying within one job cannot
+// heal as unrecoverable, so jobs fail fast with an actionable message instead
+// of burning the whole retry budget. HIERARCHY_ERROR means no replica can be
+// opened — typically the object is write-locked by an upload that is still
+// running (or that died without closing). Waiting it out is exactly the
+// read-during-write hazard, so the user should retry after the upload is done.
+func classifyOpenError(irodsPath string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if types.GetIRODSErrorCode(err) == common.HIERARCHY_ERROR {
+		return plugintypes.NewUnrecoverableError(fmt.Errorf(
+			"could not open %v: the file is locked, possibly by an upload that is still in progress or was interrupted; retry the transfer once the file is completely uploaded (%w)", irodsPath, err))
+	}
+	if types.IsFileNotFoundError(err) {
+		return plugintypes.NewUnrecoverableError(err)
+	}
+	return err
 }
 
 func getConnectionInfo(zone, token string) (ConnectionInfo, error) {

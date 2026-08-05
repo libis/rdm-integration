@@ -26,5 +26,6 @@ func SetDataverseAsDestination() {
 		GetUserEmail:          dataverse.GetUserEmail,
 		GetDatasetMetadata:    dataverse.GetDatasetMetadata,
 		GetDataFileDDI:        dataverse.GetDataFileDDI,
+		GetMaxFileSize:        dataverse.GetMaxFileSize,
 	}
 }

@@ -110,3 +110,30 @@ func TestGetHashConstants(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckTransferredSize(t *testing.T) {
+	testCases := []struct {
+		name      string
+		expected  int64
+		actual    int64
+		expectErr bool
+	}{
+		{"complete transfer", 100, 100, false},
+		{"truncated transfer", 48318382080, 18578456580, true},
+		{"excess bytes", 100, 101, true},
+		{"unknown source size is not checked", 0, 12345, false},
+		{"negative source size is not checked", -1, 12345, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkTransferredSize("some/file.bin", tc.expected, tc.actual)
+			if tc.expectErr && err == nil {
+				t.Errorf("expected an error for expected=%v actual=%v, got nil", tc.expected, tc.actual)
+			}
+			if !tc.expectErr && err != nil {
+				t.Errorf("expected no error for expected=%v actual=%v, got: %v", tc.expected, tc.actual, err)
+			}
+		})
+	}
+}

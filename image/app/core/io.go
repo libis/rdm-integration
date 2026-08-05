@@ -200,7 +200,21 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 		return nil, nil, 0, fmt.Errorf("unsupported driver: %s", s.driver)
 	}
 
-	return hasher.Sum(nil), remoteHasher.Sum(nil), sizeHasher.FileSize, nil
+	size = sizeHasher.FileSize
+	if err := checkTransferredSize(id, fileSize, size); err != nil {
+		return nil, nil, 0, err
+	}
+	return hasher.Sum(nil), remoteHasher.Sum(nil), size, nil
+}
+
+// checkTransferredSize guards against silent truncation: a source stream that
+// ends early without an error (e.g., an iRODS short read is reported as EOF)
+// would otherwise be stored and registered as a complete file.
+func checkTransferredSize(id string, expected, actual int64) error {
+	if expected > 0 && actual != expected {
+		return fmt.Errorf("incomplete transfer for %v: source reported %v bytes, received %v bytes", id, expected, actual)
+	}
+	return nil
 }
 
 func getFile(ctx context.Context, dbId int64, wg *sync.WaitGroup, dataverseKey, user, persistentId, pid string, s storage, id, mimeType string, async_err *ErrorHolder) (io.WriteCloser, error) {

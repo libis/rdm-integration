@@ -150,18 +150,24 @@ func ProcessJobs(queue string) {
 				job, err = DoWork(job)
 			}
 			if err != nil {
-				job.ErrCnt = job.ErrCnt + 1
-				if job.ErrCnt == maxErrors {
-					logging.Logger.Println("job failed and will not be retried:", persistentId, err)
+				if types.IsUnrecoverable(err) {
+					job.ErrCnt = maxErrors
+					logging.Logger.Println("job failed with unrecoverable error and will not be retried:", persistentId, err)
 					sendJobFailedMail(err, job)
 				} else {
-					logging.Logger.Println("job failed, but will retry:", persistentId, err)
-					// Exponential backoff: start with 1 second, double each time, max 60 seconds
-					backoffDuration := time.Duration(1<<uint(job.ErrCnt-1)) * time.Second
-					if backoffDuration > 60*time.Second {
-						backoffDuration = 60 * time.Second
+					job.ErrCnt = job.ErrCnt + 1
+					if job.ErrCnt == maxErrors {
+						logging.Logger.Println("job failed and will not be retried:", persistentId, err)
+						sendJobFailedMail(err, job)
+					} else {
+						logging.Logger.Println("job failed, but will retry:", persistentId, err)
+						// Exponential backoff: start with 1 second, double each time, max 60 seconds
+						backoffDuration := time.Duration(1<<uint(job.ErrCnt-1)) * time.Second
+						if backoffDuration > 60*time.Second {
+							backoffDuration = 60 * time.Second
+						}
+						time.Sleep(backoffDuration)
 					}
-					time.Sleep(backoffDuration)
 				}
 			}
 			if len(job.WritableNodes) > 0 && job.ErrCnt < maxErrors {

@@ -153,6 +153,9 @@ func doCompare(req types.CompareRequest, key, user string) {
 	rejectedSize := []string{}
 	rejectedName := []string{}
 	maxFileSize := config.GetMaxFileSize()
+	if core.Destination.GetMaxFileSize != nil {
+		maxFileSize = core.Destination.GetMaxFileSize(ctx)
+	}
 	for k, v := range repoNm {
 		if maxFileSize > 0 && v.Attributes.RemoteFileSize > maxFileSize {
 			delete(repoNm, k)

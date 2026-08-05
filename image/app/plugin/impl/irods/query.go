@@ -4,6 +4,7 @@ package irods
 
 import (
 	"context"
+	"fmt"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"strings"
@@ -44,7 +45,7 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry, nm map[strin
 			parentId = strings.Join(ancestors[:len(ancestors)-1], "/")
 			fileName = ancestors[len(ancestors)-1]
 		}
-		hashType, h, err := hash(cl, folder, id, nm)
+		hashType, h, err := hash(cl, folder, id, nm, e)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +78,15 @@ func toNodeMap(cl *IrodsClient, folder string, entries []*fs.Entry, nm map[strin
 	return res, nil
 }
 
-func hash(cl *IrodsClient, folder, path string, nm map[string]tree.Node) (string, string, error) {
+func hash(cl *IrodsClient, folder, path string, nm map[string]tree.Node, entry *fs.Entry) (string, string, error) {
+	// Prefer the checksum already present in the listing: it saves one server
+	// call per file and, unlike a "not needed" placeholder, also lets new files
+	// be verified after transfer.
+	if len(entry.CheckSum) > 0 {
+		if hashType, err := normalizeHashType(string(entry.CheckSumAlgorithm)); err == nil {
+			return hashType, fmt.Sprintf("%x", entry.CheckSum), nil
+		}
+	}
 	if _, ok := nm[path]; !ok {
 		return types.Md5, types.NotNeeded, nil
 	}

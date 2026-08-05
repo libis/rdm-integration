@@ -341,21 +341,29 @@ func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tre
 func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (res map[string]bool, err error) {
 	res = make(map[string]bool)
 	if len(toAddNodes) > 0 {
-		err = Destination.SaveAfterDirectUpload(ctx, false, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)
+		var registered map[string]bool
+		registered, err = Destination.SaveAfterDirectUpload(ctx, false, dataverseKey, user, persistentId, toAddIdentifiers, toAddNodes)
+		// mark the per-file successes even on error: the rollback in doFlush
+		// then only re-queues the files that were not registered
+		for i, node := range toAddNodes {
+			if registered[toAddIdentifiers[i]] {
+				res[node.Id] = true
+			}
+		}
 		if err != nil {
 			return
-		}
-		for _, node := range toAddNodes {
-			res[node.Id] = true
 		}
 	}
 	if len(toReplaceNodes) > 0 {
-		err = Destination.SaveAfterDirectUpload(ctx, true, dataverseKey, user, persistentId, toReplaceIdentifiers, toReplaceNodes)
+		var registered map[string]bool
+		registered, err = Destination.SaveAfterDirectUpload(ctx, true, dataverseKey, user, persistentId, toReplaceIdentifiers, toReplaceNodes)
+		for i, node := range toReplaceNodes {
+			if registered[toReplaceIdentifiers[i]] {
+				res[node.Id] = true
+			}
+		}
 		if err != nil {
 			return
-		}
-		for _, node := range toReplaceNodes {
-			res[node.Id] = true
 		}
 	}
 	return

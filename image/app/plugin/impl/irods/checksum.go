@@ -20,7 +20,15 @@ func (i *IrodsClient) Checksum(irodsPath string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	hashType := strings.ToUpper(string(cs.Algorithm))
+	hashType, err := normalizeHashType(string(cs.Algorithm))
+	if err != nil {
+		return "", "", err
+	}
+	return hashType, fmt.Sprintf("%x", cs.Checksum), nil
+}
+
+func normalizeHashType(algorithm string) (string, error) {
+	hashType := strings.ToUpper(algorithm)
 	if hashType == "SHA-256" {
 		hashType = types.SHA256
 	}
@@ -28,7 +36,7 @@ func (i *IrodsClient) Checksum(irodsPath string) (string, string, error) {
 		hashType = types.SHA512
 	}
 	if hashType != types.Md5 && hashType != types.SHA256 && hashType != types.SHA512 {
-		return "", "", fmt.Errorf("unknown hash type: %v", hashType)
+		return "", fmt.Errorf("unknown hash type: %v", algorithm)
 	}
-	return hashType, fmt.Sprintf("%x", cs.Checksum), err
+	return hashType, nil
 }
