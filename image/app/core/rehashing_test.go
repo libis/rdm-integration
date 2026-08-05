@@ -34,10 +34,29 @@ func TestResolveDestinationHashDeletedOutsideIntegration(t *testing.T) {
 }
 
 func TestResolveDestinationHashCachedForExistingFile(t *testing.T) {
-	cached := calculatedHashes{RemoteHashes: map[string]string{types.SHA256: "abc123"}}
+	cached := calculatedHashes{
+		LocalHashType:  types.Md5,
+		LocalHashValue: "d41d8cd9",
+		RemoteHashes:   map[string]string{types.SHA256: "abc123"},
+	}
 	value, needsJob := resolveDestinationHash(node(42, "d41d8cd9", types.Md5, "abc123", types.SHA256), cached, "")
 	if value != "abc123" || needsJob {
-		t.Errorf("expected cached rehash for an existing file, got %q needsJob=%v", value, needsJob)
+		t.Errorf("expected cached rehash for an existing unchanged file, got %q needsJob=%v", value, needsJob)
+	}
+}
+
+func TestResolveDestinationHashReplacedOutsideIntegration(t *testing.T) {
+	// file replaced via the Dataverse UI: the listing hash differs from the
+	// one recorded in the cache, so the cached rehash describes old content
+	// and a fresh rehash job is needed
+	cached := calculatedHashes{
+		LocalHashType:  types.Md5,
+		LocalHashValue: "oldcontent",
+		RemoteHashes:   map[string]string{types.SHA256: "abc123"},
+	}
+	value, needsJob := resolveDestinationHash(node(42, "newcontent", types.Md5, "abc123", types.SHA256), cached, "")
+	if value != "?" || !needsJob {
+		t.Errorf("expected a rehash job for externally replaced content, got %q needsJob=%v", value, needsJob)
 	}
 }
 
