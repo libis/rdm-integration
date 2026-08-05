@@ -173,7 +173,14 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	toAddNodes := &[]tree.Node{}
 	toReplaceIdentifiers := &[]string{}
 	toReplaceNodes := &[]tree.Node{}
-	defer doFlush(ctx, toAddNodes, toReplaceNodes, &out, knownHashes, toAddIdentifiers, toReplaceIdentifiers)
+	// The flush error must reach the job loop: without it a failed flush only
+	// re-queues the rolled-back files and the job restarts silently, forever
+	// re-uploading against a deterministic server rejection.
+	defer func() {
+		if flushErr := doFlush(ctx, toAddNodes, toReplaceNodes, &out, knownHashes, toAddIdentifiers, toReplaceIdentifiers); flushErr != nil && err == nil {
+			err = flushErr
+		}
+	}()
 
 	// Batch-delete files first, before any uploads/replacements
 	deleteIds := []int64{}
@@ -310,11 +317,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 	return
 }
 
-func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tree.Node, job *Job, knownHashes map[string]calculatedHashes, toAddIdentifiers, toReplaceIdentifiers *[]string) {
+func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tree.Node, job *Job, knownHashes map[string]calculatedHashes, toAddIdentifiers, toReplaceIdentifiers *[]string) error {
+	var flushErr error
 	if len(*toAddNodes) > 0 || len(*toReplaceNodes) > 0 {
 		logging.Logger.Printf("%v: flushing added: %v replaced: %v...\n", job.PersistentId, len(*toAddNodes), len(*toReplaceNodes))
 		flushed, err := flush(ctx, job.DataverseKey, job.User, job.PersistentId, *toAddIdentifiers, *toReplaceIdentifiers, *toAddNodes, *toReplaceNodes)
 		if err != nil {
+			flushErr = err
 			rollback := *toAddNodes
 			rollback = append(rollback, *toReplaceNodes...)
 			shortContext, cancel := context.WithTimeout(context.Background(), deleteAndCleanupCtxDuration)
@@ -336,6 +345,7 @@ func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tre
 		*toReplaceNodes = []tree.Node{}
 		*toReplaceIdentifiers = []string{}
 	}
+	return flushErr
 }
 
 func flush(ctx context.Context, dataverseKey, user, persistentId string, toAddIdentifiers, toReplaceIdentifiers []string, toAddNodes, toReplaceNodes []tree.Node) (res map[string]bool, err error) {
