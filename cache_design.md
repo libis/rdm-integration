@@ -2,7 +2,9 @@
 
 Design document for reworking rdm-integration's Redis-backed state. Prepared 2026-08-05
 after the silent-failure incident investigation; intended to be executed in a dedicated
-session. Status: design agreed (Eryk + Claude, 2026-08-05); execution not started.
+session. Status: design agreed (Eryk + Claude, 2026-08-05); §4.6 GC delivery
+revised 2026-08-06 per Eryk's review (standalone open-source script — see §8);
+execution not started.
 Read §8 (decisions log) before proposing design changes — rejected alternatives
 are listed there with their reasons. Context: see git history `21fbbd3..12f7055` (the incident fixes) and the
 regression `7f15343` (presence guard lost in a refactor, undetected for 2.5 years).
@@ -67,7 +69,7 @@ Known point bugs, each absorbed by a design section (step 6 verifies):
 
 **A Redis hash per dataset** (native `HSET`/`HGETALL`, not a JSON string):
 key `hashes:<pid>`, field = file path, field value = per-file JSON
-`{ "destHashType": "MD5", "destHashValue": "…", "remoteHashes": { "<type>": "…" }, "lastUsed": … }`,
+`{ "destHashType": "MD5", "destHashValue": "…", "remoteHashes": { "<type>": "…" } }`,
 **no TTL**.
 
 This deliberately preserves BOTH original design rationales, which the
@@ -201,7 +203,7 @@ is part of what compare/state must represent truthfully.
 
 ### 4.6 Garbage collection — Redis AND storage (in scope, not optional)
 
-Monthly scheduled cleanup, reviving the parked orphan-cleanup work: `cleanup()`
+Weekly scheduled cleanup, reviving the parked orphan-cleanup work: `cleanup()`
 in `core/persisting.go` still carries the commented-out
 `Destination.CleanupLeftOverFiles(...)` call, and `dataverse.CleanupLeftOverFiles`
 (wrapping `cleanStorage`, version-gated by `filesCleanup`) is implemented and
@@ -209,25 +211,116 @@ dormant — that was the first step of this GC, parked long ago. Motivation is
 concrete: the 2026-08-05 incident loop alone left multiple orphaned 45 GiB
 objects on pilot, and prod datasets carry years of orphans (QWUDVE had dozens).
 
-Two sweeps, one schedule (~monthly):
+**Why it was parked: data-loss risk.** What `cleanStorage` actually does
+(verified against Dataverse `develop`, 2026-08-06): keep-set = every
+registered `DataFile` of the dataset **across all versions incl. drafts**
+(DB-side, `dataset.getFiles()`); deletes objects under the dataset's
+`authority/identifier/` prefix whose name matches the minted-identifier
+pattern (`^[0-9a-f]{11}-[0-9a-f]{12}\.?.*`) and is not prefixed by any
+registered storageIdentifier (the prefix rule protects `.orig`/aux
+derivatives). **No age or timestamp guard of any kind**; `dryrun` defaults to
+*false*; dryrun output is bare names — no timestamps, no sizes; requires
+EditDataset. The dormant Go call passes no dryrun — re-enabled as-is it would
+delete unguarded at job end; it stays dead, replaced by the standalone sweep
+below. The fatal class: a direct-uploaded file whose S3 upload completed but
+whose `/addFiles` registration hasn't happened yet is *indistinguishable by
+name* from abandoned junk — cleaning exactly that junk is the API's
+documented purpose.
 
-1. **Storage orphans**: per dataset, run `cleanStorage` — first pass
-   `dryrun=true`, log/report the candidates and total bytes, then delete.
-   Safety: skip datasets with an active job or lock; keep the dry-run report
-   (jobstate-style record) so deletions are auditable. Note cleanStorage
-   semantics: "Found" = registered files (kept), "Deleted" = orphans removed.
-2. **Redis memo GC**: with the per-dataset hash (§4.1) this is a listing diff —
-   for each dataset in `datasets-seen`, fetch the live listing, `HSCAN` the
-   memo, and `HDEL` fields whose path no longer exists; `DEL` the whole key for
-   datasets that are gone entirely. `lastUsed` is a tiebreaker for reporting,
-   not a deletion criterion — never delete an entry for a path that still
-   exists (the no-rehash-of-huge-files principle outranks tidiness).
+**Why timestamps close the gap.** S3 objects are atomic: a key is never
+visible mid-write — single PUT and multipart both publish only at completion,
+and `LastModified` records that completion. A sweep can therefore never see a
+half-written file; what it can see is *completed-but-unregistered*, whose age
+is exactly `LastModified`. Our jobs flush (`/addFiles`) periodically during
+the transfer, so that window is minutes; UI/API direct uploads register at
+save. The one legitimately long window is Globus — Dataverse registers only
+after the whole transfer task — and it is covered by lock-skipping below:
+Dataverse holds a `GlobusUpload` dataset lock for the duration (a built-in
+`DatasetLock.Reason`), so no new Dataverse mechanism is needed for it.
+(Incomplete multipart *parts* are invisible garbage of a different kind —
+handled by a bucket lifecycle rule, `AbortIncompleteMultipartUpload`; ops
+item, outside this GC.)
 
-Which datasets to sweep: maintain a `datasets-seen` set (pid added on every
-compare/job) rather than enumerating all of Dataverse. Scheduler options for
-the session to pick: in-app ticker (simplest, but think multi-instance),
-or host cron hitting a new admin endpoint (matches existing ops style —
-make scripts + cron). Either way: report by email, dry-run mode as a flag.
+**Delivery: a standalone open-source Python script — not an rdm-integration
+job.** The junk is not specific to our tool: any installation using S3 direct
+upload accumulates it (prod carries years of pre-rdm orphans), and none of
+the safety logic below needs rdm-internal state — its only inputs are the
+Dataverse native API (dataset enumeration, locks, `cleanStorage` dryrun) and
+S3 itself (`LastModified`, deletes). So the sweep ships as its own published
+repo (working name `dataverse-storage-cleanup`): Python + boto3, config file
+with Dataverse base URL + superuser API token + S3
+endpoint/bucket/credentials (per store label where installations run several
+stores). Any sysadmin can run it against any Dataverse installation,
+rdm-integration present or not; our own deployments run it weekly from host
+cron. Dataverse is open source, this project is, and this job has real
+demand beyond us.
+
+**Sweep algorithm** (per dataset):
+
+1. **Skip** if the dataset has *any* Dataverse lock
+   (`GET /api/datasets/:persistentId/locks` — covers GlobusUpload, Ingest,
+   finalizePublication, …). An earlier draft also skipped datasets with
+   active rdm jobs/locks; dropped with tool independence, and safely so: the
+   completed-but-unregistered window of an rdm flush cycle is minutes, three
+   orders of magnitude inside the margin.
+2. `cleanStorage?dryrun=true` → candidate names.
+3. **Age filter**: resolve each candidate's `LastModified`; keep only those
+   older than the margin (**7 days**). Weekly cadence + 7-day margin bounds
+   max garbage lifetime to ~2 weeks; anything legitimately unregistered for
+   longer than a week is a broken workflow by definition (Globus excepted —
+   locks handle it).
+4. **Report always, delete only with `--delete`**: names, ages, sizes, total
+   bytes, per dataset and overall. Report-only is the default mode; the
+   first pilot/prod runs are reviewed before `--delete` is ever passed.
+5. **Delete with re-validation**: immediately before deleting, re-run dryrun
+   and delete only names present in *both* candidate lists and still older
+   than the margin — shrinks the registered-since-analysis race from days to
+   seconds.
+
+**Coverage: full sweep by default.** The script enumerates *every* dataset
+in the installation (Search API or collection-tree walk — pick during script
+design). That is what cleans the junk already accumulated — the first full
+runs clear the backlog (pilot's 45 GiB incident orphans, prod's years of
+them) — and weekly full sweeps keep it clean with no scoping state at all.
+Cost is one locks call + one dryrun per dataset plus S3 HEADs for
+candidates: acceptable at weekly cadence. For very large installations an
+optional `--modified-since` filter (dataset metadata `lastUpdateTime` /
+draft presence, last-run date kept in a local state file) narrows the sweep
+— with the documented caveat that a direct upload abandoned *without ever
+saving* changes no dataset metadata, so incremental runs cannot see that
+dataset; installations using the filter should schedule an occasional full
+sweep. Full mode has no such gap, which is why it is the default.
+
+Deletion mechanics — decide in the execution session (§7):
+(a) **direct S3 from the script (boto3)** — delete exactly those keys; needs
+bucket credentials + prefix layout config, ships without waiting on a
+Dataverse release; crucially the keep-set logic is *never* reimplemented
+outside Dataverse (all-versions membership is DB knowledge) — the script
+only ever deletes names that `cleanStorage` itself proposed, twice,
+age-checked.
+(b) **upstream PR** — `minAge` param on `cleanStorage` (filter inside
+`cleanUp()` via the storage driver, so file/swift stores benefit too) and/or
+timestamps+sizes in the dryrun response; Java keeps doing the deleting and
+the script's S3 client shrinks or disappears — with (b) released the script
+needs no S3 credentials at all, the best version of the published tool;
+version-gate like `filesCleanup`.
+(c) **future hardening** — Dataverse tracks minted-but-unregistered storage
+identifiers (uploadurls/multipart state), making "upload in progress"
+explicit per file and the margin shrinkable.
+Recommendation: ship (a) report-only until a pilot cycle's reports are
+reviewed, open (b) upstream in parallel; (c) only if pilot shows margin+locks
+insufficient.
+
+**Redis memo GC — the only part that stays in-app.** TTL'd keys (jobstate,
+response cache, rdm locks, oauth) need no GC at all: Redis expires them
+itself (lazy-on-access + active expiry cycle) — nothing to schedule. The one
+deliberately TTL-less structure is the hash memo: weekly, enumerate
+`SCAN hashes:*`, fetch the live listing, `HDEL` fields whose path no longer
+exists, `DEL` the whole key when the dataset is gone (listing 404). The
+listing diff is the entire criterion — no timestamps involved, which is also
+why memo entries carry no `lastUsed` field (an earlier draft had one; it was
+a deletion criterion for nothing). Never delete an entry for a path that
+still exists (the no-rehash-of-huge-files principle outranks tidiness).
 
 ## 5. Execution plan (PR-sized steps, in order)
 
@@ -249,9 +342,15 @@ make scripts + cron). Either way: report by email, dry-run mode as a flag.
    enum; wire jobstate into compare responses. Update `app/frontend` API types.
 4. **Frontend batch** (separate repo): tab-cache invalidation, poll timeouts,
    no-op/job-outcome display, byte-progress bar for large files.
-5. **Garbage collection** (§4.6): revive CleanupLeftOverFiles, storage sweep +
-   memo GC + `datasets-seen` index + scheduler + dry-run/report. Depends on
-   step 1 (memo format) and step 2 (jobstate for audit records).
+5. **Garbage collection** (§4.6) — two independent deliverables:
+   (a) the `dataverse-storage-cleanup` script (own public repo, Python +
+   boto3): full sweep, locks → dryrun → age filter → re-validated delete,
+   report-only by default. No dependency on steps 0–4 — can start
+   immediately; first milestone is clearing the existing backlog (pilot,
+   then prod, reports reviewed before `--delete`), then weekly host cron.
+   Open the upstream `minAge` PR in parallel; bucket lifecycle rule for
+   incomplete multipart uploads (ops). (b) in-app Redis memo GC (listing
+   diff) — depends on step 1 (memo format).
 6. **Point-bug sweep**: verify each §2 bug is really gone via its owning section; fix stragglers.
 7. **Scalability analysis** (§6): produce the lazy-tree/cursor design doc for
    many-file datasets, after steps 1–3 are in.
@@ -330,8 +429,13 @@ result-hash and rollups must not repeat the markers/whole-map mistakes.
 
 - TTLs: memo has none (decided — rehash cost of TB-scale files dwarfs storage;
   see §4.1; GC per §4.6 handles hygiene). jobstate 48 h? response cache
-  duration? GC cadence — monthly? — and scheduler shape (in-app ticker vs.
-  host cron + admin endpoint)?
+  duration? GC cadence: weekly (decided, §4.6 — with the 7-day age margin,
+  max garbage lifetime ~2 weeks); storage sweep runs as the standalone
+  script from host cron (decided); in-app memo GC scheduler shape (ticker
+  vs. cron + admin endpoint) still open?
+- GC deletion mechanics (§4.6): boto3 in the script (a) vs. upstream `minAge`
+  cleanStorage param (b) — and is 7 days the right margin? Recommendation in
+  §4.6: (a) report-only first, (b) in parallel.
 - Should the transfer job also drop the dataset lock during the pure-streaming
   phase (only lock for flush)? Would unblock parallel hash jobs entirely, but
   needs thought re: concurrent submits of the same file.
@@ -350,6 +454,12 @@ result-hash and rollups must not repeat the markers/whole-map mistakes.
 | Eager full compare + paged result access | Lazy end-to-end join with cursors on sources | Source APIs too diverse to cursor a merge over; empirically the 50k-file pain was frontend rendering + folder-state algorithm, not backend memory |
 | Explicit `RemoteFileSizeKnown` flag | `-1` sentinel for unknown size | Honest JSON; zero stays a real size; sentinel invites the next 0-vs-unknown confusion |
 | Validity check on memo read (destination hash recorded in entry) | Trusting cache by key alone | The `7f15343` regression: presence/validity invariants that live only in code conditions get trimmed by refactors — schema-level validity survives them |
+| Storage GC deletes only after a ≥7-day age check on S3 `LastModified` | Trusting `cleanStorage` dryrun candidates as-is | cleanStorage has no age guard (verified `develop`, 2026-08-06): a completed-but-unregistered upload is indistinguishable by name from abandoned junk; age is the only discriminator that needs no new Dataverse state |
+| Skip datasets with any Dataverse lock during storage sweep | Age margin alone | Globus registers files only after the whole transfer task — legitimate unregistered age can exceed any sane margin; the built-in `GlobusUpload` lock covers exactly that window (also Ingest, finalizePublication) |
+| Delete only names produced by cleanStorage dryrun, re-validated by a second dryrun at delete time | Reimplementing the keep-set in Go from listings | Keep-set = all DataFiles across ALL versions incl. drafts — DB knowledge; a Go re-derivation bug means deleting published data |
+| Storage sweep = standalone open-source Python script, full sweep over all datasets (Eryk, 2026-08-06) | In-app Go sweep scoped by rdm activity timestamps (`datasets-seen` sorted set) — an earlier draft of this doc | Pins a general-demand job on our tool and can never clean pre-existing or third-party junk, yet the stated goal is cleaning the backlog we already have; the safety logic (locks, dryrun, age, re-validation) needs no rdm state — Dataverse API + S3 suffice, so any installation can use it |
+| Optional `--modified-since` incremental filter (dataset `lastUpdateTime`); full sweep stays the default | Incremental-only scoping | A direct upload abandoned without ever saving changes no dataset metadata — only a full sweep sees it; margin + locks make full sweeps safe and per-dataset cost is small at weekly cadence |
+| No `lastUsed` timestamp in memo entries | Timestamping memo entries on use | Memo GC's criterion is the listing diff; a timestamp that is never a deletion criterion is dead schema |
 
 The meta-lesson behind this table (and this document): the 2.5-year `7f15343`
 regression happened because design rationale lived nowhere. When changing this
