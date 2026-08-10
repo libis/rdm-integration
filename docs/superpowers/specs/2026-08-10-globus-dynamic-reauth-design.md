@@ -86,7 +86,14 @@ helper does the reverse.
 
 The existing `ConsentRequired` → `*scopes*` special case in
 `getPartialResponse` collapses into this. Non-reauth errors keep today's
-`"Code: Message"` text form.
+`"Code: Message"` text form. This format is load-bearing: the folder-landing
+candidate loop in `options.go` (`resolveAndBuildInitialTree`) classifies
+errors by string — `isNotFoundError` matches `ClientError.NotFound` /
+`EndpointNotFound` to advance to the next candidate path, and a reauth error
+must survive as `lastErr` so it propagates when every candidate fails. The
+folder-resolution logic itself (candidate order, `meaningful`-path detection,
+per-endpoint-type quirks for Windows/Linux/macOS personal endpoints, VSC,
+iRODS) is intentionally untouched by this design.
 
 ### 2. Backend: HTTP boundary writer
 
@@ -172,7 +179,11 @@ components' `getRepoToken`:
   GridFTP text, a `ConsentRequired` body, an `authorization_parameters` body,
   plain non-reauth errors); marker round-trip (`Error()` ↔
   `ParseReauthError`); `WriteError` behavior for typed, marker-embedded, and
-  plain errors; options-handler propagation test.
+  plain errors; options-handler propagation test. Regression guard for the
+  folder-landing fallback: an HTTP 404 body must still produce a
+  `ClientError.NotFound...` error string (so `isNotFoundError` keeps advancing
+  candidates), and a ReauthError raised on every candidate must propagate out
+  of `resolveAndBuildInitialTree` as the returned error.
 - **Angular:** `extractReauth` (structured 401, legacy marker, non-reauth
   errors); `buildAuthorizeUrl` (scope merge, domain replace + `prompt=login`,
   guest-strip interplay); regression spec: download `getOptions` receiving the
@@ -192,3 +203,8 @@ longer a hard limit).
   any cancel/re-submit flow.
 - Config format changes; `kuleuven.be` stays the configured initial default.
 - Anonymous preview URL limitations (Dataverse-side).
+- Folder/landing-directory resolution (`resolveAndBuildInitialTree` candidate
+  logic and endpoint-type quirks). Believed fixed and orthogonal: the
+  user-to-user difference observed on ManGO GHUM (one user hits the consent
+  error, another does not) is explained by durable per-user Globus consents,
+  not by home-directory differences.
