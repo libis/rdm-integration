@@ -39,6 +39,9 @@ classes of failures observed in production:
 - **Error channel:** structured HTTP error responses (not string markers in the
   frontend contract). Backend returns `401` + JSON; string markers survive only
   as an internal serialization detail and a legacy fallback.
+- **Config shape:** structured `tokenGetter` fields (`scopes`,
+  `session_required_single_domain`) with the legacy URL-with-params form still
+  supported via frontend normalization. No forced config migration.
 
 ## Design
 
@@ -147,33 +150,70 @@ Called **first** in every relevant error handler:
 
 When extraction succeeds, the component calls its `getRepoToken(reauth)`.
 
-### 4. Frontend: authorize URL construction
+### 4. Config: structured token-getter settings
 
-Shared `buildAuthorizeUrl(baseUrl, { scopes, domains, guestMode })` used by both
-components' `getRepoToken`:
+Today the entire authorize URL — including `scope=` and
+`session_required_single_domain=kuleuven.be` — is baked into `tokenGetter.URL`
+as one string, forcing regex/substring surgery in the frontend. The config
+gains explicit optional fields, with the legacy form still supported:
 
-- **Scope merge (not replace).** Parse the configured scope list
-  (`transfer:all openid email profile`). Each required scope replaces the
-  configured entry whose base it extends (match by prefix before `[`);
-  unmatched required scopes are appended; all other configured entries are
+```json
+"tokenGetter": {
+    "URL": "https://auth.globus.org/v2/oauth2/authorize",
+    "oauth_client_id": "33992ba4-...",
+    "scopes": ["urn:globus:auth:scope:transfer.api.globus.org:all", "openid", "email", "profile"],
+    "session_required_single_domain": ["kuleuven.be"]
+}
+```
+
+- Go `config.TokenGetter` (`image/app/config/frontend_config.go`) gains
+  `Scopes []string` (`json:"scopes,omitempty"`) and
+  `SessionRequiredSingleDomain []string`
+  (`json:"session_required_single_domain,omitempty"`), so the fields pass
+  through `/api/frontend/config` to the frontend. `omitempty` keeps served
+  config byte-identical for installs that don't set them.
+- Frontend `plugin.service` normalizes every token getter at load into one
+  canonical model: `{ authorizeUrl, oauth_client_id, baseScopes[], baseDomains[] }`.
+  Structured fields are preferred; **fallback:** when absent, `scope` and
+  `session_required_single_domain` query params are parsed out of `URL`
+  (scope split on spaces, domain split on commas) and removed from the base
+  URL; any other query params in the URL are preserved. Existing production
+  configs keep working unmigrated.
+- The domain value is a list in config and comma-joined in the URL (Globus
+  semantics: an identity from *one* of the listed domains satisfies it).
+- Migration of the production config in `rdm-deployment` is a follow-up, not
+  part of this change.
+
+### 5. Frontend: authorize URL construction
+
+Shared `buildAuthorizeUrl(base, { scopes, domains, guestMode })` — where
+`base` is the normalized model from section 4 — used by both components'
+`getRepoToken`:
+
+- **Scope merge (not replace).** Start from `baseScopes`. Each required scope
+  replaces the base entry whose base it extends (match by prefix before `[`);
+  unmatched required scopes are appended; all other base entries are
   preserved. Result example:
   `transfer:all[*https://auth.globus.org/scopes/<id>/data_access] openid email profile`.
   No accumulation across successive errors is needed: Globus consents persist
   server-side per user+client (which is why one user reproduces a consent
   error and another does not).
-- **Domains.** When `domains` present:
-  `session_required_single_domain=<domains comma-joined>` **replaces** any
-  configured value (the endpoint demands those domains; the configured
+- **Domains.** When `domains` present (from a reauth error):
+  `session_required_single_domain=<domains comma-joined>` **replaces**
+  `baseDomains` (the endpoint demands those domains; the configured
   `kuleuven.be` cannot satisfy it), and `prompt=login` is appended so Globus
   forces fresh authentication with the required identity instead of silently
   reusing the SSO session.
-- **Guest/preview stripping** of `session_required_single_domain` remains, but
-  only when no explicit `domains` were demanded by an error.
+- **Guest/preview mode** omits `baseDomains` (replacing today's regex
+  stripping), but error-demanded `domains` are still applied even for guests.
+- All parameters (`scope`, `session_required_single_domain`, `client_id`,
+  `redirect_uri`, `response_type`, `state`, `prompt`) are appended
+  programmatically — no substring surgery on configured URLs.
 - The download component's `getRepoToken()` gains the optional reauth
   parameter; state preservation across the redirect via `LoginState` is
   already in place in both components.
 
-### 5. Testing
+### 6. Testing
 
 - **Go:** interpreter unit tests with real payload fixtures (the Sydney 530
   GridFTP text, a `ConsentRequired` body, an `authorization_parameters` body,
@@ -185,23 +225,30 @@ components' `getRepoToken`:
   candidates), and a ReauthError raised on every candidate must propagate out
   of `resolveAndBuildInitialTree` as the returned error.
 - **Angular:** `extractReauth` (structured 401, legacy marker, non-reauth
-  errors); `buildAuthorizeUrl` (scope merge, domain replace + `prompt=login`,
-  guest-strip interplay); regression spec: download `getOptions` receiving the
-  401 reauth payload triggers re-login instead of showing
-  "Branch lookup failed".
+  errors); token-getter normalization (structured fields preferred, legacy
+  URL-with-params parsed, other query params preserved); `buildAuthorizeUrl`
+  (scope merge, domain replace + `prompt=login`, guest-mode interplay);
+  regression spec: download `getOptions` receiving the 401 reauth payload
+  triggers re-login instead of showing "Branch lookup failed".
+- **Go config:** `TokenGetter` round-trip test — structured fields survive
+  unmarshal/marshal through `/api/frontend/config`, and configs without them
+  serialize unchanged.
 
-### 6. Documentation
+### 7. Documentation
 
 Update `GLOBUS_INTEGRATION.md`: describe dynamic consent/domain recovery,
-the 401 reauth contract, and the revised meaning of the configured
-`session_required_single_domain` (initial default for logged-in users, no
-longer a hard limit).
+the 401 reauth contract, the structured `tokenGetter` fields (with the legacy
+URL form documented as still supported), and the revised meaning of the
+configured `session_required_single_domain` (initial default for logged-in
+users, no longer a hard limit).
 
 ## Out of scope
 
 - Detecting failures of already-submitted transfer tasks via task events, and
   any cancel/re-submit flow.
-- Config format changes; `kuleuven.be` stays the configured initial default.
+- Migrating the production config in `rdm-deployment` to the structured
+  fields (follow-up; the legacy URL form keeps working). `kuleuven.be` stays
+  the configured initial default for logged-in users.
 - Anonymous preview URL limitations (Dataverse-side).
 - Folder/landing-directory resolution (`resolveAndBuildInitialTree` candidate
   logic and endpoint-type quirks). Believed fixed and orthogonal: the
