@@ -695,7 +695,7 @@ Note: `plugin/funcs/compare/compare.go` needs **no** change even though the spec
 - [ ] **Step 2: Build and run affected package tests**
 
 Run: `cd /home/eryk/workspaces/redcap/rdm-integration/image && go build ./app/... && go test ./app/common/... ./app/plugin/...`
-Expected: build succeeds; existing tests PASS (handler behavior for plain errors is byte-identical: `500 - <text>`). The reauth branch itself is covered by Task 1's `WriteError` tests plus Task 2's propagation test; handler-level Redis-dependent integration tests are intentionally not added (no Redis test double exists in this repo — verified in `common/ddi_cdi_test.go`).
+Expected: build succeeds; existing tests PASS (handler behavior for plain errors is byte-identical: `500 - <text>` — except the `Compare` job-error branch, which previously had no `500 - ` prefix and now gains one; accepted by ruling during execution, no consumer matches the exact text). The reauth branch itself is covered by Task 1's `WriteError` tests plus Task 2's propagation test; handler-level Redis-dependent integration tests are intentionally not added (no Redis test double exists in this repo — verified in `common/ddi_cdi_test.go`).
 
 - [ ] **Step 3: Commit**
 
