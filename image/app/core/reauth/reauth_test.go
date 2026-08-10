@@ -1,3 +1,5 @@
+// Author: Eryk Kulikowski @ KU Leuven (2026). Apache 2.0 License
+
 package reauth
 
 import (
