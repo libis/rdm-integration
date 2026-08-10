@@ -40,7 +40,7 @@ func TestTokenGetterLegacyConfigSerializesUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, banned := range []string{`"scopes"`, `"session_required_single_domain":[`} {
+	for _, banned := range []string{`"scopes"`, `"session_required_single_domain"`} {
 		if strings.Contains(string(out), banned) {
 			t.Fatalf("omitempty violated, legacy config gained %s: %s", banned, out)
 		}
