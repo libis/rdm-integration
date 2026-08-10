@@ -14,7 +14,7 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 		return nil, fmt.Errorf("search: missing parameters: expected url, token, got: %+v", params)
 	}
 	url := params.Url + "/endpoint_search?filter_fulltext=" + url.QueryEscape(params.RepoName)
-	endpoints, err := getPartialResponse(ctx, url, params.Token, 10, 0)
+	endpoints, err := doGetPartialResponse(ctx, url, params.Token, 10, 0)
 	if err != nil {
 		return nil, err
 	}

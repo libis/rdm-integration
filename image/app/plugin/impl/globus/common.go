@@ -219,7 +219,7 @@ func getResponseWithPath(ctx context.Context, url string, token string) ([]Data,
 		if page >= maxPages {
 			return nil, absolutePath, fmt.Errorf("globus pagination exceeded %d pages", maxPages)
 		}
-		response, err := getPartialResponse(ctx, url, token, limit, offset)
+		response, err := doGetPartialResponse(ctx, url, token, limit, offset)
 		if err != nil {
 			return nil, response.AbsolutePath, err
 		}
@@ -270,14 +270,6 @@ func effectiveLimit(response Response, fallback int) int {
 	return fallback
 }
 
-func getPartialResponse(ctx context.Context, url string, token string, limit, offset int) (Response, error) {
-	res, err := doGetPartialResponse(ctx, url, token, limit, offset)
-	if err != nil && strings.HasPrefix(err.Error(), "ConsentRequired") {
-		return res, fmt.Errorf("*scopes*%v*scopes*", strings.Join(res.RequiredScopes, " "))
-	}
-	return res, err
-}
-
 func doGetPartialResponse(ctx context.Context, url string, token string, limit, offset int) (Response, error) {
 	fullUrl := fmt.Sprintf("%v&limit=%v&offset=%v", url, limit, offset)
 	b, err := DoGlobusRequest(ctx, fullUrl, "GET", token, nil)
@@ -307,5 +299,12 @@ func DoGlobusRequest(ctx context.Context, url, method, token string, body io.Rea
 		return nil, err
 	}
 	defer r.Body.Close()
-	return io.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	if r.StatusCode >= 400 {
+		return b, interpretGlobusError(r.StatusCode, b)
+	}
+	return b, nil
 }
