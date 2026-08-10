@@ -29,8 +29,10 @@ type RepoPlugin struct {
 }
 
 type TokenGetter struct {
-	Url           string `json:"URL,omitempty"`
-	OauthClientId string `json:"oauth_client_id,omitempty"`
+	Url                         string   `json:"URL,omitempty"`
+	OauthClientId               string   `json:"oauth_client_id,omitempty"`
+	Scopes                      []string `json:"scopes,omitempty"`
+	SessionRequiredSingleDomain []string `json:"session_required_single_domain,omitempty"`
 }
 
 type Configuration struct {
