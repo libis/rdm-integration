@@ -107,6 +107,36 @@ Globus OAuth URL for guest/preview users (scope stripped):
 https://auth.globus.org/v2/oauth2/authorize?scope=...
 ```
 
+### Dynamic re-authentication
+
+The configured domain and scopes are the *initial* login requirements, not a
+hard limit. When a Globus API call fails because the user's session is
+missing something, the backend returns a structured response:
+
+    HTTP/1.1 401 Unauthorized
+    Content-Type: application/json
+
+    {"reauth": {"required_scopes": ["..."], "required_domains": ["..."], "message": "..."}}
+
+Two error classes are detected on every backend Globus call (directory
+listing, endpoint lookup, endpoint search, transfer submission):
+
+- **`ConsentRequired`** — GCS v5 mapped collections (e.g. VSC HPC, ManGO)
+  require a per-collection `data_access` consent. The frontend re-runs the
+  OAuth login with the required scope *merged into* the configured scopes
+  (configured entries such as `openid email profile` are preserved). Globus
+  consents persist per user, so this happens at most once per user and
+  collection.
+- **Identity-domain policies** — endpoints restricted to identities from
+  specific domains (reported via `authorization_parameters` or embedded in
+  GridFTP 530 text). The frontend re-runs the login with
+  `session_required_single_domain=<required domains>` replacing the
+  configured value, plus `prompt=login` to force authenticating the matching
+  identity.
+
+Guest and preview users log in without the configured domain restriction, but
+an endpoint-demanded domain is still enforced for them.
+
 [↑ Back to Top](#globus-integration-details) | [→ Transfer Progress Monitoring](#transfer-progress-monitoring)
 
 ---
@@ -235,6 +265,19 @@ parameter to the authorization URL, for example:
 
 Preview and guest download flows remove this restriction automatically so
 external reviewers can use a non-institutional Globus identity.
+
+The Globus token getter supports structured fields (preferred):
+
+    "tokenGetter": {
+        "URL": "https://auth.globus.org/v2/oauth2/authorize",
+        "oauth_client_id": "<client id>",
+        "scopes": ["urn:globus:auth:scope:transfer.api.globus.org:all", "openid", "email", "profile"],
+        "session_required_single_domain": ["kuleuven.be"]
+    }
+
+The legacy form — `scope` and `session_required_single_domain` baked into the
+`URL` query string — keeps working: the frontend parses those parameters out
+of the URL when the structured fields are absent.
 
 ### Backend OAuth secrets
 
