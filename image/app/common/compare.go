@@ -5,9 +5,11 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/core/reauth"
 	"integration/app/tree"
 	"io"
 	"net/http"
@@ -73,8 +75,7 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 		res.Ready = true
 	}
 	if res.ErrorMessage != "" {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", res.ErrorMessage)))
+		reauth.WriteError(w, errors.New(res.ErrorMessage))
 		return
 	}
 	b, err = json.Marshal(res)
@@ -110,8 +111,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 
 	errMessage := config.GetRedis().Get(r.Context(), fmt.Sprintf("error %v", req.PersistentId))
 	if errMessage != nil && errMessage.Val() != "" {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("Job failed: %v", errMessage)))
+		reauth.WriteError(w, fmt.Errorf("Job failed: %v", errMessage))
 		return
 	}
 

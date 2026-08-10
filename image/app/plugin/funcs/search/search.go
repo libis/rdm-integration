@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"integration/app/core"
 	"integration/app/core/oauth"
+	"integration/app/core/reauth"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
 	"io"
@@ -37,8 +38,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := plugin.GetPlugin(params.Plugin).Search(r.Context(), params)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		reauth.WriteError(w, err)
 		return
 	}
 	if len(res) == 0 {

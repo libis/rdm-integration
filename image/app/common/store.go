@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/core/reauth"
 	"integration/app/plugin/impl/globus"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -78,8 +79,7 @@ func Store(w http.ResponseWriter, r *http.Request) {
 		err = core.AddJob(r.Context(), job)
 	}
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+		reauth.WriteError(w, err)
 		return
 	}
 	monitorUrl := ""

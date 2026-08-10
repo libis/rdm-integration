@@ -8,6 +8,7 @@ import (
 	"integration/app/config"
 	"integration/app/core"
 	"integration/app/core/oauth"
+	"integration/app/core/reauth"
 	"integration/app/logging"
 	"integration/app/plugin/impl/globus"
 	"integration/app/tree"
@@ -59,8 +60,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	res := ""
 	res, err = globus.Download(r.Context(), req.StreamParams, selected)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(fmt.Appendf(nil, "500 - %v", err))
+		reauth.WriteError(w, err)
 		return
 	}
 	type downloadResponse struct {
@@ -107,8 +107,7 @@ func GlobusTransferStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	resBytes, err := globus.GetTaskStatus(r.Context(), token, taskId)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(fmt.Appendf(nil, "500 - %v", err))
+		reauth.WriteError(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
