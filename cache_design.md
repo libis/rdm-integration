@@ -6,7 +6,9 @@ session. Status: design agreed (Eryk + Claude, 2026-08-05); §4.6 GC delivery
 revised 2026-08-06 per Eryk's review (standalone open-source script — see §8);
 execution not started.
 Read §8 (decisions log) before proposing design changes — rejected alternatives
-are listed there with their reasons. Context: see git history `21fbbd3..12f7055` (the incident fixes) and the
+are listed there with their reasons.
+Before executing: read `cache_design_companion.md` first — execution risk,
+ordering, and verification notes from the 2026-08-26 review session. Context: see git history `21fbbd3..12f7055` (the incident fixes) and the
 regression `7f15343` (presence guard lost in a refactor, undetected for 2.5 years).
 
 ## 1. Why
