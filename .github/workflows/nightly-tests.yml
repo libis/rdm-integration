@@ -1,12 +1,14 @@
 name: nightly tests
 
-# Nightly run of the full test suite (Go + Python, `make test`) on the shared
-# rdm-ci self-hosted runner, via the reusable make-target workflow from
-# libis/rdm-ci. report=true keeps a tracking issue open while the tests are
-# broken and closes it on recovery.
+# Nightly run of the full test suite (Go + Python, `make test`) on a
+# GitHub-hosted runner — free for public repositories.
 #
-# Scheduled after rdm-deployment's nightly integration build (01:00 UTC,
-# 120-minute window) so the two never contend for the runner.
+# The shared libis/rdm-ci reusable workflow (used by rdm-deployment) is NOT
+# usable here: rdm-ci is a private repo and GitHub forbids public repos from
+# calling private reusable workflows, and exposing the self-hosted runner to a
+# public repo would be a security risk. The failure-issue bot below mirrors
+# rdm-ci's ci-issue-tracker.yml behavior: one tracking issue per workflow,
+# opened on failure, commented on repeats, closed on recovery.
 on:
   schedule:
     - cron: '30 3 * * *' # 03:30 UTC nightly
@@ -22,8 +24,100 @@ concurrency:
 
 jobs:
   test:
-    uses: libis/rdm-ci/.github/workflows/make-target.yml@main
-    with:
-      make-target: test
-      report: true
-    secrets: inherit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: image/go.mod
+          cache-dependency-path: image/go.sum
+      - name: make test
+        run: make test
+
+  report:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open / comment / close the CI tracking issue
+        uses: actions/github-script@v7
+        env:
+          BUILD_RESULT: ${{ needs.test.result }}
+        with:
+          script: |
+            const result = process.env.BUILD_RESULT;
+            if (result !== 'failure' && result !== 'success') {
+              core.info(`build result is "${result}" — nothing to do`);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const workflow = context.workflow;
+            const label = 'ci-failure';
+            const marker = `<!-- rdm-ci-tracker: ${workflow} -->`;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const shortSha = (context.sha || '').substring(0, 7);
+
+            // make sure the label exists
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: label });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner, repo, name: label, color: 'd73a4a',
+                description: 'Open while CI is failing (managed by nightly tests)',
+              });
+            }
+
+            // find this workflow's open tracking issue, if any
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: label, per_page: 100,
+            });
+            const tracking = issues.find(i => (i.body || '').includes(marker));
+
+            if (result === 'failure') {
+              if (tracking) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: tracking.number,
+                  body: `Still failing — \`${shortSha}\` · [run](${runUrl})`,
+                });
+                core.info(`commented on #${tracking.number}`);
+                return;
+              }
+              const body = [
+                marker,
+                `**\`${workflow}\`** is failing.`,
+                ``,
+                `- First failing run: ${runUrl}`,
+                `- Commit: \`${shortSha}\``,
+                `- Trigger: \`${context.eventName}\``,
+                `- Unassigned — assign whoever should investigate.`,
+                ``,
+                `Closes automatically when \`${workflow}\` next passes.`,
+              ].join('\n');
+              const res = await github.rest.issues.create({
+                owner, repo, title: `CI failing: ${workflow}`, body, labels: [label],
+              });
+              core.info(`opened #${res.data.number}`);
+            } else {
+              // success
+              if (!tracking) {
+                core.info('green, and no open tracking issue — nothing to do');
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: tracking.number,
+                body: `Fixed — \`${workflow}\` is green again. [run](${runUrl})`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: tracking.number,
+                state: 'closed', state_reason: 'completed',
+              });
+              core.info(`closed #${tracking.number}`);
+            }
