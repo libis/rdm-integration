@@ -111,6 +111,10 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 
 	errMessage := config.GetRedis().Get(r.Context(), fmt.Sprintf("error %v", req.PersistentId))
 	if errMessage != nil && errMessage.Val() != "" {
+		// The cached job error is a one-shot notification: consume it, or a
+		// reauth-marked error would keep answering 401 for its whole TTL and
+		// bounce the user back to the OAuth provider after every re-login.
+		config.GetRedis().Del(r.Context(), fmt.Sprintf("error %v", req.PersistentId))
 		reauth.WriteError(w, fmt.Errorf("Job failed: %v", errMessage))
 		return
 	}
