@@ -1,8 +1,29 @@
 name: canary
+
 on:
+  schedule:
+    - cron: '30 3 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
 jobs:
-  hello:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
-      - run: echo hello
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: image/go.mod
+          cache-dependency-path: image/go.sum
+      - name: go version
+        run: go version
