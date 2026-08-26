@@ -42,4 +42,5 @@ jobs:
         env:
           BUILD_RESULT: ${{ needs.test.result }}
         with:
-          script: core.info('report scaffolding ok: ' + process.env.BUILD_RESULT)
+          script: |
+            core.info('report scaffolding ok ' + process.env.BUILD_RESULT)
