@@ -1,5 +1,7 @@
 # rdm-integration
 
+[![nightly tests](https://github.com/libis/rdm-integration/actions/workflows/nightly-tests.yml/badge.svg)](https://github.com/libis/rdm-integration/actions/workflows/nightly-tests.yml)
+
 > A powerful application for synchronizing files from various source repositories into Dataverse, with support for background processing, DDI-CDI metadata generation, and high-performance Globus transfers.
 
 ![image](https://user-images.githubusercontent.com/101262459/217203229-77a6aef4-aba7-4310-a2cd-8a7cdaa12fa9.png)

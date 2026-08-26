@@ -1,0 +1,29 @@
+name: nightly tests
+
+# Nightly run of the full test suite (Go + Python, `make test`) on the shared
+# rdm-ci self-hosted runner, via the reusable make-target workflow from
+# libis/rdm-ci. report=true keeps a tracking issue open while the tests are
+# broken and closes it on recovery.
+#
+# Scheduled after rdm-deployment's nightly integration build (01:00 UTC,
+# 120-minute window) so the two never contend for the runner.
+on:
+  schedule:
+    - cron: '30 3 * * *' # 03:30 UTC nightly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly-tests
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: libis/rdm-ci/.github/workflows/make-target.yml@main
+    with:
+      make-target: test
+      report: true
+    secrets: inherit
