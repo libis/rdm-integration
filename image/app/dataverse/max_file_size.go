@@ -87,7 +87,7 @@ func parseSetting(value string) (int64, bool) {
 	size, err := strconv.ParseInt(value, 10, 64)
 	if err != nil || size < 0 {
 		if err != nil {
-			logging.Logger.Println(fmt.Sprintf("server max file size setting is not a valid number: %q", value))
+			logging.Logger.Printf("server max file size setting is not a valid number: %q", value)
 		}
 		return 0, false
 	}
