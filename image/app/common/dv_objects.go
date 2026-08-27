@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"integration/app/core"
+	"integration/app/logging"
 	"io"
 	"net/http"
 )
@@ -46,6 +47,9 @@ func DvObjects(w http.ResponseWriter, r *http.Request) {
 		res, err = core.Destination.Options(r.Context(), req.ObjectType, req.Collection, req.SearchTerm, req.Token, user)
 	}
 	if err != nil {
+		// Log the failure: the reverse proxy (ProxyErrorOverride) replaces 500
+		// bodies with a generic page, so this is the only place the cause survives.
+		logging.Logger.Printf("dvobjects failed for user %v (type %v, search %q): %v", user, req.ObjectType, req.SearchTerm, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
 		return

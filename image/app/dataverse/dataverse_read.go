@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/libis/rdm-dataverse-go-api/api"
@@ -267,7 +268,7 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 	if searchTermFirstPart != "" {
 		searchTerm = "text:\"" + searchTermFirstPart + "\""
 		if collection != "" {
-			searchTerm = " identifierOfDataverse:(+" + collection + ")"
+			searchTerm = searchTerm + " AND identifierOfDataverse:(+" + collection + ")"
 		}
 	} else if collection != "" {
 		searchTerm = "identifierOfDataverse:(+" + collection + ")"
@@ -291,18 +292,67 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 
 		retrieveResponse := api.RetrieveResponse{}
 		req := GetRequest(path, "GET", user, token, nil, nil)
-		err := api.Do(ctx, req, &retrieveResponse)
+		// Read the raw body before decoding: mydata failures come in several
+		// shapes (mydata JSON, standard {"status":"ERROR"} JSON, proxy HTML) and
+		// the original response is the only reliable diagnostic.
+		stream, err := api.DoStream(ctx, req)
 		if err != nil {
 			return nil, err
 		}
+		body, err := io.ReadAll(stream)
+		stream.Close()
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(body, &retrieveResponse); err != nil {
+			return nil, fmt.Errorf("listing %v objects failed, unexpected response: %v", objectType, truncateForError(body))
+		}
 
 		if !retrieveResponse.Success {
+			if isMyDataEmptyResult(retrieveResponse.ErrorMessage) {
+				return res, nil
+			}
+			if retrieveResponse.ErrorMessage == "" {
+				// Not the mydata format (no error_message): report the raw response.
+				return nil, fmt.Errorf("listing %v objects was not successful: %v", objectType, truncateForError(body))
+			}
 			return nil, fmt.Errorf("listing %v objects was not successful: %v", objectType, retrieveResponse.ErrorMessage)
 		}
 		res = append(res, retrieveResponse.Data.Items...)
 		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber && page < config.GetMaxDvObjectPages()
 	}
 	return res, nil
+}
+
+// truncateForError keeps error messages (and thus logs) bounded when they carry
+// a raw response body, which can be an arbitrarily long HTML page.
+func truncateForError(body []byte) string {
+	const max = 500
+	s := strings.TrimSpace(string(body))
+	if len(s) > max {
+		return s[:max] + "..."
+	}
+	return s
+}
+
+// isMyDataEmptyResult recognizes the mydata "error" responses that really mean
+// "nothing matched": Dataverse (up to and including 6.7.x) reports a search with
+// zero hits as {"success":false,"error_message":"Sorry, no results were found."}
+// (and variants for users without roles or objects). Treating those as failures
+// turned every non-matching dataset search into an HTTP 500 on the connect page.
+// Genuine failures (Solr down, authentication) keep other messages and still error.
+func isMyDataEmptyResult(errorMessage string) bool {
+	msg := strings.ToLower(errorMessage)
+	for _, emptyMarker := range []string{
+		"no results were found",
+		"you have no assigned",
+		"nothing was found for",
+	} {
+		if strings.Contains(msg, emptyMarker) {
+			return true
+		}
+	}
+	return false
 }
 
 // searchPublicDatasets searches for publicly accessible datasets using the /api/search endpoint.
