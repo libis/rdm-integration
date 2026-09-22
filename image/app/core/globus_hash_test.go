@@ -58,6 +58,49 @@ func TestCalculateHashUsesRecordedGlobusTimestampOnce(t *testing.T) {
 	}
 }
 
+func TestCalculateHashMarkerOverridesStaleUnknownForSameContent(t *testing.T) {
+	// The file was transferred before, hashed as "unknown", then deleted and
+	// transferred again with identical content: same destination checksum,
+	// so the cache entry still matches. The new transfer's timestamp must win.
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	ctx := context.Background()
+	n := globusNode("README.md", "2025-12-19 11:46:42+00:00")
+	known := map[string]calculatedHashes{n.Id: {
+		LocalHashType:  types.Md5,
+		LocalHashValue: "md5-from-dataverse",
+		RemoteHashes:   map[string]string{types.LastModified: fmt.Sprintf("%x", "unknown")},
+	}}
+	config.GetRedis().Set(ctx, globusTransferKey(testPid, n.Id), n.Attributes.RemoteHash, 0)
+	if err := calculateHash(ctx, "", "", testPid, n, known); err != nil {
+		t.Fatal(err)
+	}
+	if got := known[n.Id].RemoteHashes[types.LastModified]; got != n.Attributes.RemoteHash {
+		t.Errorf("expected the new transfer's timestamp to replace the stale unknown, got %q", got)
+	}
+}
+
+func TestCalculateHashKeepsCachedHashOfOtherTypes(t *testing.T) {
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	n := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
+	n.Attributes.RemoteHashType = types.SHA256
+	n.Attributes.RemoteHash = "abc"
+	known := map[string]calculatedHashes{n.Id: {
+		LocalHashType:  types.Md5,
+		LocalHashValue: "md5-from-dataverse",
+		RemoteHashes:   map[string]string{types.SHA256: "abc"},
+	}}
+	if err := calculateHash(context.Background(), "", "", testPid, n, known); err != nil {
+		t.Fatal(err)
+	}
+	if known[n.Id].RemoteHashes[types.SHA256] != "abc" {
+		t.Error("expected the cached hash to be kept without recomputing")
+	}
+}
+
 func TestCalculateHashWithoutRecordedTimestampStaysUnknown(t *testing.T) {
 	fr := testutil.NewFakeRedis()
 	config.SetRedis(fr)

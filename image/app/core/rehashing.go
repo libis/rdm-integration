@@ -154,24 +154,25 @@ func invalidateKnownHashes(ctx context.Context, persistentId string) {
 func calculateHash(ctx context.Context, dataverseKey, user, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
 	hashType := node.Attributes.RemoteHashType
 	known, ok := knownHashes[node.Id]
-	if ok && known.LocalHashType == node.Attributes.DestinationFile.HashType && known.LocalHashValue == node.Attributes.DestinationFile.Hash {
-		_, ok2 := known.RemoteHashes[hashType]
-		if ok2 {
-			return nil
-		}
-	} else {
+	if !ok || known.LocalHashType != node.Attributes.DestinationFile.HashType || known.LocalHashValue != node.Attributes.DestinationFile.Hash {
 		known = calculatedHashes{
 			LocalHashType:  node.Attributes.DestinationFile.HashType,
 			LocalHashValue: node.Attributes.DestinationFile.Hash,
 			RemoteHashes:   map[string]string{},
 		}
 	}
+	// A transfer we started wins over anything cached: re-uploading identical
+	// content yields the same destination checksum, so the cache alone would
+	// keep an earlier "unknown" for ever.
 	if strings.EqualFold(hashType, types.LastModified) {
 		if ts := consumeGlobusTransferTimestamp(ctx, persistentId, node.Id); ts != "" {
 			known.RemoteHashes[hashType] = ts
 			knownHashes[node.Id] = known
 			return nil
 		}
+	}
+	if _, ok := known.RemoteHashes[hashType]; ok {
+		return nil
 	}
 	h, err := doHash(ctx, dataverseKey, user, persistentId, node)
 	if err != nil {
