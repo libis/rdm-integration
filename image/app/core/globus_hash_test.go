@@ -96,6 +96,83 @@ func TestCalculateHashIgnoresRecordOfAnotherStorageObject(t *testing.T) {
 	}
 }
 
+func TestCompareRejectsCachedTimestampOfReplacedStorageObject(t *testing.T) {
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	savedDestination := Destination
+	defer func() { Destination = savedDestination }()
+	Destination = DestinationPlugin{
+		CheckPermission: func(context.Context, string, string, string) error { return nil },
+		GetRepoUrl:      func(string, bool) string { return "" },
+	}
+	ctx := context.Background()
+	original := globusNode("data.bin", "2026-09-22 10:00:00+00:00")
+	// Globus stores inaccessible to Dataverse report this same placeholder
+	// for every object, including replacements with different content.
+	original.Attributes.DestinationFile.Hash = "Not available in Dataverse"
+	recordTransfer(t, original.Id, testStorageObject, original.Attributes.RemoteHash)
+	known := map[string]calculatedHashes{}
+	if err := calculateHash(ctx, "", "", testPid, original, known); err != nil {
+		t.Fatal(err)
+	}
+	storeKnownHashes(ctx, testPid, known)
+	replacement := original
+	replacement.Attributes.DestinationFile.StorageIdentifier = "s3://dataverse-pilot:replacement"
+	res := Compare(ctx, map[string]tree.Node{replacement.Id: replacement}, testPid, "key", "user", true)
+	if res.Status != Updating || res.Data[0].Status == tree.Equal {
+		t.Fatalf("replacement inherited the original object's timestamp: %+v", res)
+	}
+	job, ok := popJob("")
+	if !ok {
+		t.Fatal("expected a rehash job for the replacement")
+	}
+	if _, err := doRehash(ctx, "key", "user", testPid, job.WritableNodes, job); err != nil {
+		t.Fatal(err)
+	}
+	unlock(testPid)
+	res = Compare(ctx, map[string]tree.Node{replacement.Id: replacement}, testPid, "key", "user", true)
+	if res.Status == Updating || res.Data[0].Status != tree.Updated {
+		t.Fatalf("expected replacement to settle as updated: %+v", res)
+	}
+}
+
+func TestCompareRehashesWhenTransferRecordArrivesAfterUnknownWasCached(t *testing.T) {
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	savedDestination := Destination
+	defer func() { Destination = savedDestination }()
+	Destination = DestinationPlugin{
+		CheckPermission: func(context.Context, string, string, string) error { return nil },
+		GetRepoUrl:      func(string, bool) string { return "" },
+	}
+	ctx := context.Background()
+	n := globusNode("data.bin", "2026-09-22 10:00:00+00:00")
+	known := map[string]calculatedHashes{}
+	if err := calculateHash(ctx, "", "", testPid, n, known); err != nil {
+		t.Fatal(err)
+	}
+	storeKnownHashes(ctx, testPid, known)
+	recordTransfer(t, n.Id, testStorageObject, n.Attributes.RemoteHash)
+	res := Compare(ctx, map[string]tree.Node{n.Id: n}, testPid, "key", "user", true)
+	if res.Status != Updating {
+		t.Fatalf("late transfer record never triggered a rehash: %+v", res)
+	}
+	job, ok := popJob("")
+	if !ok {
+		t.Fatal("expected a job to replace the cached unknown hash")
+	}
+	if _, err := doRehash(ctx, "key", "user", testPid, job.WritableNodes, job); err != nil {
+		t.Fatal(err)
+	}
+	unlock(testPid)
+	res = Compare(ctx, map[string]tree.Node{n.Id: n}, testPid, "key", "user", true)
+	if res.Status == Updating || res.Data[0].Status != tree.Equal {
+		t.Fatalf("expected the transferred file to settle as equal: %+v", res)
+	}
+}
+
 func TestCalculateHashIgnoresRecordsWithoutStorageObject(t *testing.T) {
 	// Records written before the object binding hold a bare timestamp.
 	fr := testutil.NewFakeRedis()
@@ -104,8 +181,9 @@ func TestCalculateHashIgnoresRecordsWithoutStorageObject(t *testing.T) {
 	ctx := context.Background()
 	n := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
 	for name, raw := range map[string]string{
-		"bare timestamp": n.Attributes.RemoteHash,
-		"empty object":   `{"storageIdentifier":"","lastModified":"` + n.Attributes.RemoteHash + `"}`,
+		"bare timestamp":  n.Attributes.RemoteHash,
+		"empty object":    `{"storageIdentifier":"","lastModified":"` + n.Attributes.RemoteHash + `"}`,
+		"empty timestamp": `{"storageIdentifier":"` + testStorageObject + `","lastModified":""}`,
 	} {
 		config.GetRedis().Set(ctx, types.GlobusTransferKey(testPid, n.Id), raw, 0)
 		known := map[string]calculatedHashes{}
@@ -126,6 +204,9 @@ func TestSameStorageObject(t *testing.T) {
 		{"s3://dataverse-pilot:19a2b3c4d5e-01", "s3://dataverse-pilot:19a2b3c4d5e-01", true},
 		{"s3://dataverse-pilot:19a2b3c4d5e-01", "19a2b3c4d5e-01", true},
 		{"s3://dataverse-pilot/19a2b3c4d5e-01", "s3://dataverse-pilot:19a2b3c4d5e-01", true},
+		{"s3://dataverse-pilot:19a2b3c4d5e-01", "s3://another-bucket:19a2b3c4d5e-01", false},
+		{"s3://dataverse-pilot:19a2b3c4d5e-01", "other://dataverse-pilot:19a2b3c4d5e-01", false},
+		{"s3://bucket/folder-a/file", "s3://bucket/folder-b/file", false},
 		{"s3://dataverse-pilot:19a2b3c4d5e-01", "s3://dataverse-pilot:19a2b3c4d5e-02", false},
 		{"s3://dataverse-pilot:19a2b3c4d5e-01", "", false},
 		{"", "", false},
@@ -135,6 +216,18 @@ func TestSameStorageObject(t *testing.T) {
 		if got := sameStorageObject(tt.a, tt.b); got != tt.want {
 			t.Errorf("sameStorageObject(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
 		}
+	}
+}
+
+func TestResolveDestinationHashRejectsLegacyTimestampCache(t *testing.T) {
+	n := globusNode("data.bin", "2026-09-22 10:00:00+00:00")
+	legacy := calculatedHashes{
+		LocalHashType:  n.Attributes.DestinationFile.HashType,
+		LocalHashValue: n.Attributes.DestinationFile.Hash,
+		RemoteHashes:   map[string]string{types.LastModified: n.Attributes.RemoteHash},
+	}
+	if value, needsJob := resolveDestinationHash(n, legacy, ""); value != "?" || !needsJob {
+		t.Fatalf("expected the unbound legacy timestamp to be rehashed, got %q needsJob=%v", value, needsJob)
 	}
 }
 

@@ -14,9 +14,10 @@ import (
 )
 
 type calculatedHashes struct {
-	LocalHashType  string
-	LocalHashValue string
-	RemoteHashes   map[string]string
+	LocalHashType          string
+	LocalHashValue         string
+	LocalStorageIdentifier string `json:",omitempty"`
+	RemoteHashes           map[string]string
 }
 
 func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, persistentId string, nodes map[string]tree.Node, addJobs bool) (map[string]tree.Node, bool) {
@@ -32,6 +33,13 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 				node.Attributes.DestinationFile.HashType = node.Attributes.RemoteHashType
 			}
 			value, needsRehashJob := resolveDestinationHash(node, knownHashes[node.Id], redisValue)
+			// A fast transfer can become visible before its record is saved.
+			// Revisit a cached unknown when the matching record arrives.
+			if strings.EqualFold(node.Attributes.RemoteHashType, types.LastModified) && value == fmt.Sprintf("%x", "unknown") {
+				if _, ok := globusTransferLastModified(ctx, persistentId, node); ok {
+					value, needsRehashJob = "?", true
+				}
+			}
 			jobNeeded = jobNeeded || needsRehashJob
 			// An echoed "?" carries no destination hash to key the cache on.
 			if needsRehashJob && node.Attributes.DestinationFile.Hash != "?" {
@@ -71,10 +79,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 // catches up.
 func resolveDestinationHash(node tree.Node, known calculatedHashes, redisValue string) (value string, needsRehashJob bool) {
 	value, ok := "", false
-	cacheDescribesCurrentContent := known.LocalHashType != "" &&
-		known.LocalHashType == node.Attributes.DestinationFile.HashType &&
-		known.LocalHashValue == node.Attributes.DestinationFile.Hash
-	if cacheDescribesCurrentContent {
+	if cacheMatchesDestination(node, known) {
 		value, ok = known.RemoteHashes[node.Attributes.RemoteHashType]
 	}
 	if node.Attributes.DestinationFile.Hash != "" && node.Attributes.RemoteHashType == node.Attributes.DestinationFile.HashType {
@@ -90,6 +95,26 @@ func resolveDestinationHash(node tree.Node, known calculatedHashes, redisValue s
 		return "?", true
 	}
 	return value, false
+}
+
+func cacheMatchesDestination(node tree.Node, known calculatedHashes) bool {
+	destination := node.Attributes.DestinationFile
+	if known.LocalHashType == "" || known.LocalHashType != destination.HashType || known.LocalHashValue != destination.Hash {
+		return false
+	}
+	if !strings.EqualFold(node.Attributes.RemoteHashType, types.LastModified) {
+		return true
+	}
+	// A timestamp describes one storage object. In particular, Dataverse's
+	// "Not available in Dataverse" checksum cannot distinguish replacements.
+	// Old cache entries without this binding must be recalculated as well.
+	if sameStorageObject(known.LocalStorageIdentifier, destination.StorageIdentifier) {
+		return true
+	}
+	// A listing with no storage identifier can only resolve to unknown. Keep
+	// that negative result cacheable instead of repeatedly queuing jobs.
+	return known.LocalStorageIdentifier == "" && destination.StorageIdentifier == "" &&
+		known.RemoteHashes[node.Attributes.RemoteHashType] == fmt.Sprintf("%x", "unknown")
 }
 
 func doRehash(ctx context.Context, dataverseKey, user, persistentId string, nodes map[string]tree.Node, in Job) (out Job, err error) {
@@ -156,12 +181,13 @@ func invalidateKnownHashes(ctx context.Context, persistentId string) {
 
 func calculateHash(ctx context.Context, dataverseKey, user, persistentId string, node tree.Node, knownHashes map[string]calculatedHashes) error {
 	hashType := node.Attributes.RemoteHashType
-	known, ok := knownHashes[node.Id]
-	if !ok || known.LocalHashType != node.Attributes.DestinationFile.HashType || known.LocalHashValue != node.Attributes.DestinationFile.Hash {
+	known := knownHashes[node.Id]
+	if !cacheMatchesDestination(node, known) {
 		known = calculatedHashes{
-			LocalHashType:  node.Attributes.DestinationFile.HashType,
-			LocalHashValue: node.Attributes.DestinationFile.Hash,
-			RemoteHashes:   map[string]string{},
+			LocalHashType:          node.Attributes.DestinationFile.HashType,
+			LocalHashValue:         node.Attributes.DestinationFile.Hash,
+			LocalStorageIdentifier: node.Attributes.DestinationFile.StorageIdentifier,
+			RemoteHashes:           map[string]string{},
 		}
 	}
 	// A transfer we started wins over anything cached: re-uploading identical
@@ -200,23 +226,29 @@ func globusTransferLastModified(ctx context.Context, persistentId string, node t
 	if err := json.Unmarshal([]byte(raw), &t); err != nil {
 		return "", false
 	}
-	if !sameStorageObject(t.StorageIdentifier, node.Attributes.DestinationFile.StorageIdentifier) {
+	if t.LastModified == "" || !sameStorageObject(t.StorageIdentifier, node.Attributes.DestinationFile.StorageIdentifier) {
 		return "", false
 	}
 	return t.LastModified, true
 }
 
-// sameStorageObject compares the object part of two storage identifiers.
+// sameStorageObject compares storage identifiers, allowing a legacy listing
+// to omit the prefix. When both identifiers include a storage location, it
+// must match too: equal basenames in different stores are different objects.
 // Dataverse hands out "s3://bucket:id" for a Globus upload and lists the
-// file as "s3://bucket:id" again; a store may add or drop the driver and
-// bucket prefix, but the object id is generated once and never reused.
+// file as "s3://bucket:id" again; some stores use a slash before the id.
 func sameStorageObject(a, b string) bool {
-	return storageObjectId(a) != "" && storageObjectId(a) == storageObjectId(b)
+	ap, aid := storageObjectParts(a)
+	bp, bid := storageObjectParts(b)
+	return aid != "" && aid == bid && (ap == "" || bp == "" || ap == bp)
 }
 
-func storageObjectId(storageIdentifier string) string {
+func storageObjectParts(storageIdentifier string) (string, string) {
 	i := strings.LastIndexAny(storageIdentifier, ":/")
-	return storageIdentifier[i+1:]
+	if i < 0 {
+		return "", storageIdentifier
+	}
+	return strings.TrimRight(storageIdentifier[:i], "/"), storageIdentifier[i+1:]
 }
 
 func CheckKnownHashes(ctx context.Context, persistentId string, mapped map[string]tree.Node) {

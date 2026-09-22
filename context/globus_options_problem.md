@@ -231,6 +231,12 @@ Dataverse accepts the files leaves no record, a file replaced through the UI
 has another object and stays "updated", and records written before the object
 binding (a bare timestamp) are ignored.
 
+Cached `last_modified` hashes also retain the destination storage identifier,
+so a replacement cannot inherit a timestamp just because Dataverse returns the
+same unavailable-checksum placeholder. Entries cached before this binding are
+rehashed. If the file was already cached as unknown when its transfer record
+arrives, the next compare queues a rehash to use the record.
+
 Persisting a Globus job drops the cached rehash of every file it transfers,
 copies included: a file deleted outside the integration and copied again with
 identical content keeps its Dataverse checksum, so the old cache entry would

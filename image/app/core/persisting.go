@@ -184,15 +184,14 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 	// Batch-delete files first, before any uploads/replacements
 	deleteIds := []int64{}
-	deleteKeys := []string{}             // map keys for bookkeeping after batch delete
-	globusUpdateDeleteKeys := []string{} // Globus updates are deleted before transfer to avoid duplicates
+	deleteKeys := []string{} // map keys for bookkeeping after batch delete
 	for k, v := range writableNodes {
 		if v.Action == tree.Delete {
 			deleteIds = append(deleteIds, v.Attributes.DestinationFile.Id)
 			deleteKeys = append(deleteKeys, k)
 		} else if in.Plugin == "globus" && v.Action == tree.Update && v.Attributes.DestinationFile.Id != 0 {
+			// Globus updates are deleted before transfer to avoid duplicates.
 			deleteIds = append(deleteIds, v.Attributes.DestinationFile.Id)
-			globusUpdateDeleteKeys = append(globusUpdateDeleteKeys, k)
 		}
 	}
 	if len(deleteIds) > 0 {
@@ -301,9 +300,10 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 
 		if hashValue != remoteHashValue {
 			knownHashes[v.Id] = calculatedHashes{
-				LocalHashType:  hashType,
-				LocalHashValue: hashValue,
-				RemoteHashes:   map[string]string{remoteHashType: remoteHashValue},
+				LocalHashType:          hashType,
+				LocalHashValue:         hashValue,
+				LocalStorageIdentifier: storageIdentifier,
+				RemoteHashes:           map[string]string{remoteHashType: remoteHashValue},
 			}
 		}
 		config.GetRedis().Set(ctx, redisKey, types.Written, FileNamesInCacheDuration)
