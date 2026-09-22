@@ -148,35 +148,86 @@ func TestGlobusPersistRecordsSourceTimestamps(t *testing.T) {
 	}
 }
 
-func TestPolledCompareQueuesMissingRehashJob(t *testing.T) {
+func TestPolledCompareRefreshesDestinationBeforeQueuing(t *testing.T) {
 	fr := testutil.NewFakeRedis()
 	config.SetRedis(fr)
 	defer fr.Reset()
 	savedDestination := Destination
 	defer func() { Destination = savedDestination }()
-	Destination = DestinationPlugin{GetRepoUrl: func(string, bool) string { return "" }}
+	fresh := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
+	queries := 0
+	Destination = DestinationPlugin{
+		GetRepoUrl: func(string, bool) string { return "" },
+		Query: func(context.Context, string, string, string) (map[string]tree.Node, error) {
+			queries++
+			return map[string]tree.Node{fresh.Id: fresh}, nil
+		},
+	}
 	ctx := context.Background()
-	n := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
-	nodes := map[string]tree.Node{n.Id: n}
+	// The page polls with the node it was shown: the destination hash is "?".
+	echoed := fresh
+	echoed.Attributes.DestinationFile.Hash = "?"
+	nodes := map[string]tree.Node{echoed.Id: echoed}
 
 	res := Compare(ctx, nodes, testPid, "key", "user", false)
 	if res.Status != Updating {
 		t.Errorf("expected Updating while the hash job runs, got %v", res.Status)
 	}
 	job, ok := popJob("")
-	if !ok || job.Plugin != "hash-only" || job.PersistentId != testPid {
-		t.Errorf("expected the polled compare to queue the hash job, got ok=%v job=%+v", ok, job)
+	if !ok || job.Plugin != "hash-only" {
+		t.Fatalf("expected the polled compare to queue the hash job, got ok=%v job=%+v", ok, job)
 	}
-	if !IsLocked(ctx, testPid) {
-		t.Error("expected the queued job to hold the dataset lock")
+	if got := job.WritableNodes[fresh.Id].Attributes.DestinationFile.Hash; got != "md5-from-dataverse" {
+		t.Errorf("expected the job to carry the refreshed destination hash, got %q", got)
+	}
+	if queries != 1 || !IsLocked(ctx, testPid) {
+		t.Errorf("expected one destination query and the lock held, got queries=%d locked=%v", queries, IsLocked(ctx, testPid))
 	}
 
-	// A second poll while the job holds the lock must not queue another job.
+	// A second poll while the job holds the lock neither queries nor queues.
 	res = Compare(ctx, nodes, testPid, "key", "user", false)
 	if res.Status != Updating {
 		t.Errorf("expected Updating while locked, got %v", res.Status)
 	}
+	if _, ok := popJob(""); ok || queries != 1 {
+		t.Errorf("expected no second job or query while locked, got job=%v queries=%d", ok, queries)
+	}
+}
+
+func TestPolledCompareStaysUpdatingWhenRefreshFails(t *testing.T) {
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	savedDestination := Destination
+	defer func() { Destination = savedDestination }()
+	Destination = DestinationPlugin{
+		GetRepoUrl: func(string, bool) string { return "" },
+		Query: func(context.Context, string, string, string) (map[string]tree.Node, error) {
+			return nil, fmt.Errorf("dataverse down")
+		},
+	}
+	echoed := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
+	echoed.Attributes.DestinationFile.Hash = "?"
+	res := Compare(context.Background(), map[string]tree.Node{echoed.Id: echoed}, testPid, "key", "user", false)
+	if res.Status != Updating {
+		t.Errorf("expected Updating, got %v", res.Status)
+	}
 	if _, ok := popJob(""); ok {
-		t.Error("expected no second job while the dataset is locked")
+		t.Error("expected no job built from an echoed unknown hash")
+	}
+}
+
+func TestRehashJobNeverContainsEchoedUnknownHashes(t *testing.T) {
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	echoed := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
+	echoed.Attributes.DestinationFile.Hash = "?"
+	_, jobNeeded := localRehashToMatchRemoteHashType(context.Background(), "key", "user", testPid, map[string]tree.Node{echoed.Id: echoed}, true)
+	if !jobNeeded {
+		t.Error("expected the status to keep reporting a needed job")
+	}
+	if _, ok := popJob(""); ok {
+		t.Error("expected no job for a node without a real destination hash")
 	}
 }

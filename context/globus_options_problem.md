@@ -228,7 +228,9 @@ that reach Dataverse another way keep the previous behaviour and show as
 updated.
 
 A polled compare (`api/common/compare`) queues the rehash job itself when no
-job holds the dataset lock. Before, only the connect page's compare did, and a
+job holds the dataset lock, after refreshing the destination side from the
+listing: the page echoes the "?" it was shown, and a job must never hash an
+echoed "?" as if it were a checksum. Before, only the connect page's compare did, and a
 page that arrived at the compare view through polling alone spun on Updating
 with nothing in the log.
 

@@ -4,6 +4,8 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"integration/app/logging"
 	"integration/app/tree"
 )
 
@@ -55,10 +57,20 @@ func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {
 }
 
 func Compare(ctx context.Context, in map[string]tree.Node, pid, dataverseKey, user string, addJobs bool) CompareResponse {
-	// A polled compare queues the rehash job too when no job holds the
-	// dataset; otherwise a missing job leaves the page on Updating for ever.
-	queueJobs := addJobs || !IsLocked(ctx, pid)
-	in, jobNeeded := localRehashToMatchRemoteHashType(ctx, dataverseKey, user, pid, in, queueJobs)
+	// A polled compare echoes the hashes the page was shown, including "?"
+	// for files still waiting for a rehash. When no job holds the dataset,
+	// refresh those from the destination and queue the job; otherwise a
+	// missing job leaves the page on Updating for ever.
+	if !addJobs && hasUnknownDestinationHash(in) && !IsLocked(ctx, pid) {
+		refreshed, err := withFreshDestinationFiles(ctx, in, pid, dataverseKey, user)
+		if err != nil {
+			logging.Logger.Printf("%v: refreshing destination files for a polled compare failed: %v\n", pid, err)
+		} else {
+			in = refreshed
+			addJobs = true
+		}
+	}
+	in, jobNeeded := localRehashToMatchRemoteHashType(ctx, dataverseKey, user, pid, in, addJobs)
 	data := []tree.Node{}
 	empty := false
 	for _, v := range in {
@@ -94,4 +106,31 @@ func Compare(ctx context.Context, in map[string]tree.Node, pid, dataverseKey, us
 		Data:   data,
 		Url:    Destination.GetRepoUrl(pid, false),
 	}
+}
+
+func hasUnknownDestinationHash(nodes map[string]tree.Node) bool {
+	for _, v := range nodes {
+		if v.Attributes.DestinationFile.Hash == "?" {
+			return true
+		}
+	}
+	return false
+}
+
+// withFreshDestinationFiles replaces the destination side of every node with
+// the current destination listing, so a job never hashes an echoed "?".
+func withFreshDestinationFiles(ctx context.Context, nodes map[string]tree.Node, persistentId, dataverseKey, user string) (map[string]tree.Node, error) {
+	if Destination.Query == nil {
+		return nil, fmt.Errorf("destination query not available")
+	}
+	fresh, err := Destination.Query(ctx, persistentId, dataverseKey, user)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]tree.Node, len(nodes))
+	for k, v := range nodes {
+		v.Attributes.DestinationFile = fresh[k].Attributes.DestinationFile
+		out[k] = v
+	}
+	return out, nil
 }

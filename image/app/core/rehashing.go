@@ -23,6 +23,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 	knownHashes := getKnownHashes(ctx, persistentId)
 	jobNodes := map[string]tree.Node{}
 	res := map[string]tree.Node{}
+	jobNeeded := false
 	for k, node := range nodes {
 		if node.Attributes.RemoteHashType != "" {
 			redisKey := fmt.Sprintf("%v -> %v", persistentId, k)
@@ -31,7 +32,9 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 				node.Attributes.DestinationFile.HashType = node.Attributes.RemoteHashType
 			}
 			value, needsRehashJob := resolveDestinationHash(node, knownHashes[node.Id], redisValue)
-			if needsRehashJob {
+			jobNeeded = jobNeeded || needsRehashJob
+			// An echoed "?" carries no destination hash to key the cache on.
+			if needsRehashJob && node.Attributes.DestinationFile.Hash != "?" {
 				jobNodes[k] = node
 			}
 			node.Attributes.DestinationFile.Hash = value
@@ -52,7 +55,7 @@ func localRehashToMatchRemoteHashType(ctx context.Context, dataverseKey, user, p
 			logging.Logger.Println("adding rehashing job failed: " + err.Error())
 		}
 	}
-	return res, len(jobNodes) > 0
+	return res, jobNeeded
 }
 
 // resolveDestinationHash determines the destination-side hash (in the remote
