@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"integration/app/config"
+	"integration/app/tree"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -269,5 +270,43 @@ func TestGetDatasetFileEntries_NonOKStatus(t *testing.T) {
 	_, err := getDatasetFileEntries(context.Background(), "doi:test", "token", "user")
 	if err == nil {
 		t.Fatal("expected error for non-OK status, got nil")
+	}
+}
+
+func TestTransferItemsSourcePathAndDirectoryLabel(t *testing.T) {
+	tests := []struct {
+		name       string
+		option     string
+		id         string
+		node       tree.Node
+		wantSource string
+		wantLabel  string
+	}{
+		{"root_file_in_root", "/", "f.txt", tree.Node{Name: "f.txt", Path: ""}, "/f.txt", ""},
+		{"root_file_in_subfolder", "/", "sub/f.txt", tree.Node{Name: "f.txt", Path: "sub"}, "/sub/f.txt", "sub"},
+		{"home_file_in_root", "/home/alice/", "f.txt", tree.Node{Name: "f.txt", Path: ""}, "/home/alice/f.txt", ""},
+		{"home_file_in_subfolder", "/home/alice/", "sub/f.txt", tree.Node{Name: "f.txt", Path: "sub"}, "/home/alice/sub/f.txt", "sub"},
+		{"windows_file_in_subfolder", "/C/Users/alice/", "sub/f.txt", tree.Node{Name: "f.txt", Path: "sub"}, "/C/Users/alice/sub/f.txt", "sub"},
+		{"macos_file_in_subfolder", "/Users/alice/", "sub/f.txt", tree.Node{Name: "f.txt", Path: "sub"}, "/Users/alice/sub/f.txt", "sub"},
+		{"windows_network_drive", "/Z/project/", "sub/f.txt", tree.Node{Name: "f.txt", Path: "sub"}, "/Z/project/sub/f.txt", "sub"},
+		{"irods_echoed_home_subfolder", "/~/datasets/", "sub/f.txt", tree.Node{Name: "f.txt", Path: "sub"}, "/~/datasets/sub/f.txt", "sub"},
+		{"folder_without_trailing_slash", "/home/alice", "f.txt", tree.Node{Name: "f.txt", Path: ""}, "/home/alice/f.txt", ""},
+		// Globus resolves paths on the endpoint. Cleaning '..' locally can
+		// change its meaning when an earlier component is a symlink.
+		{"symlink_parent_path", "/home/alice/link/../data/", "f.txt", tree.Node{Name: "f.txt", Path: ""}, "/home/alice/link/../data/f.txt", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, files := transferItems(tt.option, map[string]tree.Node{tt.id: tt.node}, []Path{{Id: "s3://x", Path: "/dest/x"}})
+			if len(data) != 1 || len(files) != 1 {
+				t.Fatalf("expected one item, got %+v %+v", data, files)
+			}
+			if data[0].SourcePath != tt.wantSource || data[0].DestinationPath != "/dest/x" {
+				t.Fatalf("transfer item = %+v, want source %q dest /dest/x", data[0], tt.wantSource)
+			}
+			if files[0].DirectoryLabel != tt.wantLabel || files[0].FileName != "f.txt" || files[0].StorageIdentifier != "s3://x" {
+				t.Fatalf("file = %+v, want directoryLabel %q", files[0], tt.wantLabel)
+			}
+		})
 	}
 }

@@ -104,10 +104,11 @@ authoritative; in short:
    not `/`, not containing `~`, not containing `{...}`), build a nested
    hierarchy expanded down to it with the leaf marked `Selected: true`.
 6. Otherwise, prefer the first attempt that returned a non-empty folder
-   listing and present its items **flat**, with **no node marked
-   `Selected`**. This is the safety net for the iRODS quirk: the user
-   sees navigable folders but is never nudged into uploading to a path
-   they cannot trust.
+   listing, with **no node marked `Selected`**. Put a resolved root listing
+   under `/`. Keep an unresolved `/~/` listing under a separate `~` node,
+   beside a collapsed `/` that can be expanded to browse elsewhere.
+   Use the resolved directory, so a `/~/` request resolving to `/` is
+   displayed under `/`, not under `~`.
 7. If nothing worked, propagate the last non-NotFound error, or return an
    empty list.
 
@@ -119,20 +120,49 @@ new endpoint variant misbehaves, those logs are the first place to look.
 
 | Endpoint type | DefaultDirectory | response.absolute_path | Outcome |
 |---------------|------------------|------------------------|---------|
-| GCS personal Linux | `/~/` or empty | `/home/user/` | hierarchy `home/ > user/` selected |
-| GCS personal macOS | `/~/` or empty | `/Users/user/` | hierarchy `Users/ > user/` selected |
-| GCS personal Windows | `/~/` or `/C:/Users/me/` | `/C:/Users/me/` | hierarchy `C:/ > Users/ > me/` selected |
+| GCP Linux | `/~/` or empty | `/home/user/` | hierarchy `/ > home/ > user/` selected at user |
+| GCP macOS | `/~/` or empty | `/Users/user/` | hierarchy `/ > Users/ > user/` selected at user |
+| GCP Windows | `/~/` or `/C/Users/me/` | `/C/Users/me/` | hierarchy `/ > C/ > Users/ > me/` selected at me |
 | Linux server with template | `/{server_default}/` | resolved `/home/user/` | hierarchy down to `/home/user/` selected |
 | Mapped collection (POSIX-backed) explicit dir | `/home/me/data/` | `/home/me/data/` | hierarchy down to `/home/me/data/` selected |
 | Mapped collection (iRODS-backed, well-behaved) | `/{server_default}/` | `/ghum/home/u0050020/` | hierarchy down to `/ghum/home/u0050020/` selected |
-| **Mapped collection (iRODS-backed, echoes shorthand)** | `/~/` or empty | `/~/` (unchanged) | flat folders from `/~/`, or fall through to `/` if empty |
-| Public endpoint with no home | empty | n/a (NotFound on `/~/`) | flat root listing, no preselect |
+| **Mapped collection (iRODS-backed, echoes shorthand)** | `/~/` or empty | `/~/` (unchanged) | folders under `~` beside collapsed `/`, or fall through to `/` if empty |
+| Public endpoint with no home | empty | n/a (NotFound on `/~/`) | folders under `/`, no preselect |
 | ACL-restricted endpoint | any | PermissionDenied | error surfaced; user re-auths or contacts admin |
 
-In all "flat fallback" cases the user has to click through to a real folder
-before the submit button accepts the selection. This is intentional: we
-explicitly do not want to auto-select `/`, `/~/`, or any other unresolved
-path that could end up writing to a place the user does not own.
+Every successful initial listing includes a selectable `/`. Resolved home
+hierarchies sit beneath it. Both the connect and download pickers replace
+their initial placeholder with this tree and show the selected path.
+Fallback nodes, including `/` and `/~/`, require an explicit selection.
+Expanding `/` subsequently requests its children without another root wrapper.
+
+Windows drive paths follow the documented `/drive_letter/path` convention,
+including mapped network drives. See the
+[Globus Connect Personal Windows guide](https://docs.globus.org/globus-connect-personal/install/windows/).
+Guest collection paths are relative to the collection's virtual root, as
+described in the [Globus file operations API](https://docs.globus.org/api/transfer/file_operations/).
+
+### Transfer path preservation
+
+Upload source paths add a separator only when the selected directory lacks
+one. Do not use `path.Join` here: it removes `..` locally, which can change
+the path's meaning when an earlier component is an endpoint symlink.
+File directory labels and storage identifiers must stay paired with the
+same transfer item even when multiple files are iterated from a Go map.
+
+### Regression coverage
+
+`paths_test.go` covers personal Linux, macOS and Windows paths, mapped
+network drives, POSIX and iRODS collections, object-storage-shaped paths,
+guest roots, empty directories, missing absolute paths, and permission
+fallbacks. It also exercises expanding `/` and navigating to another drive.
+`query_test.go` runs recursive mock HTTP listings through query conversion
+and transfer manifest construction, checking relative paths and metadata.
+Connect and download browser tests cover initial root replacement, selected
+home preservation, explicit root selection, and loading root children.
+
+These tests simulate the API responses; they do not exercise live personal
+endpoints or certify every server connector and access-policy configuration.
 
 ### Why we don't try harder to guess the home path
 
@@ -165,10 +195,26 @@ and switch to the full hierarchy — no further code changes needed.
   resolved-home, iRODS-echo, root-fallback, empty-home-falls-through,
   explicit-default-dir, placeholder-rejection, and meaningfulness cases
 
+Root selection (September 2026):
+
+- `image/app/plugin/impl/globus/options.go` — `withRoot` puts every initial
+  listing under a selectable, never preselected `/` node
+- `image/app/plugin/impl/globus/streams.go` — `transferItems` builds the
+  transfer manifest; the source path adds only the missing separator
+- `image/app/plugin/impl/globus/paths_test.go`, `query_test.go`,
+  `streams_test.go`, `common_test.go` — per-endpoint regression tables
+
 ### Frontend (`rdm-integration-frontend`)
 
 - `src/app/download/download.component.ts` — `_rootOptionsData.update(prev => [...prev])` instead of `refreshTrigger`
 - `src/app/connect/connect.component.ts` — same fix, removed unused `refreshTrigger`
+
+Root selection (September 2026):
+
+- `connect.component.ts`, `download.component.ts` — `isRootListing` replaces
+  the "Expand and select" placeholder with the backend's `/` tree
+- `connect.component.html`, `download.component.html` — selected path shown
+  as plain text under the tree
 
 ## Investigating future regressions
 

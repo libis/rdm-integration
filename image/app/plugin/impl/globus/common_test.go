@@ -41,6 +41,36 @@ func TestNormalizeEndpointPath(t *testing.T) {
 			in:   "/home/user/data/",
 			want: "/home/user/data/",
 		},
+		{
+			name: "keeps_home_shorthand",
+			in:   "/~/",
+			want: "/~/",
+		},
+		{
+			name: "keeps_root",
+			in:   "/",
+			want: "/",
+		},
+		{
+			name: "collapses_root_double_slash",
+			in:   "//data/f.txt",
+			want: "/data/f.txt",
+		},
+		{
+			name: "keeps_windows_drive_path",
+			in:   "/C/Users/demo/",
+			want: "/C/Users/demo/",
+		},
+		{
+			name: "converts_windows_backslashes",
+			in:   "C:\\Users\\demo",
+			want: "C:/Users/demo",
+		},
+		{
+			name: "empty_stays_empty",
+			in:   "",
+			want: "",
+		},
 	}
 
 	for _, tt := range tests {

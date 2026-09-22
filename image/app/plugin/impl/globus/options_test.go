@@ -158,10 +158,13 @@ func TestOptionsBuildsHierarchyForResolvedAbsolutePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Options error: %v", err)
 	}
-	if len(items) != 1 {
-		t.Fatalf("expected single root node, got %d: %+v", len(items), items)
+	if len(items) != 1 || items[0].Label != "/" || items[0].Value != "/" || !items[0].Expanded || items[0].Selected {
+		t.Fatalf("expected single unselected expanded root node, got %d: %+v", len(items), items)
 	}
-	root := items[0]
+	if len(items[0].Children) != 1 {
+		t.Fatalf("expected single node under root, got %+v", items[0].Children)
+	}
+	root := items[0].Children[0]
 	if root.Label != "home" {
 		t.Fatalf("root label = %q, want %q", root.Label, "home")
 	}
@@ -184,8 +187,9 @@ func TestOptionsBuildsHierarchyForResolvedAbsolutePath(t *testing.T) {
 // regression: the Globus iRODS connector lists "/~/" successfully but
 // returns absolute_path = "/~/" unchanged. The previous implementation
 // then created a single meaningless "~" node. The fix should detect the
-// echoed shorthand and return the listed children flat, with NO node marked
-// as selected (we don't want to nudge the user into writing under "/").
+// echoed shorthand and return the listed children under an expanded "~"
+// node next to a collapsed "/" root, with NO node marked as selected (we
+// don't want to nudge the user into writing under "/").
 func TestOptionsHandlesIrodsEchoedAbsolutePath(t *testing.T) {
 	t.Parallel()
 
@@ -238,27 +242,29 @@ func TestOptionsHandlesIrodsEchoedAbsolutePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Options error: %v", err)
 	}
-	if len(items) == 0 {
-		t.Fatal("expected non-empty items, got 0")
+	if len(items) != 2 {
+		t.Fatalf("expected root and home nodes, got %d: %+v", len(items), items)
 	}
-	for _, it := range items {
+	root, home := items[0], items[1]
+	if root.Label != "/" || root.Value != "/" || root.Expanded || root.Selected || len(root.Children) != 0 {
+		t.Fatalf("root should be a collapsed unselected '/' node, got %+v", root)
+	}
+	if home.Label != "~" || home.Value != "/~/" || !home.Expanded || home.Selected {
+		t.Fatalf("home should be an expanded unselected '~' node, got %+v", home)
+	}
+	// We should see the /~/ listing's directory entries under it — at minimum
+	// the "datasets" folder. Files are filtered out by the folder picker.
+	foundDatasets := false
+	for _, it := range home.Children {
 		if it.Selected {
 			t.Fatalf("no node should be auto-selected when home cannot be resolved, got selected: %+v", it)
 		}
-		if it.Label == "~" {
-			t.Fatalf("must not present a single meaningless '~' node, items: %+v", items)
-		}
-	}
-	// We should see the /~/ listing's directory entries flat — at minimum the
-	// "datasets" folder. Files are filtered out by the folder picker.
-	foundDatasets := false
-	for _, it := range items {
-		if it.Label == "datasets" {
+		if it.Label == "datasets" && it.Value == "/~/datasets/" {
 			foundDatasets = true
 		}
 	}
 	if !foundDatasets {
-		t.Fatalf("expected 'datasets' folder in flat listing, got: %+v", items)
+		t.Fatalf("expected 'datasets' folder under home, got: %+v", home.Children)
 	}
 }
 
@@ -305,14 +311,14 @@ func TestOptionsResolvesIrodsHomeViaResponseAbsolutePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Options error: %v", err)
 	}
-	if len(items) != 1 {
-		t.Fatalf("expected single root node, got %d: %+v", len(items), items)
+	if len(items) != 1 || items[0].Label != "/" || items[0].Selected || len(items[0].Children) != 1 {
+		t.Fatalf("expected single unselected root node with one child, got %d: %+v", len(items), items)
 	}
-	if items[0].Label != "ghum" {
-		t.Fatalf("root label = %q, want %q", items[0].Label, "ghum")
+	if items[0].Children[0].Label != "ghum" {
+		t.Fatalf("root label = %q, want %q", items[0].Children[0].Label, "ghum")
 	}
 	// Walk down: ghum -> home -> u0050020 (selected)
-	cur := items[0]
+	cur := items[0].Children[0]
 	wantPath := []string{"ghum", "home", "u0050020"}
 	for i, expectedLabel := range wantPath {
 		if cur.Label != expectedLabel {
@@ -343,7 +349,7 @@ func TestOptionsResolvesIrodsHomeViaResponseAbsolutePath(t *testing.T) {
 
 // TestOptionsFallsBackToRootWhenHomeNotFound covers the case where /~/ is
 // rejected by the endpoint (NotFound). The picker should fall through to
-// listing root and present it flat.
+// listing root and present it under the "/" node.
 func TestOptionsFallsBackToRootWhenHomeNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -387,10 +393,13 @@ func TestOptionsFallsBackToRootWhenHomeNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Options error: %v", err)
 	}
-	if len(items) != 2 {
-		t.Fatalf("expected 2 root-level items, got %d: %+v", len(items), items)
+	if len(items) != 1 || items[0].Value != "/" || !items[0].Expanded || items[0].Selected {
+		t.Fatalf("expected single expanded unselected root node, got %d: %+v", len(items), items)
 	}
-	for _, it := range items {
+	if len(items[0].Children) != 2 {
+		t.Fatalf("expected 2 items under root, got %+v", items[0].Children)
+	}
+	for _, it := range items[0].Children {
 		if it.Selected {
 			t.Fatalf("no node should be auto-selected for root fallback, got: %+v", it)
 		}
@@ -449,10 +458,10 @@ func TestOptionsFallsThroughWhenHomeListingHasNoFolders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Options error: %v", err)
 	}
-	if len(items) != 2 {
-		t.Fatalf("expected to fall through to root listing (2 items), got %d: %+v", len(items), items)
+	if len(items) != 1 || items[0].Value != "/" || len(items[0].Children) != 2 {
+		t.Fatalf("expected to fall through to root listing (2 items under root), got %d: %+v", len(items), items)
 	}
-	labels := []string{items[0].Label, items[1].Label}
+	labels := []string{items[0].Children[0].Label, items[0].Children[1].Label}
 	if !((labels[0] == "ghum" && labels[1] == "image") || (labels[0] == "image" && labels[1] == "ghum")) {
 		t.Fatalf("expected ghum and image at root, got %v", labels)
 	}
@@ -499,10 +508,10 @@ func TestOptionsBuildsHierarchyForExplicitDefaultDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Options error: %v", err)
 	}
-	if len(items) != 1 || items[0].Label != "home" {
-		t.Fatalf("expected root 'home', got %+v", items)
+	if len(items) != 1 || items[0].Label != "/" || len(items[0].Children) != 1 || items[0].Children[0].Label != "home" {
+		t.Fatalf("expected 'home' under root, got %+v", items)
 	}
-	cur := items[0]
+	cur := items[0].Children[0]
 	for _, want := range []string{"home", "me", "data"} {
 		if cur.Label != want {
 			t.Fatalf("expected label %q at this level, got %q", want, cur.Label)
@@ -565,6 +574,7 @@ func TestIsMeaningfulHierarchyPath(t *testing.T) {
 		{"/{server_default}/u0050020/", false},
 		{"/home/user/", true},
 		{"/ghum/home/u0050020/", true},
+		{"/C/Users/me/", true},
 		{"/C:/Users/me/", true},
 	}
 	for _, tt := range tests {

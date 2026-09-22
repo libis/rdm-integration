@@ -33,9 +33,10 @@ func listFolderItems(ctx context.Context, params types.OptionsRequest) ([]types.
 // Globus endpoints differ wildly in how they resolve shorthand inputs like
 // "/~/" or "/{server_default}/":
 //
-//   - GCS personal endpoints (Linux, macOS, Windows): "/~/" resolves to the
+//   - Globus Connect Personal endpoints (Linux, macOS, Windows): "/~/" resolves to the
 //     user's home directory and the LS response carries the absolute path
-//     (e.g. "/home/user/", "/Users/user/", "C:/Users/user/").
+//     (e.g. "/home/user/", "/Users/user/", "/C/Users/user/" - Globus Connect
+//     Personal on Windows exposes drives as "/C/...").
 //   - Mapped collections backed by POSIX storage: same — "/~/" usually
 //     resolves to the user's home.
 //   - Mapped collections backed by iRODS (e.g. KU Leuven's
@@ -58,10 +59,12 @@ func listFolderItems(ctx context.Context, params types.OptionsRequest) ([]types.
 //  4. If the resolved path is "meaningful" (a real concrete absolute path,
 //     not an unresolved shorthand and not just "/"), build a nested
 //     hierarchy expanded down to that directory.
-//  5. Otherwise fall back to returning whatever flat listing succeeded —
+//  5. Otherwise fall back to returning whatever listing succeeded —
 //     the user can still navigate manually. Never auto-mark "/" or any
 //     unresolved node as selected, so the user is not nudged into writing
 //     to a path they may not own.
+//
+// In all cases the result starts with a selectable "/" root node.
 //
 // Every step is logged so we can diagnose new endpoint quirks quickly.
 func resolveAndBuildInitialTree(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
@@ -94,7 +97,7 @@ func resolveAndBuildInitialTree(ctx context.Context, params types.OptionsRequest
 		}
 		logging.Logger.Printf("globus options: candidate %q for %q listed: items=%d responseAbsolutePath=%q resolvedDir=%q meaningful=%v", candidate, params.RepoName, len(attempt.items), attempt.responseAbsolutePath, attempt.resolvedDir, attempt.meaningful)
 		if attempt.meaningful {
-			return buildHierarchy(attempt.resolvedDir, attempt.items), nil
+			return withRoot("/", buildHierarchy(attempt.resolvedDir, attempt.items)), nil
 		}
 		// Track the best fallback: prefer the first attempt that produced any
 		// folder entries. An empty listing of "/~/" is much less useful than a
@@ -106,18 +109,34 @@ func resolveAndBuildInitialTree(ctx context.Context, params types.OptionsRequest
 	firstSuccessful := bestFallback
 
 	if firstSuccessful != nil {
-		// No candidate gave us a real absolute path. Show whatever flat
-		// listing we managed to obtain — much better UX than a single "~".
+		// No candidate gave us a concrete non-root path. Keep the listing
+		// under the directory Globus resolved, which may itself be root.
 		// Do NOT mark any node as selected: we don't want to nudge the user
 		// to upload into "/" or another unresolved path.
 		logging.Logger.Printf("globus options: %q — no candidate produced a meaningful resolved path; returning flat listing of %q (%d items)", params.RepoName, firstSuccessful.candidate, len(firstSuccessful.items))
-		return firstSuccessful.items, nil
+		return withRoot(firstSuccessful.resolvedDir, firstSuccessful.items), nil
 	}
 
 	if lastErr != nil {
 		return nil, lastErr
 	}
 	return []types.SelectItem{}, nil
+}
+
+// withRoot puts the listed items under the collection root "/" so the root is
+// selectable like any other folder. Items listed under an unresolved
+// candidate such as "/~/" keep their own node, since their values are not
+// root-relative; the root is then left collapsed for lazy loading.
+func withRoot(candidate string, items []types.SelectItem) []types.SelectItem {
+	root := types.SelectItem{Label: "/", Value: "/"}
+	dir := ensureTrailingSlash(normalizeEndpointPath(candidate))
+	if dir == "/" {
+		root.Expanded = true
+		root.Children = items
+		return []types.SelectItem{root}
+	}
+	listed := types.SelectItem{Label: strings.Trim(dir, "/"), Value: dir, Expanded: true, Children: items}
+	return []types.SelectItem{root, listed}
 }
 
 // attemptResult captures the outcome of listing a single candidate path.

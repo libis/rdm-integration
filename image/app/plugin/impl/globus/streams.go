@@ -133,15 +133,30 @@ func doTransfer(ctx context.Context, pluginId, sessionId, token, repoName, optio
 		DestinationEndpoint: destinationEndpoint,
 	}
 	addGlobusFilesRequest := AddGlobusFilesRequest{}
+	transferRequest.Data, addGlobusFilesRequest.Files = transferItems(option, in, paths)
+	taskId, err := transfer(ctx, token, transferRequest)
+	if err != nil {
+		return "", err
+	}
+	addGlobusFilesRequest.TaskIdentifier = taskId
+	return taskId, addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
+}
+
+func transferItems(option string, in map[string]tree.Node, paths []Path) ([]TransferRequestData, []File) {
+	data := []TransferRequestData{}
+	files := []File{}
+	// Add only the separator: resolving '..' locally can change a path that
+	// traverses an endpoint symlink. Globus must resolve the path itself.
+	sourceFolder := ensureTrailingSlash(option)
 	index := 0
 	for k, v := range in {
-		transferRequest.Data = append(transferRequest.Data, TransferRequestData{
+		data = append(data, TransferRequestData{
 			DataType:        "transfer_item",
-			SourcePath:      option + "/" + k,
+			SourcePath:      sourceFolder + k,
 			DestinationPath: paths[index].Path,
 			Recursive:       false,
 		})
-		addGlobusFilesRequest.Files = append(addGlobusFilesRequest.Files, File{
+		files = append(files, File{
 			Description:       "",
 			DirectoryLabel:    v.Path,
 			Categories:        nil,
@@ -156,12 +171,7 @@ func doTransfer(ctx context.Context, pluginId, sessionId, token, repoName, optio
 		})
 		index += 1
 	}
-	taskId, err := transfer(ctx, token, transferRequest)
-	if err != nil {
-		return "", err
-	}
-	addGlobusFilesRequest.TaskIdentifier = taskId
-	return taskId, addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
+	return data, files
 }
 
 func getPrincipal(ctx context.Context, pluginId, sessionId string) (string, error) {
