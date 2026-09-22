@@ -215,6 +215,13 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		for _, k := range globusUpdateDeleteKeys {
 			delete(knownHashes, writableNodes[k].Id)
 		}
+		// Remember the source timestamp of every transferred file, so the
+		// rehash can mark it equal once Dataverse has the file.
+		for _, v := range writableNodes {
+			if v.Action != tree.Delete && v.Attributes.RemoteHashType == types.LastModified {
+				config.GetRedis().Set(ctx, globusTransferKey(persistentId, v.Id), v.Attributes.RemoteHash, config.LockMaxDuration)
+			}
+		}
 		// Globus uploads happen in streams.Cleanup() as a transfer task, so skip per-file upload work.
 		out.WritableNodes = map[string]tree.Node{}
 		select {

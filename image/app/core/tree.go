@@ -55,7 +55,10 @@ func MergeNodeMaps(to, from map[string]tree.Node) map[string]tree.Node {
 }
 
 func Compare(ctx context.Context, in map[string]tree.Node, pid, dataverseKey, user string, addJobs bool) CompareResponse {
-	in, jobNeeded := localRehashToMatchRemoteHashType(ctx, dataverseKey, user, pid, in, addJobs)
+	// A polled compare queues the rehash job too when no job holds the
+	// dataset; otherwise a missing job leaves the page on Updating for ever.
+	queueJobs := addJobs || !IsLocked(ctx, pid)
+	in, jobNeeded := localRehashToMatchRemoteHashType(ctx, dataverseKey, user, pid, in, queueJobs)
 	data := []tree.Node{}
 	empty := false
 	for _, v := range in {

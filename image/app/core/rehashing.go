@@ -10,6 +10,7 @@ import (
 	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"strings"
 )
 
 type calculatedHashes struct {
@@ -165,6 +166,13 @@ func calculateHash(ctx context.Context, dataverseKey, user, persistentId string,
 			RemoteHashes:   map[string]string{},
 		}
 	}
+	if strings.EqualFold(hashType, types.LastModified) {
+		if ts := consumeGlobusTransferTimestamp(ctx, persistentId, node.Id); ts != "" {
+			known.RemoteHashes[hashType] = ts
+			knownHashes[node.Id] = known
+			return nil
+		}
+	}
 	h, err := doHash(ctx, dataverseKey, user, persistentId, node)
 	if err != nil {
 		return fmt.Errorf("failed to hash local file %v: %w", node.Attributes.DestinationFile.StorageIdentifier, err)
@@ -172,6 +180,23 @@ func calculateHash(ctx context.Context, dataverseKey, user, persistentId string,
 	known.RemoteHashes[hashType] = fmt.Sprintf("%x", h)
 	knownHashes[node.Id] = known
 	return nil
+}
+
+func globusTransferKey(persistentId, nodeId string) string {
+	return fmt.Sprintf("globus transfer %v -> %v", persistentId, nodeId)
+}
+
+// consumeGlobusTransferTimestamp returns, once, the source timestamp recorded
+// when this integration started a Globus transfer of the file. A last_modified
+// hash cannot be recomputed from the stored file, so this is the only way to
+// show a transferred file as equal to its source.
+func consumeGlobusTransferTimestamp(ctx context.Context, persistentId, nodeId string) string {
+	key := globusTransferKey(persistentId, nodeId)
+	ts := config.GetRedis().Get(ctx, key).Val()
+	if ts != "" {
+		config.GetRedis().Del(ctx, key)
+	}
+	return ts
 }
 
 func CheckKnownHashes(ctx context.Context, persistentId string, mapped map[string]tree.Node) {

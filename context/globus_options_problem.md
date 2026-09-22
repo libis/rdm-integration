@@ -216,6 +216,22 @@ Root selection (September 2026):
 - `connect.component.html`, `download.component.html` — selected path shown
   as plain text under the tree
 
+## Globus uploads and the file status afterwards
+
+Globus gives only a `last_modified` timestamp as the remote hash, and that can
+never be recomputed from the stored file. When a transfer starts, the source
+timestamp of every transferred file is recorded in Redis under
+`globus transfer <pid> -> <file id>` for `LockMaxDuration`. The next rehash job
+consumes it once and stores it as the file's `last_modified` hash, keyed to the
+Dataverse checksum, so the file shows as equal until either side changes. Files
+that reach Dataverse another way keep the previous behaviour and show as
+updated.
+
+A polled compare (`api/common/compare`) queues the rehash job itself when no
+job holds the dataset lock. Before, only the connect page's compare did, and a
+page that arrived at the compare view through polling alone spun on Updating
+with nothing in the log.
+
 ## Investigating future regressions
 
 When the picker misbehaves on a new endpoint:
