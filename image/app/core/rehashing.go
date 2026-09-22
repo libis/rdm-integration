@@ -168,7 +168,7 @@ func calculateHash(ctx context.Context, dataverseKey, user, persistentId string,
 	// content yields the same destination checksum, so the cache alone would
 	// keep an earlier "unknown" for ever.
 	if strings.EqualFold(hashType, types.LastModified) {
-		if ts := consumeGlobusTransferTimestamp(ctx, persistentId, node.Id); ts != "" {
+		if ts, ok := globusTransferLastModified(ctx, persistentId, node); ok {
 			known.RemoteHashes[hashType] = ts
 			knownHashes[node.Id] = known
 			return nil
@@ -186,21 +186,37 @@ func calculateHash(ctx context.Context, dataverseKey, user, persistentId string,
 	return nil
 }
 
-func globusTransferKey(persistentId, nodeId string) string {
-	return fmt.Sprintf("globus transfer %v -> %v", persistentId, nodeId)
+// globusTransferLastModified returns the source timestamp recorded when this
+// integration transferred the object that now backs the node. The record is
+// trusted only for that object: a file that reached Dataverse any other way,
+// or replaced the transferred one, gets no timestamp. The record is kept, so
+// a wiped hash cache can be rebuilt as long as the object is the same.
+func globusTransferLastModified(ctx context.Context, persistentId string, node tree.Node) (string, bool) {
+	raw := config.GetRedis().Get(ctx, types.GlobusTransferKey(persistentId, node.Id)).Val()
+	if raw == "" {
+		return "", false
+	}
+	t := types.GlobusTransfer{}
+	if err := json.Unmarshal([]byte(raw), &t); err != nil {
+		return "", false
+	}
+	if !sameStorageObject(t.StorageIdentifier, node.Attributes.DestinationFile.StorageIdentifier) {
+		return "", false
+	}
+	return t.LastModified, true
 }
 
-// consumeGlobusTransferTimestamp returns, once, the source timestamp recorded
-// when this integration started a Globus transfer of the file. A last_modified
-// hash cannot be recomputed from the stored file, so this is the only way to
-// show a transferred file as equal to its source.
-func consumeGlobusTransferTimestamp(ctx context.Context, persistentId, nodeId string) string {
-	key := globusTransferKey(persistentId, nodeId)
-	ts := config.GetRedis().Get(ctx, key).Val()
-	if ts != "" {
-		config.GetRedis().Del(ctx, key)
-	}
-	return ts
+// sameStorageObject compares the object part of two storage identifiers.
+// Dataverse hands out "s3://bucket:id" for a Globus upload and lists the
+// file as "s3://bucket:id" again; a store may add or drop the driver and
+// bucket prefix, but the object id is generated once and never reused.
+func sameStorageObject(a, b string) bool {
+	return storageObjectId(a) != "" && storageObjectId(a) == storageObjectId(b)
+}
+
+func storageObjectId(storageIdentifier string) string {
+	i := strings.LastIndexAny(storageIdentifier, ":/")
+	return storageIdentifier[i+1:]
 }
 
 func CheckKnownHashes(ctx context.Context, persistentId string, mapped map[string]tree.Node) {

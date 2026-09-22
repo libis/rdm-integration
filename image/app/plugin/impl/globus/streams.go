@@ -133,18 +133,40 @@ func doTransfer(ctx context.Context, pluginId, sessionId, token, repoName, optio
 		DestinationEndpoint: destinationEndpoint,
 	}
 	addGlobusFilesRequest := AddGlobusFilesRequest{}
-	transferRequest.Data, addGlobusFilesRequest.Files = transferItems(option, in, paths)
+	var transfers map[string]types.GlobusTransfer
+	transferRequest.Data, addGlobusFilesRequest.Files, transfers = transferItems(option, in, paths)
 	taskId, err := transfer(ctx, token, transferRequest)
 	if err != nil {
 		return "", err
 	}
 	addGlobusFilesRequest.TaskIdentifier = taskId
-	return taskId, addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
+	err = addGlobusFiles(ctx, pId, dvToken, user, addGlobusFilesRequest)
+	if err != nil {
+		return "", err
+	}
+	recordTransfers(ctx, pId, transfers)
+	return taskId, nil
 }
 
-func transferItems(option string, in map[string]tree.Node, paths []Path) ([]TransferRequestData, []File) {
+// recordTransfers remembers which storage object each file's transfer creates
+// and the source timestamp it carries, once the task is accepted and Dataverse
+// registered the files: a transfer that never got that far leaves no record,
+// so nothing can inherit its timestamp.
+func recordTransfers(ctx context.Context, persistentId string, transfers map[string]types.GlobusTransfer) {
+	for nodeId, t := range transfers {
+		b, err := json.Marshal(t)
+		if err != nil {
+			logging.Logger.Printf("%v: recording globus transfer of %v failed: %v\n", persistentId, nodeId, err)
+			continue
+		}
+		config.GetRedis().Set(ctx, types.GlobusTransferKey(persistentId, nodeId), string(b), config.LockMaxDuration)
+	}
+}
+
+func transferItems(option string, in map[string]tree.Node, paths []Path) ([]TransferRequestData, []File, map[string]types.GlobusTransfer) {
 	data := []TransferRequestData{}
 	files := []File{}
+	transfers := map[string]types.GlobusTransfer{}
 	// Add only the separator: resolving '..' locally can change a path that
 	// traverses an endpoint symlink. Globus must resolve the path itself.
 	sourceFolder := ensureTrailingSlash(option)
@@ -169,9 +191,13 @@ func transferItems(option string, in map[string]tree.Node, paths []Path) ([]Tran
 				Value: v.Attributes.RemoteHash,
 			},
 		})
+		transfers[k] = types.GlobusTransfer{
+			StorageIdentifier: paths[index].Id,
+			LastModified:      v.Attributes.RemoteHash,
+		}
 		index += 1
 	}
-	return data, files
+	return data, files, transfers
 }
 
 func getPrincipal(ctx context.Context, pluginId, sessionId string) (string, error) {

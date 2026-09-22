@@ -219,13 +219,22 @@ Root selection (September 2026):
 ## Globus uploads and the file status afterwards
 
 Globus gives only a `last_modified` timestamp as the remote hash, and that can
-never be recomputed from the stored file. When a transfer starts, the source
-timestamp of every transferred file is recorded in Redis under
-`globus transfer <pid> -> <file id>` for `LockMaxDuration`. The next rehash job
-consumes it once and stores it as the file's `last_modified` hash, keyed to the
-Dataverse checksum, so the file shows as equal until either side changes. Files
-that reach Dataverse another way keep the previous behaviour and show as
-updated.
+never be recomputed from the stored file. Once the transfer task is accepted
+and Dataverse has registered the files (`doTransfer` in the globus plugin),
+a record per file is written to Redis under `globus transfer <pid> -> <file id>`
+for `LockMaxDuration`: the storage identifier Dataverse handed out for the
+transfer plus the source timestamp (`types.GlobusTransfer`). The rehash job
+(`globusTransferLastModified` in core) uses the timestamp only when the file
+listed by Dataverse is backed by that very storage object, and keeps the
+record, so a wiped hash cache can be rebuilt. A transfer that fails before
+Dataverse accepts the files leaves no record, a file replaced through the UI
+has another object and stays "updated", and records written before the object
+binding (a bare timestamp) are ignored.
+
+Persisting a Globus job drops the cached rehash of every file it transfers,
+copies included: a file deleted outside the integration and copied again with
+identical content keeps its Dataverse checksum, so the old cache entry would
+still match and the job that reads the transfer record would never be queued.
 
 A polled compare (`api/common/compare`) queues the rehash job itself when no
 job holds the dataset lock, after refreshing the destination side from the

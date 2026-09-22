@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"integration/app/config"
+	"integration/app/plugin/types"
+	"integration/app/testutil"
 	"integration/app/tree"
 	"net/http"
 	"net/http/httptest"
@@ -297,9 +299,9 @@ func TestTransferItemsSourcePathAndDirectoryLabel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, files := transferItems(tt.option, map[string]tree.Node{tt.id: tt.node}, []Path{{Id: "s3://x", Path: "/dest/x"}})
-			if len(data) != 1 || len(files) != 1 {
-				t.Fatalf("expected one item, got %+v %+v", data, files)
+			data, files, transfers := transferItems(tt.option, map[string]tree.Node{tt.id: tt.node}, []Path{{Id: "s3://x", Path: "/dest/x"}})
+			if len(data) != 1 || len(files) != 1 || transfers[tt.id].StorageIdentifier != "s3://x" {
+				t.Fatalf("expected one item bound to its object, got %+v %+v %+v", data, files, transfers)
 			}
 			if data[0].SourcePath != tt.wantSource || data[0].DestinationPath != "/dest/x" {
 				t.Fatalf("transfer item = %+v, want source %q dest /dest/x", data[0], tt.wantSource)
@@ -308,5 +310,24 @@ func TestTransferItemsSourcePathAndDirectoryLabel(t *testing.T) {
 				t.Fatalf("file = %+v, want directoryLabel %q", files[0], tt.wantLabel)
 			}
 		})
+	}
+}
+
+func TestRecordTransfersBindsTimestampToStorageObject(t *testing.T) {
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	ctx := context.Background()
+	transfers := map[string]types.GlobusTransfer{
+		"sub/f.txt": {StorageIdentifier: "s3://dataverse-pilot:19a2b3c4d5e-01", LastModified: "2026-01-02 03:04:05+00:00"},
+		"g.txt":     {StorageIdentifier: "s3://dataverse-pilot:19a2b3c4d5e-02", LastModified: "2026-02-03 04:05:06+00:00"},
+	}
+	recordTransfers(ctx, "doi:10.1/X", transfers)
+	for id, want := range transfers {
+		raw := config.GetRedis().Get(ctx, types.GlobusTransferKey("doi:10.1/X", id)).Val()
+		got := types.GlobusTransfer{}
+		if err := json.Unmarshal([]byte(raw), &got); err != nil || got != want {
+			t.Errorf("record for %v = %q (%v), want %+v", id, raw, err, want)
+		}
 	}
 }

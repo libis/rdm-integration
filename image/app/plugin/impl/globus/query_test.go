@@ -93,9 +93,9 @@ func TestQueryAndTransferEndpointPaths(t *testing.T) {
 				t.Fatalf("unexpected relative file paths: %+v", nodes)
 			}
 			paths := []Path{{Id: "store:1", Path: "/dest/1"}, {Id: "store:2", Path: "/dest/2"}}
-			data, files := transferItems(tt.folder, nodes, paths)
-			if len(data) != 2 || len(files) != 2 {
-				t.Fatalf("unexpected transfer manifest: %+v %+v", data, files)
+			data, files, transfers := transferItems(tt.folder, nodes, paths)
+			if len(data) != 2 || len(files) != 2 || len(transfers) != 2 {
+				t.Fatalf("unexpected transfer manifest: %+v %+v %+v", data, files, transfers)
 			}
 			for i, file := range files {
 				id := file.FileName
@@ -108,6 +108,9 @@ func TestQueryAndTransferEndpointPaths(t *testing.T) {
 				}
 				if file.Checksum.Type != types.LastModified || file.Checksum.Value != nodes[id].Attributes.RemoteHash {
 					t.Fatalf("checksum metadata was lost: %+v", file)
+				}
+				if transfers[id].StorageIdentifier != paths[i].Id || transfers[id].LastModified != nodes[id].Attributes.RemoteHash {
+					t.Fatalf("transfer record does not describe the file's object: %+v", transfers[id])
 				}
 			}
 		})

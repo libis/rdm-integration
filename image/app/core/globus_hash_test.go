@@ -4,6 +4,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"integration/app/config"
 	"integration/app/plugin/types"
@@ -13,6 +14,16 @@ import (
 )
 
 const testPid = "doi:10.1/GLOBUS"
+const testStorageObject = "s3://dataverse-pilot:19a2b3c4d5e-0123456789ab"
+
+func recordTransfer(t *testing.T, nodeId, storageIdentifier, lastModified string) {
+	t.Helper()
+	b, err := json.Marshal(types.GlobusTransfer{StorageIdentifier: storageIdentifier, LastModified: lastModified})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.GetRedis().Set(context.Background(), types.GlobusTransferKey(testPid, nodeId), string(b), 0)
+}
 
 func globusNode(id, timestamp string) tree.Node {
 	return tree.Node{
@@ -23,21 +34,22 @@ func globusNode(id, timestamp string) tree.Node {
 			RemoteHash:     timestamp,
 			RemoteHashType: types.LastModified,
 			DestinationFile: tree.DestinationFile{
-				Id:       42,
-				Hash:     "md5-from-dataverse",
-				HashType: types.Md5,
+				Id:                42,
+				Hash:              "md5-from-dataverse",
+				HashType:          types.Md5,
+				StorageIdentifier: testStorageObject,
 			},
 		},
 	}
 }
 
-func TestCalculateHashUsesRecordedGlobusTimestampOnce(t *testing.T) {
+func TestCalculateHashUsesRecordedGlobusTimestampForTheTransferredObject(t *testing.T) {
 	fr := testutil.NewFakeRedis()
 	config.SetRedis(fr)
 	defer fr.Reset()
 	ctx := context.Background()
 	n := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
-	config.GetRedis().Set(ctx, globusTransferKey(testPid, n.Id), n.Attributes.RemoteHash, 0)
+	recordTransfer(t, n.Id, testStorageObject, n.Attributes.RemoteHash)
 
 	known := map[string]calculatedHashes{}
 	if err := calculateHash(ctx, "", "", testPid, n, known); err != nil {
@@ -49,12 +61,80 @@ func TestCalculateHashUsesRecordedGlobusTimestampOnce(t *testing.T) {
 	if known[n.Id].LocalHashValue != "md5-from-dataverse" || known[n.Id].LocalHashType != types.Md5 {
 		t.Errorf("expected the cache entry to be keyed to the destination hash, got %+v", known[n.Id])
 	}
-	if v := config.GetRedis().Get(ctx, globusTransferKey(testPid, n.Id)).Val(); v != "" {
-		t.Error("expected the timestamp marker to be consumed")
+	if v := config.GetRedis().Get(ctx, types.GlobusTransferKey(testPid, n.Id)).Val(); v == "" {
+		t.Error("expected the transfer record to be kept for a rebuild of a wiped cache")
 	}
 	value, needsJob := resolveDestinationHash(n, known[n.Id], "")
 	if value != n.Attributes.RemoteHash || needsJob {
 		t.Errorf("expected the file to resolve equal without a job, got %q needsJob=%v", value, needsJob)
+	}
+}
+
+func TestCalculateHashIgnoresRecordOfAnotherStorageObject(t *testing.T) {
+	// The transfer never delivered (or the file was replaced since): the
+	// object in Dataverse is not the one the record describes.
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	ctx := context.Background()
+	n := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
+	recordTransfer(t, n.Id, "s3://dataverse-pilot:19a2b3c4d5e-ffffffffffff", n.Attributes.RemoteHash)
+
+	known := map[string]calculatedHashes{}
+	if err := calculateHash(ctx, "", "", testPid, n, known); err != nil {
+		t.Fatal(err)
+	}
+	if got := known[n.Id].RemoteHashes[types.LastModified]; got != fmt.Sprintf("%x", "unknown") {
+		t.Errorf("expected unrelated content to stay unknown, got %q", got)
+	}
+	if v := config.GetRedis().Get(ctx, types.GlobusTransferKey(testPid, n.Id)).Val(); v == "" {
+		t.Error("expected the record to be kept until its object arrives or it expires")
+	}
+	value, needsJob := resolveDestinationHash(n, known[n.Id], "")
+	if value == n.Attributes.RemoteHash || needsJob {
+		t.Errorf("expected the file to show as updated, got %q needsJob=%v", value, needsJob)
+	}
+}
+
+func TestCalculateHashIgnoresRecordsWithoutStorageObject(t *testing.T) {
+	// Records written before the object binding hold a bare timestamp.
+	fr := testutil.NewFakeRedis()
+	config.SetRedis(fr)
+	defer fr.Reset()
+	ctx := context.Background()
+	n := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
+	for name, raw := range map[string]string{
+		"bare timestamp": n.Attributes.RemoteHash,
+		"empty object":   `{"storageIdentifier":"","lastModified":"` + n.Attributes.RemoteHash + `"}`,
+	} {
+		config.GetRedis().Set(ctx, types.GlobusTransferKey(testPid, n.Id), raw, 0)
+		known := map[string]calculatedHashes{}
+		if err := calculateHash(ctx, "", "", testPid, n, known); err != nil {
+			t.Fatal(err)
+		}
+		if got := known[n.Id].RemoteHashes[types.LastModified]; got != fmt.Sprintf("%x", "unknown") {
+			t.Errorf("%s: expected the record to be ignored, got %q", name, got)
+		}
+	}
+}
+
+func TestSameStorageObject(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want bool
+	}{
+		{"s3://dataverse-pilot:19a2b3c4d5e-01", "s3://dataverse-pilot:19a2b3c4d5e-01", true},
+		{"s3://dataverse-pilot:19a2b3c4d5e-01", "19a2b3c4d5e-01", true},
+		{"s3://dataverse-pilot/19a2b3c4d5e-01", "s3://dataverse-pilot:19a2b3c4d5e-01", true},
+		{"s3://dataverse-pilot:19a2b3c4d5e-01", "s3://dataverse-pilot:19a2b3c4d5e-02", false},
+		{"s3://dataverse-pilot:19a2b3c4d5e-01", "", false},
+		{"", "", false},
+		{"s3://dataverse-pilot:", "s3://dataverse-pilot:", false},
+	}
+	for _, tt := range tests {
+		if got := sameStorageObject(tt.a, tt.b); got != tt.want {
+			t.Errorf("sameStorageObject(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+		}
 	}
 }
 
@@ -72,7 +152,7 @@ func TestCalculateHashMarkerOverridesStaleUnknownForSameContent(t *testing.T) {
 		LocalHashValue: "md5-from-dataverse",
 		RemoteHashes:   map[string]string{types.LastModified: fmt.Sprintf("%x", "unknown")},
 	}}
-	config.GetRedis().Set(ctx, globusTransferKey(testPid, n.Id), n.Attributes.RemoteHash, 0)
+	recordTransfer(t, n.Id, testStorageObject, n.Attributes.RemoteHash)
 	if err := calculateHash(ctx, "", "", testPid, n, known); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +195,11 @@ func TestCalculateHashWithoutRecordedTimestampStaysUnknown(t *testing.T) {
 	}
 }
 
-func TestGlobusPersistRecordsSourceTimestamps(t *testing.T) {
+func TestGlobusPersistDropsCachedHashesOfTransferredFiles(t *testing.T) {
+	// A file deleted outside the integration keeps its cache entry. When the
+	// same content is copied again the destination checksum is unchanged, so
+	// the entry would still match and the rehash job that reads the transfer
+	// record would never be queued.
 	fr := testutil.NewFakeRedis()
 	config.SetRedis(fr)
 	defer fr.Reset()
@@ -123,28 +207,53 @@ func TestGlobusPersistRecordsSourceTimestamps(t *testing.T) {
 	defer func() { Destination = savedDestination }()
 	Destination = DestinationPlugin{
 		CheckPermission: func(context.Context, string, string, string) error { return nil },
+		DeleteFiles:     func(context.Context, string, string, string, []int64) error { return nil },
 	}
 	ctx := context.Background()
-	n := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
-	n.Action = tree.Copy
+	copied := globusNode("data/file.bin", "2026-09-22 10:00:00+00:00")
+	copied.Action = tree.Copy
+	copied.Attributes.DestinationFile = tree.DestinationFile{}
+	updated := globusNode("data/other.bin", "2026-09-22 11:00:00+00:00")
+	updated.Action = tree.Update
 	deleted := globusNode("gone.bin", "2026-01-01 00:00:00+00:00")
 	deleted.Action = tree.Delete
-	deleted.Attributes.DestinationFile.Id = 0
-	job := Job{PersistentId: testPid, Plugin: "globus", WritableNodes: map[string]tree.Node{n.Id: n, deleted.Id: deleted}}
-	Destination.DeleteFiles = func(context.Context, string, string, string, []int64) error { return nil }
+	untouched := globusNode("kept.bin", "2026-01-01 00:00:00+00:00")
+	stale := func(ts string) calculatedHashes {
+		return calculatedHashes{LocalHashType: types.Md5, LocalHashValue: "md5-from-dataverse", RemoteHashes: map[string]string{types.LastModified: ts}}
+	}
+	known := map[string]calculatedHashes{
+		copied.Id:    stale("2020-01-01 00:00:00+00:00"),
+		updated.Id:   stale("2020-01-01 00:00:00+00:00"),
+		deleted.Id:   stale(deleted.Attributes.RemoteHash),
+		untouched.Id: stale(untouched.Attributes.RemoteHash),
+	}
+	job := Job{PersistentId: testPid, Plugin: "globus", WritableNodes: map[string]tree.Node{
+		copied.Id: copied, updated.Id: updated, deleted.Id: deleted,
+	}}
 
-	out, err := doPersistNodeMap(ctx, nil, job, map[string]calculatedHashes{})
+	out, err := doPersistNodeMap(ctx, nil, job, known)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(out.WritableNodes) != 0 {
 		t.Errorf("expected the globus job to hand every node to the transfer, got %v", out.WritableNodes)
 	}
-	if v := config.GetRedis().Get(ctx, globusTransferKey(testPid, n.Id)).Val(); v != n.Attributes.RemoteHash {
-		t.Errorf("expected the source timestamp to be recorded for the transferred file, got %q", v)
+	for _, id := range []string{copied.Id, updated.Id, deleted.Id} {
+		if _, ok := known[id]; ok {
+			t.Errorf("expected the cached hash of %v to be dropped", id)
+		}
 	}
-	if v := config.GetRedis().Get(ctx, globusTransferKey(testPid, deleted.Id)).Val(); v != "" {
-		t.Errorf("expected no timestamp for a deleted file, got %q", v)
+	if _, ok := known[untouched.Id]; !ok {
+		t.Error("expected the cached hash of a file outside the job to be kept")
+	}
+	if v := config.GetRedis().Get(ctx, types.GlobusTransferKey(testPid, copied.Id)).Val(); v != "" {
+		t.Errorf("expected no transfer record before the transfer is accepted, got %q", v)
+	}
+	// Once the identical content is back in Dataverse, the job must run.
+	arrived := copied
+	arrived.Attributes.DestinationFile = globusNode(copied.Id, "").Attributes.DestinationFile
+	if value, needsJob := resolveDestinationHash(arrived, known[arrived.Id], ""); value != "?" || !needsJob {
+		t.Errorf("expected the re-uploaded file to need a rehash job, got %q needsJob=%v", value, needsJob)
 	}
 }
 
