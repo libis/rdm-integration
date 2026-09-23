@@ -6,13 +6,13 @@
         "rootDataverseId": "root",
         "myDataRoleIds": [6,7],
         "defaultDriver": "s3",
-        "storageId": "minio1",
+        "storageId": "localstack1",
         "pathToApiKey": "/run/secrets/api/adminkey",
         "pathToUnblockKey": "/run/secrets/api/key",
         "pathToOauthSecrets": "/dsdata/example_oauth_secrets.json",
         "s3Config": {
-            "awsEndpoint": "http://minio:9000",
-            "awsRegion": "us-east-1",
+            "awsEndpoint": "http://localstack:4566",
+            "awsRegion": "us-east-2",
             "awsPathstyle": true,
             "awsBucket": "mybucket"
         },

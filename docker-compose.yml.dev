@@ -88,9 +88,9 @@ services:
   # Reverse proxy that gives the SPA a same-origin entrypoint with
   # Dataverse's API. Routes /modern -> modern_frontend (Vite) with
   # WebSocket upgrade for HMR; everything else -> dataverse:8080.
-  # Same-origin design eliminates browser CORS for /api calls; MinIO
-  # uploads remain cross-origin but MinIO ships permissive CORS by
-  # default so no explicit allowlist is needed.
+  # Same-origin design eliminates browser CORS for /api calls; direct
+  # uploads to LocalStack remain cross-origin, so http://localhost:8000
+  # is in its EXTRA_CORS_ALLOWED_ORIGINS (docker-compose.yml).
   modern_proxy:
     container_name: "modern_proxy"
     image: nginx:stable

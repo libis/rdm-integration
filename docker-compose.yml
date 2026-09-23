@@ -87,7 +87,7 @@ services:
         -XX:+UseStringDeduplication
         -XX:+DisableExplicitGC
         -Ddataverse.files.uploads=/dv/uploads
-        -Ddataverse.files.storage-driver-id=minio1
+        -Ddataverse.files.storage-driver-id=localstack1
         -Ddataverse.files.localfs1.type=file
         -Ddataverse.files.localfs1.label=LocalFilesystem
         -Ddataverse.files.localfs1.directory=/dv/filestore
@@ -102,17 +102,6 @@ services:
         -Ddataverse.files.localstack1.access-key=default
         -Ddataverse.files.localstack1.secret-key=default
         -Ddataverse.files.localstack1.upload-out-of-band=true
-        -Ddataverse.files.minio1.type=s3
-        -Ddataverse.files.minio1.label=MinIO
-        -Ddataverse.files.minio1.custom-endpoint-url=http://minio.localhost:9000
-        -Ddataverse.files.minio1.custom-endpoint-region=us-east-1
-        -Ddataverse.files.minio1.bucket-name=mybucket
-        -Ddataverse.files.minio1.path-style-access=true
-        -Ddataverse.files.minio1.upload-redirect=true
-        -Ddataverse.files.minio1.download-redirect=true
-        -Ddataverse.files.minio1.access-key=4cc355_k3y
-        -Ddataverse.files.minio1.secret-key=s3cr3t_4cc355_k3y
-        -Ddataverse.files.minio1.upload-out-of-band=true
         -Ddataverse.pid.providers=fake
         -Ddataverse.pid.default-provider=fake
         -Ddataverse.pid.fake.type=FAKE
@@ -216,7 +205,7 @@ services:
 
   keycloak:
     container_name: "keycloak"
-    image: 'quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.6.2}'
+    image: 'quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.7.2}'
     hostname: keycloak
     restart: unless-stopped
     environment:
@@ -238,14 +227,14 @@ services:
     container_name: "localstack"
     hostname: "localstack"
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: localstack/localstack:${LOCALSTACK_VERSION:-2026.05.0}
+    image: localstack/localstack:${LOCALSTACK_VERSION:-4.2.0}
     restart: unless-stopped
     ports:
       - "127.0.0.1:4566:4566"
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
       - LOCALSTACK_HOST=localstack.localhost
-      - EXTRA_CORS_ALLOWED_ORIGINS=http://localhost:8080
+      - EXTRA_CORS_ALLOWED_ORIGINS=http://localhost:8080,http://localhost:8000
     networks:
       dataverse:
         aliases:
@@ -253,25 +242,6 @@ services:
     volumes:
       - ./docker-volumes/localstack/conf:/etc/localstack/init/ready.d
       - ./docker-volumes/localstack/data:/var/lib/localstack
-
-  minio:
-    container_name: "minio"
-    hostname: "minio"
-    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    image: minio/minio:${MINIO_VERSION:-RELEASE.2025-09-07T16-13-09Z}
-    restart: on-failure
-    ports:
-      - "9000:9000"
-    networks:
-      dataverse:
-        aliases:
-          - minio.localhost #DNS alias within the network; .localhost domains resolve to 127.0.0.1 on the host
-    volumes:
-      - ./docker-volumes/minio/data:/data
-    environment:
-      MINIO_ROOT_USER: 4cc355_k3y
-      MINIO_ROOT_PASSWORD: s3cr3t_4cc355_k3y
-    command: server /data
 
 networks:
   dataverse:

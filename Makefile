@@ -118,8 +118,9 @@ solr_latest_config: ## update solr config files with latest version from github
 init: ## initialize docker volumes before running the server locally
 	@echo -n "Initializing Docker volumes..."
 	docker compose -f docker-compose.yml down || true
+	chmod -R u+w docker-volumes 2>/dev/null || true # the Go module cache is read-only
 	rm -rf docker-volumes
-	mkdir -p docker-volumes/{cache/data,dataverse/{data/{filestore,uploads,exporters},secrets/api,conf},integration/{aws,conf,data,go-mod-cache,go-build-cache},solr/{conf,data},postgresql/data,keycloak/conf,localstack/{conf,data},minio/data/mybucket}
+	mkdir -p docker-volumes/{cache/data,dataverse/{data/{filestore,uploads,exporters},secrets/api,conf},integration/{aws,conf,data,go-mod-cache,go-build-cache},solr/{conf,data},postgresql/data,keycloak/conf,localstack/{conf,data}}
 	echo -n 'secret-admin-password' > docker-volumes/dataverse/secrets/password
 	echo -n 'secret-unblock-key' > docker-volumes/dataverse/secrets/api/key
 	echo AWS_ACCESS_KEY_ID=4cc355_k3y > docker-volumes/integration/aws/aws.env
@@ -143,6 +144,7 @@ init: ## initialize docker volumes before running the server locally
 	docker compose -f docker-compose.yml down
 
 clean: ## delete docker volumes
+	chmod -R u+w docker-volumes 2>/dev/null || true # the Go module cache is read-only
 	rm -rf docker-volumes
 	rm -f $(DEV_SENTINEL)
 
