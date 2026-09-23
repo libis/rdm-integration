@@ -228,7 +228,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 			err = ctx.Err()
 			return
 		default:
-			writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
 			err = cleanup(writtenKeys)
 		}
 		return
@@ -317,7 +316,6 @@ func doPersistNodeMap(ctx context.Context, streams map[string]types.Stream, in J
 		err = ctx.Err()
 		return
 	default:
-		writtenKeys = append(writtenKeys, fmt.Sprintf("error %v", in.PersistentId))
 		//err = cleanup(ctx, in.DataverseKey, in.User, in.PersistentId, writtenKeys)
 		err = cleanup(writtenKeys)
 	}
@@ -340,7 +338,7 @@ func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tre
 				if !flushed[k] {
 					job.WritableNodes[k] = rb
 					delete(knownHashes, k)
-					config.GetRedis().Del(shortContext, k)
+					config.GetRedis().Del(shortContext, fmt.Sprintf("%v -> %v", job.PersistentId, k))
 				}
 			}
 			logging.Logger.Printf("%v: flush failed: %v\n", job.PersistentId, err)

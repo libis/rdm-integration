@@ -4,6 +4,7 @@ package common
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"integration/app/config"
 	"integration/app/core/reauth"
@@ -12,8 +13,47 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
+
+func TestCachedCompareCanBeReadAgainWithoutExtendingExpiry(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		fr := testutil.NewFakeRedis()
+		config.SetRedis(fr)
+		defer fr.Reset()
+		cached := CachedResponse{Key: "compare-result"}
+		cached.Response.Id = "doi:10.1/TEST"
+		CacheResponse(cached)
+
+		read := func() CachedResponse {
+			t.Helper()
+			rec := httptest.NewRecorder()
+			GetCachedResponse(rec, httptest.NewRequest(http.MethodPost, "/api/common/cached", strings.NewReader(`{"key":"compare-result"}`)))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("unexpected response: %d %s", rec.Code, rec.Body.String())
+			}
+			var res CachedResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+				t.Fatal(err)
+			}
+			return res
+		}
+		for i := 0; i < 2; i++ {
+			res := read()
+			if !res.Ready || res.Response.Id != cached.Response.Id {
+				t.Fatalf("read %d lost the completed result: %+v", i+1, res)
+			}
+			if i == 0 {
+				time.Sleep(time.Minute)
+			}
+		}
+		time.Sleep(cacheMaxDuration - time.Minute + time.Second)
+		if read().Ready {
+			t.Error("reading the result extended its expiry")
+		}
+	})
+}
 
 // A failed job leaves its error under "error <persistentId>". The Compare
 // handler must consume that key when reporting it: a reauth-marked error that

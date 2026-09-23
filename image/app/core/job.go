@@ -98,6 +98,11 @@ func addJob(ctx context.Context, job Job, requireLock bool) error {
 	if job.Queue != "" {
 		key = job.Queue + " " + key
 	}
+	if requireLock {
+		// Clear the previous job's notification before a worker can start this
+		// job. Delayed marker cleanup must not delete a newly reported failure.
+		config.GetRedis().Del(ctx, fmt.Sprintf("error %v", job.PersistentId))
+	}
 	cmd := config.GetRedis().LPush(ctx, key, string(b))
 	if cmd.Err() != nil && requireLock {
 		unlock(job.PersistentId)

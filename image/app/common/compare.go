@@ -71,7 +71,8 @@ func GetCachedResponse(w http.ResponseWriter, r *http.Request) {
 	cached := config.GetRedis().Get(r.Context(), res.Key)
 	if cached.Val() != "" {
 		json.Unmarshal([]byte(cached.Val()), &res)
-		config.GetRedis().Del(r.Context(), res.Key)
+		// Keep the result until its existing TTL expires so a lost response
+		// can be fetched again. Reading it does not extend that TTL.
 		res.Ready = true
 	}
 	if res.ErrorMessage != "" {
