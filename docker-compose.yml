@@ -9,7 +9,7 @@ services:
       args:
         - OAUTH2_POXY_VERSION=${OAUTH2_POXY_VERSION:-v7.15.2}
         - NODE_VERSION=${NODE_VERSION:-26-alpine}
-        - GO_VERSION=${GO_VERSION:-1.26.3-alpine}
+        - GO_VERSION=${GO_VERSION:-1.27.1-alpine}
         - FRONTEND_VERSION=${FRONTEND_VERSION:-2.0.3}
         - FRONTEND_TAR_GZ=${FRONTEND_TAR_GZ:-https://github.com/libis/rdm-integration-frontend/archive/refs/tags/${FRONTEND_VERSION:-2.0.3}.tar.gz}
         - NODE_ENV=${NODE_ENV:-production}
