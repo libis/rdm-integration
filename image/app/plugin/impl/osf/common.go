@@ -119,7 +119,7 @@ func getPage(ctx context.Context, url, token string) ([]Data, string, error) {
 	res := PageResponse{}
 	err = json.Unmarshal(b, &res)
 	if err != nil {
-		return nil, "", fmt.Errorf("%s", string(b))
+		return nil, "", fmt.Errorf("OSF response could not be parsed")
 	}
 	return res.Data, res.Links.Next, nil
 }
@@ -132,7 +132,7 @@ func getData(ctx context.Context, url, token string) (Data, error) {
 	res := DataResponse{}
 	err = json.Unmarshal(b, &res)
 	if err != nil {
-		return Data{}, fmt.Errorf("%s", string(b))
+		return Data{}, fmt.Errorf("OSF response could not be parsed")
 	}
 	return res.Data, nil
 }
@@ -140,17 +140,21 @@ func getData(ctx context.Context, url, token string) (Data, error) {
 func query(ctx context.Context, url, token string) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("OSF request could not be created")
 	}
 	if token != "" {
 		request.Header.Add("Authorization", "Bearer "+token)
 	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("OSF request failed")
 	}
 	defer r.Body.Close()
-	return io.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("OSF response could not be read")
+	}
+	return b, nil
 }
 
 func getFiles(ctx context.Context, server, repoName, token string) ([]File, error) {

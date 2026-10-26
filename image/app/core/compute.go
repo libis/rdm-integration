@@ -81,9 +81,9 @@ func compute(job Job) (Job, error) {
 		consoleOut, err = doCompute(fileName, job)
 		if err != nil {
 			if consoleOut != "" {
-				consoleOut = fmt.Sprintf("%s\n\n%s", consoleOut, err.Error())
+				consoleOut = fmt.Sprintf("%s\n\ncomputation failed", consoleOut)
 			} else {
-				consoleOut = err.Error()
+				consoleOut = "computation failed"
 			}
 		}
 	} else {
@@ -113,7 +113,7 @@ func doCompute(fileName string, job Job) (string, error) {
 		o, err := cmd.CombinedOutput()
 		out = string(o)
 		if err != nil {
-			out = fmt.Sprintf("%s\n\n%s", out, err.Error())
+			out = "computation failed"
 		}
 	}
 	unmount(job)
@@ -125,18 +125,18 @@ func mountS3Bucket(job Job) (s3Dir string, err error) {
 	s3Dir = jobS3Dir(job)
 	workspaceDir := jobWorkspaceDir(job)
 	if err := os.MkdirAll(workspaceDir, 0o755); err != nil {
-		return fmt.Sprintf("failed to create workspace %s: %v", workspaceDir, err), err
+		return "failed to create workspace", fmt.Errorf("failed to create workspace")
 	}
 	if err := os.MkdirAll(s3Dir, 0o755); err != nil {
-		return fmt.Sprintf("failed to create s3 mountpoint %s: %v", s3Dir, err), err
+		return "failed to create S3 mountpoint", fmt.Errorf("failed to create S3 mountpoint")
 	}
 	use_path_request_style := "use_path_request_style,"
 	if !config.GetConfig().Options.S3Config.AWSPathstyle {
 		use_path_request_style = ""
 	}
 	command := fmt.Sprintf("s3fs -o %vbucket=%v,host=\"%v\",ro %v", use_path_request_style, config.GetConfig().Options.S3Config.AWSBucket, config.GetConfig().Options.S3Config.AWSEndpoint, s3Dir)
-	if output, err := exec.Command("bash", "-c", command).CombinedOutput(); err != nil {
-		return string(output), err
+	if _, err := exec.Command("bash", "-c", command).CombinedOutput(); err != nil {
+		return "S3 mount failed", fmt.Errorf("S3 mount failed")
 	}
 	return s3Dir, nil
 }
@@ -145,10 +145,10 @@ func mountS3Bucket(job Job) (s3Dir string, err error) {
 func createSymlinks(ctx context.Context, job Job, s3Dir, targetDir string) (map[string]tree.Node, error) {
 	logging.Logger.Printf("Job [%s]: createSymlinks - cleaning target directory: %s", job.Key, targetDir)
 	if err := os.RemoveAll(targetDir); err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to clean target directory %s: %w", targetDir, err)
+		return nil, fmt.Errorf("failed to clean target directory")
 	}
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
+		return nil, fmt.Errorf("failed to create target directory")
 	}
 
 	logging.Logger.Printf("Job [%s]: createSymlinks - calling Destination.Query() for dataset: %s", job.Key, job.PersistentId)
@@ -157,8 +157,8 @@ func createSymlinks(ctx context.Context, job Job, s3Dir, targetDir string) (map[
 	duration := time.Since(startTime)
 
 	if err != nil {
-		logging.Logger.Printf("Job [%s]: createSymlinks - Destination.Query() failed after %v: %v", job.Key, duration, err)
-		return nil, err
+		logging.Logger.Printf("Job [%s]: createSymlinks - Destination.Query() failed after %v", job.Key, duration)
+		return nil, fmt.Errorf("destination query failed")
 	}
 	logging.Logger.Printf("Job [%s]: createSymlinks - Destination.Query() returned %d nodes in %v", job.Key, len(nm), duration)
 
@@ -181,18 +181,18 @@ func createSymlinks(ctx context.Context, job Job, s3Dir, targetDir string) (map[
 		}
 
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return nil, fmt.Errorf("failed to prepare target directory for %s: %w", targetPath, err)
+			return nil, fmt.Errorf("failed to prepare target directory")
 		}
 		if err := os.Symlink(sourcePath, targetPath); err != nil {
 			if os.IsExist(err) {
 				if removeErr := os.Remove(targetPath); removeErr != nil && !os.IsNotExist(removeErr) {
-					return nil, fmt.Errorf("failed to replace existing symlink %s: %w", targetPath, removeErr)
+					return nil, fmt.Errorf("failed to replace existing symlink")
 				}
 				if err = os.Symlink(sourcePath, targetPath); err != nil {
-					return nil, fmt.Errorf("failed to create symlink %s -> %s: %w", targetPath, sourcePath, err)
+					return nil, fmt.Errorf("failed to create symlink")
 				}
 			} else {
-				return nil, fmt.Errorf("failed to create symlink %s -> %s: %w", targetPath, sourcePath, err)
+				return nil, fmt.Errorf("failed to create symlink")
 			}
 		}
 		count++
@@ -209,7 +209,7 @@ func mountDataset(ctx context.Context, job Job) (string, error) {
 	}
 	_, err = createSymlinks(ctx, job, s3Dir, linkedDir)
 	if err != nil {
-		return err.Error(), err
+		return "failed to create dataset links", fmt.Errorf("failed to create dataset links")
 	}
 	return linkedDir, nil
 }

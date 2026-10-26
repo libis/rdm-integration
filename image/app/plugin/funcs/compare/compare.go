@@ -10,6 +10,7 @@ import (
 	"integration/app/config"
 	"integration/app/core"
 	"integration/app/core/oauth"
+	"integration/app/core/reauth"
 	"integration/app/logging"
 	"integration/app/plugin"
 	"integration/app/plugin/types"
@@ -122,7 +123,7 @@ func doCompare(req types.CompareRequest, p plugin.Plugin, key, user string) {
 	if !strings.HasSuffix(req.PersistentId, types.NewDataset) {
 		err := core.Destination.CheckPermission(ctx, req.DataverseKey, user, req.PersistentId)
 		if err != nil {
-			cachedRes.ErrorMessage = err.Error()
+			cachedRes.ErrorMessage = reauth.CachedError(err)
 			common.CacheResponse(cachedRes)
 			logging.Logger.Println("no permission")
 			return
@@ -135,7 +136,7 @@ func doCompare(req types.CompareRequest, p plugin.Plugin, key, user string) {
 	if !strings.HasSuffix(req.PersistentId, types.NewDataset) {
 		nm, err = core.Destination.Query(ctx, req.PersistentId, req.DataverseKey, user)
 		if err != nil {
-			cachedRes.ErrorMessage = err.Error()
+			cachedRes.ErrorMessage = reauth.CachedError(err)
 			common.CacheResponse(cachedRes)
 			logging.Logger.Println("query failed")
 			return
@@ -151,7 +152,7 @@ func doCompare(req types.CompareRequest, p plugin.Plugin, key, user string) {
 	req.Token = oauth.GetTokenFromCache(ctx, req.Token, req.SessionId, req.PluginId)
 	repoNm, err := p.Query(ctx, req, nmCopy)
 	if err != nil {
-		cachedRes.ErrorMessage = err.Error()
+		cachedRes.ErrorMessage = reauth.CachedError(err)
 		common.CacheResponse(cachedRes)
 		logging.Logger.Println("plugin query failed")
 		return

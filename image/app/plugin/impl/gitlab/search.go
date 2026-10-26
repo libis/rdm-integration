@@ -30,25 +30,25 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 	)
 	request, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GitLab search request could not be created")
 	}
 	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("search failed: %v", err)
+		return nil, fmt.Errorf("GitLab search request failed")
 	}
 	b, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		return nil, fmt.Errorf("search failed: %v", err)
+		return nil, fmt.Errorf("GitLab search response could not be read")
 	}
 	if r.StatusCode != 200 && r.StatusCode != 404 {
-		return nil, fmt.Errorf("search failed: %d - %s", r.StatusCode, string(b))
+		return nil, fmt.Errorf("GitLab search failed with status %d", r.StatusCode)
 	}
 	results := []Item{}
 	if r.StatusCode == 200 {
 		if err := json.Unmarshal(b, &results); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GitLab search response could not be parsed")
 		}
 	}
 	res := []types.SelectItem{}

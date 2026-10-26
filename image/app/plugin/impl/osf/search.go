@@ -12,7 +12,7 @@ import (
 
 func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("search: missing parameters: expected url and token, got %+v", params)
+		return nil, fmt.Errorf("search: missing required parameters")
 	}
 	url := fmt.Sprintf("%s/v2/users/me/nodes/?filter[title][icontains]=%s", params.Url, url.QueryEscape(strings.ToLower(params.RepoName)))
 	if params.RepoName == "" {

@@ -11,7 +11,7 @@ import (
 func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	zones, err := getZones(params.Token)
 	if err != nil {
-		logging.Logger.Println("getting zones failed: " + err.Error())
+		logging.Logger.Println("getting iRODS zones failed")
 		return nil, nil
 	}
 	res := []types.SelectItem{}

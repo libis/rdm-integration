@@ -31,14 +31,14 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - bad request"))
-		logging.Logger.Println("metadata request read error", err)
+		logging.Logger.Println("metadata request read failed")
 		return
 	}
 	err = json.Unmarshal(b, &req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - bad request"))
-		logging.Logger.Println("metadata request unmarshal error", err)
+		logging.Logger.Println("metadata request could not be parsed")
 		return
 	}
 	p, err := plugin.GetPlugin(req.Plugin)
@@ -53,8 +53,8 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	metadata, err := getMetadata(r.Context(), req, p, user, sessionId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - matadata retrieval failed: " + err.Error()))
-		logging.Logger.Println("metadata request get metadata error", err)
+		w.Write([]byte("500 - metadata retrieval failed"))
+		logging.Logger.Println("metadata retrieval failed")
 		return
 	}
 
@@ -62,10 +62,9 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - %v", err)))
-		logging.Logger.Println("metadata response marshal error", err)
+		logging.Logger.Println("metadata response could not be serialized")
 		return
 	}
-	logging.Logger.Println("metadata response", string(b))
 	w.Write(b)
 }
 
@@ -80,7 +79,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 			return nil, err
 		}
 		if res["status"] != "OK" {
-			return nil, fmt.Errorf("metadata copy failed: %v", res["message"])
+			return nil, fmt.Errorf("metadata copy failed")
 		}
 		metadataBlocks := map[string]interface{}{}
 		metadataBlocks["metadataBlocks"] = res["data"].(map[string]interface{})["metadataBlocks"]
@@ -354,12 +353,11 @@ func jsonEscape(in string) string {
 }
 
 func getMdFromROCrate(ctx context.Context, node tree.Node, p plugin.Plugin, params types.StreamParams) (types.MetadataStruct, error) {
-	b, err := getFileFromRepo(ctx, node, p, params)
+	_, err := getFileFromRepo(ctx, node, p, params)
 	if err != nil {
 		return types.MetadataStruct{}, err
 	}
-	//TODO
-	logging.Logger.Println(string(b))
+	// TODO: extract metadata fields from the repository file.
 	return types.MetadataStruct{}, nil
 }
 
@@ -561,7 +559,7 @@ func getFileFromRepo(ctx context.Context, node tree.Node, p plugin.Plugin, param
 		}
 		return b, nil
 	} else {
-		return nil, fmt.Errorf("getting %v from repo failed", node.Id)
+		return nil, fmt.Errorf("getting repository file failed")
 	}
 }
 

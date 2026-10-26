@@ -59,7 +59,7 @@ func querySetting(ctx context.Context, u string) (int64, bool) {
 	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		logging.Logger.Println("querying server max file size failed:", err)
+		logging.Logger.Println("querying server max file size failed")
 		return 0, false
 	}
 	defer r.Body.Close()

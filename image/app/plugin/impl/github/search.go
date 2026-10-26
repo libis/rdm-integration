@@ -25,26 +25,34 @@ func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectIte
 		return nil, fmt.Errorf("not authorized")
 	}
 	url := "https://api.github.com/search/repositories?q=" + params.RepoName
-	request, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("GitHub search request could not be created")
+	}
 	request.Header.Add("Accept", "application/vnd.github+json")
 	request.Header.Add("Authorization", "Bearer "+token)
 	request.Header.Add("X-GitHub-Api-Version", "2022-11-28")
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("search failed: %v", err)
+		return nil, fmt.Errorf("GitHub search request failed")
 	}
 	defer r.Body.Close()
 	if r.StatusCode != 200 {
-		b, _ := io.ReadAll(r.Body)
-		return nil, fmt.Errorf("search failed: %d - %s", r.StatusCode, string(b))
+		return nil, fmt.Errorf("GitHub search failed with status %d", r.StatusCode)
 	}
-	b, _ := io.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("GitHub search response could not be read")
+	}
 	results := SearchResults{}
 	err = json.Unmarshal(b, &results)
+	if err != nil {
+		return nil, fmt.Errorf("GitHub search response could not be parsed")
+	}
 
 	res := []types.SelectItem{}
 	for _, v := range results.Items {
 		res = append(res, types.SelectItem{Label: v.FullName, Value: v.FullName})
 	}
-	return res, err
+	return res, nil
 }

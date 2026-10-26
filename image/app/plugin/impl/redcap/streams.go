@@ -31,7 +31,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		}
 		request, err := http.NewRequestWithContext(ctx, "POST", url, encode(data))
 		if err != nil {
-			return types.StreamsType{}, err
+			return types.StreamsType{}, fmt.Errorf("REDCap download request could not be created")
 		}
 		request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		request.Header.Add("Accept", "application/json")
@@ -41,12 +41,11 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			Open: func() (io.Reader, error) {
 				r, err = getHTTPClient().Do(request)
 				if err != nil {
-					return nil, fmt.Errorf("HTTP request failed: %w", err)
+					return nil, fmt.Errorf("REDCap file download failed")
 				}
 				if r.StatusCode != 200 {
-					b, _ := io.ReadAll(r.Body)
 					r.Body.Close()
-					return nil, fmt.Errorf("getting file failed: %s", string(b))
+					return nil, fmt.Errorf("REDCap file download failed")
 				}
 				return r.Body, nil
 			},

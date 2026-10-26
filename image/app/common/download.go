@@ -55,7 +55,7 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	req.StreamParams.SessionId = req.StreamParams.Token
 	req.StreamParams.PersistentId = req.PersistentId
 	req.StreamParams.DVToken = req.DataverseKey
-	logging.Logger.Printf("Download: user=%s, oauthSessionId=%s, dvToken=%v", user, oauthSessionId, req.DataverseKey != "")
+	logging.Logger.Printf("Download request started")
 	req.StreamParams.Token = oauth.GetTokenFromCache(r.Context(), req.StreamParams.Token, oauthSessionId, "globus")
 	res := ""
 	res, err = globus.Download(r.Context(), req.StreamParams, selected)

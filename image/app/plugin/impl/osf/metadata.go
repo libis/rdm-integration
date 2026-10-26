@@ -30,7 +30,7 @@ func Metadata(ctx context.Context, streamParams types.StreamParams) (types.Metad
 	res := ContributorsRes{}
 	err = json.Unmarshal(b, &res)
 	if err != nil {
-		return types.MetadataStruct{}, fmt.Errorf("%s", string(b))
+		return types.MetadataStruct{}, fmt.Errorf("OSF contributor response could not be parsed")
 	}
 
 	authors := []types.Author{}

@@ -92,7 +92,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	if strings.Contains(server, "kuleuven") {
 		info, err := getConnectionInfo(zone, password)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("iRODS connection information could not be retrieved")
 		}
 		s = Server{
 			Server:     info.Host,
@@ -106,7 +106,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	method := types.GetAuthScheme(strings.ToLower(s.AuthScheme))
 	account, err := types.CreateIRODSAccount(s.Server, s.Port, username, zone, method, password, "")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("iRODS account could not be initialized")
 	}
 	account.CSNegotiationPolicy = negotiationPolicy
 	account.ClientServerNegotiation = true
@@ -126,12 +126,12 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 
 		conn, err := connection.NewIRODSConnection(account, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("iRODS connection could not be initialized")
 		}
 		err = conn.Connect()
 		if err != nil {
 			conn.Disconnect()
-			return nil, err
+			return nil, fmt.Errorf("iRODS connection failed")
 		}
 		nativePass := conn.GetAccount().PAMToken
 		conn.Disconnect()
@@ -143,7 +143,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 
 	i.Session, err = session.NewIRODSSession(account, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("iRODS session could not be initialized")
 	}
 
 	fsConfig := fs.NewFileSystemConfig(ClientProgramName)
@@ -152,7 +152,7 @@ func NewIrodsClient(server, zone, username, password string) (*IrodsClient, erro
 	i.FileSystem, err = fs.NewFileSystem(account, fsConfig)
 	if err != nil {
 		i.Session.Release()
-		return nil, err
+		return nil, fmt.Errorf("iRODS filesystem could not be initialized")
 	}
 
 	return i, nil
@@ -196,9 +196,9 @@ func (i *IrodsClient) Close() error {
 func (i *IrodsClient) StreamFile(irodsPath string) (io.ReadCloser, error) {
 	if i.FileSystem.ExistsFile(irodsPath) {
 		reader, err := i.FileSystem.OpenFile(irodsPath, "", "r")
-		return reader, classifyOpenError(irodsPath, err)
+		return reader, classifyOpenError(err)
 	}
-	return nil, plugintypes.NewUnrecoverableError(errors.New("file not found: " + irodsPath))
+	return nil, plugintypes.NewUnrecoverableError(errors.New("file not found"))
 }
 
 // classifyOpenError marks open failures that retrying within one job cannot
@@ -207,18 +207,18 @@ func (i *IrodsClient) StreamFile(irodsPath string) (io.ReadCloser, error) {
 // opened — typically the object is write-locked by an upload that is still
 // running (or that died without closing). Waiting it out is exactly the
 // read-during-write hazard, so the user should retry after the upload is done.
-func classifyOpenError(irodsPath string, err error) error {
+func classifyOpenError(err error) error {
 	if err == nil {
 		return nil
 	}
 	if types.GetIRODSErrorCode(err) == common.HIERARCHY_ERROR {
 		return plugintypes.NewUnrecoverableError(fmt.Errorf(
-			"could not open %v: the file is locked, possibly by an upload that is still in progress or was interrupted; retry the transfer once the file is completely uploaded (%w)", irodsPath, err))
+			"file is locked, possibly by an upload that is still in progress or was interrupted; retry after the upload completes"))
 	}
 	if types.IsFileNotFoundError(err) {
-		return plugintypes.NewUnrecoverableError(err)
+		return plugintypes.NewUnrecoverableError(errors.New("file not found"))
 	}
-	return err
+	return fmt.Errorf("iRODS file open failed")
 }
 
 func getConnectionInfo(zone, token string) (ConnectionInfo, error) {
@@ -235,12 +235,15 @@ func getConnectionInfo(zone, token string) (ConnectionInfo, error) {
 	request.Header.Add("Authorization", "Bearer "+token)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return ConnectionInfo{}, err
+		return ConnectionInfo{}, fmt.Errorf("iRODS connection information request failed")
 	}
 	defer response.Body.Close()
 	responseData, _ := io.ReadAll(response.Body)
 	err = json.Unmarshal(responseData, &res)
-	return res, err
+	if err != nil {
+		return ConnectionInfo{}, fmt.Errorf("iRODS connection information response could not be parsed")
+	}
+	return res, nil
 }
 
 func getZoneId(zone, token string) (string, error) {
@@ -253,7 +256,7 @@ func getZoneId(zone, token string) (string, error) {
 			return z.Id, nil
 		}
 	}
-	return "", fmt.Errorf("zone %s not found", zone)
+	return "", fmt.Errorf("iRODS zone was not found")
 }
 
 func getZones(token string) ([]Zone, error) {
@@ -266,10 +269,13 @@ func getZones(token string) ([]Zone, error) {
 	request.Header.Add("Authorization", "Bearer "+token)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("iRODS zone request failed")
 	}
 	defer response.Body.Close()
 	responseData, _ := io.ReadAll(response.Body)
 	err = json.Unmarshal(responseData, &res)
-	return res, err
+	if err != nil {
+		return nil, fmt.Errorf("iRODS zone response could not be parsed")
+	}
+	return res, nil
 }

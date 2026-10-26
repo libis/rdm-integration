@@ -29,25 +29,6 @@ type addReplaceFileResponse struct {
 	Data    api.AddReplaceFileData `json:"data"`
 }
 
-// getMessageString extracts a string representation from the Message field
-func (r *addReplaceFileResponse) getMessageString() string {
-	return messageString(r.Message)
-}
-
-func messageString(m interface{}) string {
-	if m == nil {
-		return ""
-	}
-	switch v := m.(type) {
-	case string:
-		return v
-	default:
-		// For object messages (e.g., {"message":"..."}), marshal back to JSON string
-		b, _ := json.Marshal(v)
-		return string(b)
-	}
-}
-
 // addReplaceBatchResponse captures the per-file results of the addFiles and
 // replaceFiles endpoints. Dataverse reports individual file failures inside a
 // status "OK" response: each entry in Files carries the storageIdentifier it
@@ -110,29 +91,29 @@ func AddFileWithMimeType(ctx context.Context, persistentId, token, user, fileNam
 	requestHeader.Add("Content-Type", writer.FormDataContentType())
 	req := GetRequest(path, "POST", user, token, body, requestHeader)
 
-	// Use DoStream to get raw response for logging
+	// Read the response through DoStream because the API helper does not decode
+	// this upload response shape.
 	stream, err := api.DoStream(ctx, req)
 	if err != nil {
-		logging.Logger.Printf("AddFileWithMimeType request failed: %v", err)
-		return 0, fmt.Errorf("API request failed: %w", err)
+		logging.Logger.Println("AddFileWithMimeType request failed")
+		return 0, fmt.Errorf("Dataverse file upload request failed")
 	}
 	defer stream.Close()
 
 	rawBody, err := io.ReadAll(stream)
 	if err != nil {
-		return 0, fmt.Errorf("failed to read response body: %w", err)
+		return 0, fmt.Errorf("Dataverse file upload response could not be read")
 	}
-	logging.Logger.Printf("AddFileWithMimeType raw response: %s", string(rawBody))
 
 	res := addReplaceFileResponse{}
 	err = json.Unmarshal(rawBody, &res)
 	if err != nil {
-		logging.Logger.Printf("AddFileWithMimeType JSON unmarshal error: %v", err)
-		return 0, fmt.Errorf("API request failed: %w", err)
+		logging.Logger.Println("AddFileWithMimeType response could not be parsed")
+		return 0, fmt.Errorf("Dataverse file upload response could not be parsed")
 	}
 
 	if res.Status != "OK" {
-		return 0, fmt.Errorf("adding file failed: %s", res.getMessageString())
+		return 0, fmt.Errorf("adding file failed")
 	}
 
 	// Extract file ID from response
@@ -172,7 +153,10 @@ func CreateNewDataset(ctx context.Context, collection, token, userName string, m
 	path := "/api/v1/dataverses/" + collection + "/datasets?doNotValidate=true"
 	req := GetRequest(path, "POST", userName, token, body, api.JsonContentHeader())
 	err = api.Do(ctx, req, &res)
-	return res.Data.PersistentId, err
+	if err != nil {
+		return "", fmt.Errorf("creating Dataverse dataset failed")
+	}
+	return res.Data.PersistentId, nil
 }
 
 func getDefaultLicense(ctx context.Context, user, token string) (map[string]interface{}, error) {
@@ -183,11 +167,11 @@ func getDefaultLicense(ctx context.Context, user, token string) (map[string]inte
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing Dataverse licenses failed")
 	}
 	data, ok := res["data"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("listing licenses failed: %+v", res)
+		return nil, fmt.Errorf("listing licenses failed")
 	}
 
 	for _, l := range data {
@@ -237,11 +221,11 @@ func SaveAfterDirectUpload(ctx context.Context, replace bool, token, user, persi
 	req := GetRequest(path, "POST", user, token, body, reqHeader)
 	err = api.Do(ctx, req, &res)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("saving uploaded files to Dataverse failed")
 	}
 
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("writing file failed: %s", messageString(res.Message))
+		return nil, fmt.Errorf("writing file failed")
 	}
 	return verifyBatchResults(res.Data.Files, storageIdentifiers)
 }
@@ -270,17 +254,11 @@ func verifyBatchResults(files []addReplaceBatchFileResult, storageIdentifiers []
 		}
 	}
 	if len(failed) > 0 {
-		errorMessages := []string{}
-		for _, f := range files {
-			if f.ErrorMessage != "" {
-				errorMessages = append(errorMessages, f.ErrorMessage)
-			}
-		}
 		// The server received the files and refused them: retrying the same
 		// content cannot succeed, so fail the job immediately instead of
 		// re-uploading against a deterministic rejection.
-		return registered, types.NewUnrecoverableError(fmt.Errorf("%v out of %v files were not registered by the server (failed storage identifiers: %v): %v",
-			len(failed), len(storageIdentifiers), strings.Join(failed, ", "), strings.Join(errorMessages, "; ")))
+		return registered, types.NewUnrecoverableError(fmt.Errorf("%d out of %d files were not registered by the server",
+			len(failed), len(storageIdentifiers)))
 	}
 	return registered, nil
 }
@@ -334,13 +312,13 @@ func ApiAddReplaceFile(ctx context.Context, dbId int64, id, mimeType, token, use
 		err := api.Do(ctx, request, &res)
 		if err != nil {
 			if async_err != nil {
-				async_err.Err = fmt.Errorf("writing file in %s failed: %s", persistentId, err)
+				async_err.Err = fmt.Errorf("writing file failed")
 			}
 			return
 		}
 		if res.Status != "OK" {
 			if async_err != nil {
-				async_err.Err = fmt.Errorf("adding file failed: %s", res.getMessageString())
+				async_err.Err = fmt.Errorf("adding file failed")
 			}
 		}
 	}(request)
@@ -367,10 +345,10 @@ func CleanupLeftOverFiles(ctx context.Context, persistentId, token, user string)
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(ctx, req, &res)
 	if err != nil {
-		return err
+		return fmt.Errorf("cleaning up Dataverse files failed")
 	}
 	if res.Status != "OK" {
-		return fmt.Errorf("cleaning up files for %s failed: %+v", persistentId, res)
+		return fmt.Errorf("cleaning up files failed")
 	}
 	return nil
 }
@@ -384,10 +362,10 @@ func DeleteFile(ctx context.Context, token, user string, id int64) error {
 	req := GetRequest(path, "DELETE", user, token, nil, nil)
 	err := api.Do(ctx, req, &res)
 	if err != nil {
-		return err
+		return fmt.Errorf("deleting Dataverse file failed")
 	}
 	if res.Status != "OK" {
-		return fmt.Errorf("deleting file %d failed: %s", id, res.Message)
+		return fmt.Errorf("deleting file failed")
 	}
 	return nil
 }
@@ -414,10 +392,10 @@ func DeleteFiles(ctx context.Context, token, user, persistentId string, ids []in
 	res := api.DvResponse{}
 	err = api.Do(ctx, req, &res)
 	if err != nil {
-		return err
+		return fmt.Errorf("batch deleting Dataverse files failed")
 	}
 	if res.Status != "OK" {
-		return fmt.Errorf("batch deleting files for %s failed: %s", persistentId, res.Message)
+		return fmt.Errorf("batch deleting files failed")
 	}
 	logging.Logger.Printf("Batch deleted %d files for dataset %s", len(ids), persistentId)
 	return nil

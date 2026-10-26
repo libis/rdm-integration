@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"integration/app/config"
 	"integration/app/core/oauth"
+	"integration/app/core/reauth"
 	"integration/app/logging"
 	"integration/app/plugin/funcs/stream"
 	"integration/app/plugin/types"
@@ -73,7 +74,7 @@ func DoWork(job Job) (Job, error) {
 	if err != nil {
 		if streams.Cleanup != nil {
 			if cleanupErr := streams.Cleanup(); cleanupErr != nil {
-				logging.Logger.Println("cleanup failed:", cleanupErr)
+				logging.Logger.Println("cleanup failed")
 			}
 		}
 		return j, err
@@ -93,18 +94,18 @@ func DoWork(job Job) (Job, error) {
 func sendJobFailedMail(errIn error, job Job) error {
 	shortContext, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	config.GetRedis().Set(shortContext, fmt.Sprintf("error %v", job.PersistentId), errIn.Error(), FileNamesInCacheDuration)
+	config.GetRedis().Set(shortContext, fmt.Sprintf("error %v", job.PersistentId), reauth.CachedError(errIn), FileNamesInCacheDuration)
 	to, err := Destination.GetUserEmail(shortContext, job.DataverseKey, job.User)
 	if err != nil {
-		return fmt.Errorf("error when sending email on error (%v): %v", errIn, err)
+		return fmt.Errorf("failed to send job failure email")
 	}
 	msg := fmt.Sprintf("To: %v\r\nMIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\nSubject: %v"+
 		"\r\n\r\n<html><body>%v</body></html>\r\n", to, getSubjectOnError(errIn, job), getContentOnError(errIn, job))
 	err = SendMail(msg, []string{to})
 	if err != nil {
-		return fmt.Errorf("error when sending email on error (%v): %v", errIn, err)
+		return fmt.Errorf("failed to send job failure email")
 	}
-	return errIn
+	return fmt.Errorf("%s", reauth.CachedError(errIn))
 }
 
 func sendJobSuccessMail(job Job) error {
@@ -115,13 +116,13 @@ func sendJobSuccessMail(job Job) error {
 	defer cancel()
 	to, err := Destination.GetUserEmail(shortContext, job.DataverseKey, job.User)
 	if err != nil {
-		return fmt.Errorf("error when sending email on success: %v", err)
+		return fmt.Errorf("failed to send job success email")
 	}
 	msg := fmt.Sprintf("To: %v\r\nMIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\n"+
 		"Subject: %v\r\n\r\n<html><body>%v</body>\r\n", to, getSubjectOnSuccess(job), getContentOnSuccess(job))
 	err = SendMail(msg, []string{to})
 	if err != nil {
-		return fmt.Errorf("error when sending email on success: %v", err)
+		return fmt.Errorf("failed to send job success email")
 	}
 	return nil
 }
@@ -341,7 +342,7 @@ func doFlush(ctx context.Context, toAddNodes *[]tree.Node, toReplaceNodes *[]tre
 					config.GetRedis().Del(shortContext, fmt.Sprintf("%v -> %v", job.PersistentId, k))
 				}
 			}
-			logging.Logger.Printf("%v: flush failed: %v\n", job.PersistentId, err)
+			logging.Logger.Printf("%v: flush failed\n", job.PersistentId)
 		} else {
 			logging.Logger.Printf("%v: flushed\n", job.PersistentId)
 		}

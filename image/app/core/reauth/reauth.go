@@ -9,12 +9,19 @@ package reauth
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
 const marker = "*reauth*"
+
+const safeFailureMessage = "operation failed"
+
+var (
+	safeScope  = regexp.MustCompile(`^urn:globus:auth:scope:[A-Za-z0-9][A-Za-z0-9:./*\[\]@+_-]{0,511}$`)
+	safeDomain = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$`)
+)
 
 // Error describes what the new login must include.
 type Error struct {
@@ -26,8 +33,36 @@ type Error struct {
 // Error serializes the value between markers so it survives string
 // round-trips (Redis-cached job errors, fmt.Errorf wrapping without %w).
 func (e *Error) Error() string {
-	b, _ := json.Marshal(e)
+	b, _ := json.Marshal(Sanitize(e))
 	return marker + string(b) + marker
+}
+
+// Sanitize keeps only the Globus reauthorization metadata the frontend needs.
+// Provider-supplied messages are intentionally discarded because they can
+// echo credentials or other request data.
+func Sanitize(e *Error) *Error {
+	if e == nil {
+		return nil
+	}
+	safe := &Error{}
+	for _, scope := range e.RequiredScopes {
+		if safeScope.MatchString(scope) {
+			safe.RequiredScopes = append(safe.RequiredScopes, scope)
+		}
+		if len(safe.RequiredScopes) == 32 {
+			break
+		}
+	}
+	for _, domain := range e.RequiredDomains {
+		domain = strings.TrimSpace(domain)
+		if safeDomain.MatchString(domain) {
+			safe.RequiredDomains = append(safe.RequiredDomains, domain)
+		}
+		if len(safe.RequiredDomains) == 32 {
+			break
+		}
+	}
+	return safe
 }
 
 // Parse extracts a marker-embedded Error from s. Returns nil when no
@@ -46,6 +81,7 @@ func Parse(s string) *Error {
 	if err := json.Unmarshal([]byte(rest[:end]), res); err != nil {
 		return nil
 	}
+	res = Sanitize(res)
 	if len(res.RequiredScopes) == 0 && len(res.RequiredDomains) == 0 {
 		return nil
 	}
@@ -60,23 +96,36 @@ func FromError(err error) *Error {
 	}
 	var typed *Error
 	if errors.As(err, &typed) {
-		return typed
+		safe := Sanitize(typed)
+		if len(safe.RequiredScopes) == 0 && len(safe.RequiredDomains) == 0 {
+			return nil
+		}
+		return safe
 	}
 	return Parse(err.Error())
 }
 
-// WriteError writes err to w. Reauth errors become 401 with a JSON body
-// {"reauth": {...}}; all other errors keep the legacy "500 - %v" text.
+// CachedError returns a safe job error string. It preserves only validated
+// reauthorization metadata; all other failures become a fixed message.
+func CachedError(err error) string {
+	if reauthErr := FromError(err); reauthErr != nil {
+		return reauthErr.Error()
+	}
+	return safeFailureMessage
+}
+
+// WriteError writes validated reauthorization metadata for reauth errors.
+// Every other error gets a fixed message so details cannot expose secrets.
 func WriteError(w http.ResponseWriter, err error) {
 	if reauthErr := FromError(err); reauthErr != nil {
 		b, _ := json.Marshal(struct {
 			Reauth *Error `json:"reauth"`
-		}{Reauth: reauthErr})
+		}{Reauth: Sanitize(reauthErr)})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write(b)
 		return
 	}
 	w.WriteHeader(http.StatusInternalServerError)
-	w.Write([]byte(fmt.Sprintf("500 - %v", err)))
+	w.Write([]byte("500 - request failed"))
 }

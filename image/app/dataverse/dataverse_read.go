@@ -44,10 +44,10 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing Dataverse files failed")
 	}
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("listing files for %s failed: %+v", persistentId, res)
+		return nil, fmt.Errorf("listing Dataverse files failed")
 	}
 	mapped := mapToNodes(res.Data)
 	//check known hashes cache
@@ -69,10 +69,10 @@ func GetDatasetMetadata(ctx context.Context, persistentId, token, user string) (
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("retrieving Dataverse metadata failed")
 	}
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("listing metadata for %s failed: status %s", persistentId, res.Status)
+		return nil, fmt.Errorf("retrieving Dataverse metadata failed")
 	}
 	return res.Data, nil
 }
@@ -87,12 +87,12 @@ func GetDataFileDDI(ctx context.Context, token, user string, fileID int64) ([]by
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	stream, err := api.DoStream(shortContext, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("retrieving DDI metadata failed")
 	}
 	defer stream.Close()
 	body, err := io.ReadAll(stream)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading DDI metadata failed")
 	}
 	if len(body) == 0 {
 		return nil, fmt.Errorf("empty DDI response for file %d", fileID)
@@ -151,17 +151,17 @@ func CheckPermission(ctx context.Context, token, user, persistentId string) erro
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return err
+		return fmt.Errorf("checking Dataverse permissions failed")
 	}
 	if res.Status != "OK" {
-		return fmt.Errorf("permission check status is %s for dataset %s", res.Status, persistentId)
+		return fmt.Errorf("checking Dataverse permissions failed")
 	}
 	for _, v := range res.Data.Permissions {
 		if v == "EditDataset" {
 			return nil
 		}
 	}
-	return fmt.Errorf("user %v has no permission to edit dataset %v", res.Data.User, persistentId)
+	return fmt.Errorf("user does not have permission to edit the Dataverse dataset")
 }
 
 func noSlashPermissionUrl(ctx context.Context, persistentId, token, user string) (string, error) {
@@ -178,11 +178,11 @@ func noSlashPermissionUrl(ctx context.Context, persistentId, token, user string)
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("retrieving Dataverse dataset information failed")
 	}
 	id := res.Id
 	if id == 0 {
-		return "", fmt.Errorf("dataset %v not found", persistentId)
+		return "", fmt.Errorf("Dataverse dataset was not found")
 	}
 	return fmt.Sprintf("/api/v1/admin/permissions/%v?&unblock-key=%s", id, config.UnblockKey), nil
 }
@@ -202,7 +202,11 @@ func GetDatasetUrl(pid string, draft bool) string {
 func DownloadFile(ctx context.Context, token, user string, id int64) (io.ReadCloser, error) {
 	path := fmt.Sprintf("/api/v1/access/datafile/%v", id)
 	req := GetRequest(path, "GET", user, token, nil, nil)
-	return api.DoStream(ctx, req)
+	stream, err := api.DoStream(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("downloading Dataverse file failed")
+	}
+	return stream, nil
 }
 
 func DvObjects(ctx context.Context, objectType, collection, searchTerm, token, user string) ([]types.SelectItem, error) {
@@ -228,7 +232,7 @@ func dvObjectsInternal(ctx context.Context, objectType, collection, searchTerm, 
 				return nil, err
 			}
 			// Log the error but continue to search public datasets
-			fmt.Printf("Warning: failed to list user's datasets (may be guest user): %v\n", err)
+			fmt.Println("Warning: failed to list user's datasets (may be guest user)")
 			dvObjects = []api.Item{}
 		}
 	}
@@ -238,7 +242,7 @@ func dvObjectsInternal(ctx context.Context, objectType, collection, searchTerm, 
 		publicDatasets, err := searchPublicDatasets(ctx, searchTerm, token, user)
 		if err != nil {
 			// Log but don't fail - user's own datasets are still valid
-			fmt.Printf("Warning: failed to search public datasets: %v\n", err)
+			fmt.Println("Warning: failed to search public datasets")
 		} else {
 			dvObjects = append(dvObjects, publicDatasets...)
 		}
@@ -292,20 +296,17 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 
 		retrieveResponse := api.RetrieveResponse{}
 		req := GetRequest(path, "GET", user, token, nil, nil)
-		// Read the raw body before decoding: mydata failures come in several
-		// shapes (mydata JSON, standard {"status":"ERROR"} JSON, proxy HTML) and
-		// the original response is the only reliable diagnostic.
 		stream, err := api.DoStream(ctx, req)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("listing Dataverse objects failed")
 		}
 		body, err := io.ReadAll(stream)
 		stream.Close()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("reading Dataverse object response failed")
 		}
 		if err := json.Unmarshal(body, &retrieveResponse); err != nil {
-			return nil, fmt.Errorf("listing %v objects failed, unexpected response: %v", objectType, truncateForError(body))
+			return nil, fmt.Errorf("listing Dataverse objects failed: unexpected response")
 		}
 
 		if !retrieveResponse.Success {
@@ -313,26 +314,14 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 				return res, nil
 			}
 			if retrieveResponse.ErrorMessage == "" {
-				// Not the mydata format (no error_message): report the raw response.
-				return nil, fmt.Errorf("listing %v objects was not successful: %v", objectType, truncateForError(body))
+				return nil, fmt.Errorf("listing Dataverse objects was not successful")
 			}
-			return nil, fmt.Errorf("listing %v objects was not successful: %v", objectType, retrieveResponse.ErrorMessage)
+			return nil, fmt.Errorf("listing Dataverse objects was not successful")
 		}
 		res = append(res, retrieveResponse.Data.Items...)
 		hasNextPage = retrieveResponse.Data.Pagination.HasNextPageNumber && page < config.GetMaxDvObjectPages()
 	}
 	return res, nil
-}
-
-// truncateForError keeps error messages (and thus logs) bounded when they carry
-// a raw response body, which can be an arbitrarily long HTML page.
-func truncateForError(body []byte) string {
-	const max = 500
-	s := strings.TrimSpace(string(body))
-	if len(s) > max {
-		return s[:max] + "..."
-	}
-	return s
 }
 
 // isMyDataEmptyResult recognizes the mydata "error" responses that really mean
@@ -375,11 +364,11 @@ func searchPublicDatasets(ctx context.Context, searchTerm, token, user string) (
 		req := GetRequest(path, "GET", user, token, nil, nil)
 		err := api.Do(ctx, req, &searchResponse)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("searching public Dataverse datasets failed")
 		}
 
 		if searchResponse.Status != "OK" {
-			return nil, fmt.Errorf("search API failed: status %s", searchResponse.Status)
+			return nil, fmt.Errorf("searching public Dataverse datasets failed")
 		}
 
 		res = append(res, searchResponse.Data.Items...)
@@ -408,7 +397,10 @@ func GetUser(ctx context.Context, token, user string) (res api.User, err error) 
 	path := "/api/v1/users/:me"
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err = api.Do(ctx, req, &res)
-	return res, err
+	if err != nil {
+		return res, fmt.Errorf("retrieving Dataverse user information failed")
+	}
+	return res, nil
 }
 
 func GetUserEmail(ctx context.Context, token, user string) (string, error) {
@@ -436,7 +428,10 @@ func GetDatasetVersion(ctx context.Context, datasetDbId, token, userName string)
 	path := "/api/v1/datasets/" + datasetDbId + "/versions/:latest?excludeFiles=true"
 	req := GetRequest(path, "GET", userName, token, nil, api.JsonContentHeader())
 	err := api.Do(ctx, req, &res)
-	return res.Data.DatasetPersistentId, err
+	if err != nil {
+		return "", fmt.Errorf("retrieving Dataverse dataset version failed")
+	}
+	return res.Data.DatasetPersistentId, nil
 }
 
 // DatasetUserPermissions represents the permissions a user has on a dataset
@@ -464,10 +459,10 @@ func GetDatasetUserPermissions(ctx context.Context, persistentId, token, user st
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return DatasetUserPermissions{}, err
+		return DatasetUserPermissions{}, fmt.Errorf("retrieving Dataverse user permissions failed")
 	}
 	if res.Status != "OK" {
-		return DatasetUserPermissions{}, fmt.Errorf("getting user permissions for %s failed", persistentId)
+		return DatasetUserPermissions{}, fmt.Errorf("retrieving Dataverse user permissions failed")
 	}
 	return res.Data, nil
 }

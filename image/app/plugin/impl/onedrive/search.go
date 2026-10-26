@@ -8,7 +8,7 @@ import (
 
 func Search(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("search: missing parameters: expected url, token, got: %+v", params)
+		return nil, fmt.Errorf("search: missing required parameters")
 	}
 	if params.Option != "" {
 		return listFolderGraphItems(ctx, params)

@@ -4,6 +4,7 @@ package globus
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"integration/app/core/reauth"
 	"regexp"
@@ -31,30 +32,35 @@ var embeddedDomainsR = regexp.MustCompile(`"session_required_single_domain"\s*:\
 // error. ConsentRequired and session/domain-policy errors become
 // *reauth.Error so the HTTP boundary can trigger re-authentication.
 //
-// All other API errors keep the exact "Code: Message" text form — the
-// folder-landing candidate loop in options.go classifies errors by that
-// string (isNotFoundError); do not change the format.
+// Other API errors use a fixed message. Only the known not-found codes are
+// preserved because the folder-landing candidate loop classifies them.
 func interpretGlobusError(statusCode int, body []byte) error {
 	parsed := errorBody{}
 	if err := json.Unmarshal(body, &parsed); err != nil || parsed.Code == "" {
-		return fmt.Errorf("globus request failed: %d - %s", statusCode, string(body))
+		return fmt.Errorf("globus request failed with status %d", statusCode)
 	}
 	if parsed.Code == "ConsentRequired" && len(parsed.RequiredScopes) > 0 {
-		return &reauth.Error{RequiredScopes: parsed.RequiredScopes, Message: parsed.Message}
+		return &reauth.Error{RequiredScopes: parsed.RequiredScopes}
 	}
 	if parsed.AuthorizationParameters != nil {
 		if domains := decodeDomains(parsed.AuthorizationParameters.SessionRequiredSingleDomain); len(domains) > 0 {
-			message := parsed.AuthorizationParameters.SessionMessage
-			if message == "" {
-				message = parsed.Message
-			}
-			return &reauth.Error{RequiredDomains: domains, Message: message}
+			return &reauth.Error{RequiredDomains: domains}
 		}
 	}
 	if domains := embeddedDomains(parsed.Message); len(domains) > 0 {
-		return &reauth.Error{RequiredDomains: domains, Message: parsed.Message}
+		return &reauth.Error{RequiredDomains: domains}
 	}
-	return fmt.Errorf("%v: %v", parsed.Code, parsed.Message)
+	return safeGlobusErrorCode(statusCode, parsed.Code)
+}
+
+func safeGlobusErrorCode(statusCode int, code string) error {
+	switch code {
+	case "ClientError.NotFound", "EndpointNotFound":
+		// The options folder-landing loop classifies these stable API codes.
+		return errors.New(code)
+	default:
+		return fmt.Errorf("globus request failed with status %d", statusCode)
+	}
 }
 
 // decodeDomains accepts both JSON forms Globus uses for

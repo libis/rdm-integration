@@ -81,7 +81,7 @@ func LoadFrontendConfig() Configuration {
 	}
 	res := Configuration{}
 	if err := json.Unmarshal(b, &res); err != nil {
-		panic(fmt.Errorf("could not unmarshal config: %v", err))
+		panic(fmt.Errorf("frontend configuration could not be loaded"))
 	}
 	return res
 }

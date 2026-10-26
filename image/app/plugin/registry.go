@@ -148,7 +148,7 @@ func GetPlugin(name string) (Plugin, error) {
 	defer mu.RUnlock()
 	p, ok := available[name]
 	if !ok {
-		return Plugin{}, fmt.Errorf("plugin %q is not configured", name)
+		return Plugin{}, fmt.Errorf("plugin is not configured")
 	}
 	return p, nil
 }

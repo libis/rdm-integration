@@ -126,7 +126,7 @@ func popJob(queue string) (Job, bool) {
 	job := Job{}
 	err = json.Unmarshal([]byte(v), &job)
 	if err != nil {
-		logging.Logger.Println("failed to unmarshal a job:", err)
+		logging.Logger.Println("failed to unmarshal a job")
 		return job, false
 	}
 	return job, true
@@ -157,15 +157,15 @@ func ProcessJobs(queue string) {
 			if err != nil {
 				if types.IsUnrecoverable(err) {
 					job.ErrCnt = maxErrors
-					logging.Logger.Println("job failed with unrecoverable error and will not be retried:", persistentId, err)
+					logging.Logger.Println("job failed with unrecoverable error and will not be retried:", persistentId)
 					sendJobFailedMail(err, job)
 				} else {
 					job.ErrCnt = job.ErrCnt + 1
 					if job.ErrCnt == maxErrors {
-						logging.Logger.Println("job failed and will not be retried:", persistentId, err)
+						logging.Logger.Println("job failed and will not be retried:", persistentId)
 						sendJobFailedMail(err, job)
 					} else {
-						logging.Logger.Println("job failed, but will retry:", persistentId, err)
+						logging.Logger.Println("job failed, but will retry:", persistentId)
 						// Exponential backoff: start with 1 second, double each time, max 60 seconds
 						backoffDuration := time.Duration(1<<uint(job.ErrCnt-1)) * time.Second
 						if backoffDuration > 60*time.Second {
@@ -180,7 +180,7 @@ func ProcessJobs(queue string) {
 				err = addJob(ctx, job, false)
 				cancel()
 				if err != nil {
-					logging.Logger.Println("re-adding job failed (no retry):", persistentId, err)
+					logging.Logger.Println("re-adding job failed (no retry):", persistentId)
 					unlock(persistentId)
 				}
 			} else {

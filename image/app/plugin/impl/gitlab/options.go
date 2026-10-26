@@ -40,25 +40,25 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 		)
 		request, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GitLab branch request could not be created")
 		}
 		request.Header.Add("Authorization", "Bearer "+token)
 		r, err := http.DefaultClient.Do(request)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GitLab branch request failed")
 		}
 		b, err := io.ReadAll(r.Body)
 		r.Body.Close()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GitLab branch response could not be read")
 		}
 		if r.StatusCode != 200 {
-			return nil, fmt.Errorf("getting branches failed: %s", string(b))
+			return nil, fmt.Errorf("getting branches failed with status %d", r.StatusCode)
 		}
 		pageBranches := []Branch{}
 		err = json.Unmarshal(b, &pageBranches)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GitLab branch response could not be parsed")
 		}
 		if len(pageBranches) == 0 {
 			break

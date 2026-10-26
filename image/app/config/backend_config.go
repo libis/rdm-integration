@@ -110,7 +110,7 @@ func init() {
 		logging.Logger.Printf("using backend configuration from %v\n", configFile)
 		err := json.Unmarshal(b, &config)
 		if err != nil {
-			panic(fmt.Errorf("config could not be loaded from %v: %v", configFile, err))
+			panic(fmt.Errorf("backend configuration could not be loaded"))
 		}
 	}
 	if config.Options.DefaultHash == "" {
@@ -218,7 +218,7 @@ func SetConfig(dataverseServer, rootDataverseId, defaultHash string, roleIDs []i
 func RedisReady(ctx context.Context) bool {
 	res, err := GetRedis().Ping(ctx).Result()
 	if err != nil {
-		logging.Logger.Printf("redis error: %v", err)
+		logging.Logger.Printf("Redis health check failed")
 		return false
 	}
 	return res == "PONG"

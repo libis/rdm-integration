@@ -12,7 +12,7 @@ import (
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("options: missing parameters: expected url, token, got: %+v", params)
+		return nil, fmt.Errorf("options: missing required parameters")
 	}
 	if params.Option != "" {
 		return listFolderGraphItems(ctx, params)
@@ -28,7 +28,7 @@ func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectIt
 		url := params.Url + "/sites/" + params.RepoName + "/drives"
 		drives, err = getResponse(ctx, url, params.Token)
 		if err != nil {
-			logging.Logger.Printf("onedrive options failed for site %s: %v\n", params.RepoName, err)
+			logging.Logger.Println("onedrive options failed")
 			return nil, err
 		}
 	}
@@ -51,7 +51,7 @@ func listFolderGraphItems(ctx context.Context, params types.OptionsRequest) (res
 	items, err := listGraphItems(ctx, folder, params.Url+"/drives/"+s[0]+"/root", params.Token, false)
 	res = []types.SelectItem{}
 	if err != nil {
-		logging.Logger.Printf("onedrive plugin err: %v\n", err)
+		logging.Logger.Printf("onedrive plugin request failed\n")
 		return res, nil // errors break the gui dropdown; most likely the path is a file, not a folder
 	}
 	for _, e := range items {

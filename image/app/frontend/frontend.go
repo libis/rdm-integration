@@ -71,7 +71,7 @@ func setupDevProxy() {
 	parsed, _ := url.Parse(target)
 	proxy := httputil.NewSingleHostReverseProxy(parsed)
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		log.Printf("frontend: dev proxy error: %v", err)
+		log.Printf("frontend: dev proxy request failed")
 		http.Error(w, "Frontend dev server unavailable", http.StatusBadGateway)
 	}
 	devProxy = proxy

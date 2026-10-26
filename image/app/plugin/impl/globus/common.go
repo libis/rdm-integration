@@ -279,10 +279,10 @@ func doGetPartialResponse(ctx context.Context, url string, token string, limit, 
 	response := Response{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return Response{}, fmt.Errorf("globus error: response could not be unmarshalled from %v", string(b))
+		return Response{}, fmt.Errorf("globus response could not be parsed")
 	}
 	if response.Code != "" && response.Message != "" {
-		return response, fmt.Errorf("%v: %v", response.Code, response.Message)
+		return response, safeGlobusErrorCode(http.StatusBadRequest, response.Code)
 	}
 	return response, nil
 }
@@ -290,18 +290,18 @@ func doGetPartialResponse(ctx context.Context, url string, token string, limit, 
 func DoGlobusRequest(ctx context.Context, url, method, token string, body io.Reader) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("globus request could not be created")
 	}
 	request.Header.Add("Accept", "application/json")
 	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("globus request failed")
 	}
 	defer r.Body.Close()
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("globus response could not be read")
 	}
 	if r.StatusCode >= 400 {
 		return b, interpretGlobusError(r.StatusCode, b)

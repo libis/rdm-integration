@@ -87,7 +87,7 @@ func datasetNodesWithAccessInfo(ctx context.Context, persistentId, token, user s
 		if entry.Embargo != nil {
 			active, parseErr := isEmbargoActive(entry.Embargo.DateAvailable, now)
 			if parseErr != nil {
-				logging.Logger.Printf("failed to parse embargo date %q for dataset %s: %v", entry.Embargo.DateAvailable, persistentId, parseErr)
+				logging.Logger.Printf("failed to parse embargo date")
 				hasEmbargoed = true
 			} else if active {
 				hasEmbargoed = true
@@ -95,11 +95,11 @@ func datasetNodesWithAccessInfo(ctx context.Context, persistentId, token, user s
 		}
 	}
 	if embargoDate, err := fetchDatasetEmbargoDate(ctx, persistentId, token, user); err != nil {
-		logging.Logger.Printf("failed to fetch dataset-level embargo for %s: %v", persistentId, err)
+		logging.Logger.Printf("failed to fetch dataset-level embargo")
 	} else if embargoDate != "" {
 		active, parseErr := isEmbargoActive(embargoDate, now)
 		if parseErr != nil {
-			logging.Logger.Printf("failed to parse dataset-level embargo date %q for dataset %s: %v", embargoDate, persistentId, parseErr)
+			logging.Logger.Printf("failed to parse dataset-level embargo date")
 			hasEmbargoed = true
 		} else if active {
 			hasEmbargoed = true
@@ -115,14 +115,10 @@ func fetchDatasetFileEntries(ctx context.Context, persistentId, token, user stri
 	req := GetRequest(datasetFilesPath(persistentId), "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("retrieving Dataverse file access information failed")
 	}
 	if res.Status != "OK" {
-		message := res.Message
-		if message == "" {
-			message = "no additional details"
-		}
-		return nil, fmt.Errorf("listing files for %s failed: status=%s (%s)", persistentId, res.Status, message)
+		return nil, fmt.Errorf("retrieving Dataverse file access information failed")
 	}
 	return res.Data, nil
 }
@@ -138,14 +134,10 @@ func fetchDatasetEmbargoDate(ctx context.Context, persistentId, token, user stri
 	req := GetRequest(datasetVersionPath(persistentId), "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("retrieving Dataverse dataset version failed")
 	}
 	if res.Status != "OK" {
-		message := res.Message
-		if message == "" {
-			message = "no additional details"
-		}
-		return "", fmt.Errorf("fetching dataset version for %s failed: status=%s (%s)", persistentId, res.Status, message)
+		return "", fmt.Errorf("retrieving Dataverse dataset version failed")
 	}
 	if res.Data.DatasetVersion.MetadataBlocks == nil {
 		return "", nil

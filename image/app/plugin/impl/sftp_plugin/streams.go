@@ -18,7 +18,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 
 	c, err := getClient(streamParams.Url, streamParams.User, streamParams.Token)
 	if err != nil {
-		return types.StreamsType{}, fmt.Errorf("streams: failed to open sftp client: %v", err)
+		return types.StreamsType{}, fmt.Errorf("streams: failed to open SFTP client")
 	}
 
 	// Do something with the FTP conn
@@ -31,8 +31,10 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 		res[k] = types.Stream{
 			Open: func() (io.Reader, error) {
 				reader, err = c.SftpClient.Open(streamParams.Option + id)
-
-				return reader, err
+				if err != nil {
+					return nil, fmt.Errorf("SFTP file open failed")
+				}
+				return reader, nil
 			},
 			Close: func() error {
 				return reader.Close()

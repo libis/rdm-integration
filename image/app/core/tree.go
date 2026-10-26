@@ -64,7 +64,7 @@ func Compare(ctx context.Context, in map[string]tree.Node, pid, dataverseKey, us
 	if !addJobs && hasUnknownDestinationHash(in) && !IsLocked(ctx, pid) {
 		refreshed, err := withFreshDestinationFiles(ctx, in, pid, dataverseKey, user)
 		if err != nil {
-			logging.Logger.Printf("%v: refreshing destination files for a polled compare failed: %v\n", pid, err)
+			logging.Logger.Printf("%v: refreshing destination files for a polled compare failed\n", pid)
 		} else {
 			in = refreshed
 			addJobs = true

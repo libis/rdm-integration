@@ -72,26 +72,25 @@ func hash(entry Entry, nm map[string]tree.Node, url, token string) (string, int6
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, encode(data))
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to create request: %w", err)
+		return "", 0, fmt.Errorf("REDCap export request could not be created")
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "application/json")
 
 	resp, err := getHTTPClient().Do(req)
 	if err != nil {
-		return "", 0, fmt.Errorf("HTTP request failed: %w", err)
+		return "", 0, fmt.Errorf("REDCap export request failed")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", 0, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		return "", 0, fmt.Errorf("REDCap export request failed with status %d", resp.StatusCode)
 	}
 
 	hasher := md5.New()
 	size, err := io.Copy(hasher, resp.Body)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to calculate hash: %w", err)
+		return "", 0, fmt.Errorf("REDCap export response could not be processed")
 	}
 	return fmt.Sprintf("%x", hasher.Sum(nil)), size, nil
 }

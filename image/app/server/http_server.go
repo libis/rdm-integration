@@ -73,10 +73,15 @@ func Start() {
 	// allow bad certificates
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
-	timeoutHandler := http.TimeoutHandler(srvMux, timeout, fmt.Sprintf("processing the request took longer than %v: cancelled", timeout))
+	safeMux := safeErrorResponses(srvMux)
+	timeoutHandler := http.TimeoutHandler(safeMux, timeout, fmt.Sprintf("processing the request took longer than %v: cancelled", timeout))
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isWebSocketRequest(r) {
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				safeMux.ServeHTTP(w, r)
+				return
+			}
 			srvMux.ServeHTTP(w, r)
 			return
 		}

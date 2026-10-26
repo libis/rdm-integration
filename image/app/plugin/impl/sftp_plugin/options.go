@@ -13,7 +13,7 @@ func Options(_ context.Context, params types.OptionsRequest) ([]types.SelectItem
 	password := params.Token
 	server := params.Url
 	if user == "" || password == "" || server == "" {
-		return nil, fmt.Errorf("folders: missing parameters: expected url, user and password, got: %+v", params)
+		return nil, fmt.Errorf("folders: missing required parameters")
 	}
 
 	cl, err := getClient(server, user, password)

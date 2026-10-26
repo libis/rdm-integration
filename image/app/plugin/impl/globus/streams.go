@@ -102,7 +102,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, p types.StreamParams)
 	return types.StreamsType{Streams: nil, Cleanup: func() error {
 		taskID, err := doTransfer(ctx, pluginId, sessionId, token, repoName, option, pId, dvToken, user, in)
 		if err != nil {
-			logging.Logger.Println("globus transfer failed: " + err.Error())
+			logging.Logger.Println("Globus transfer failed")
 		} else if taskID != "" {
 			err = fmt.Errorf("globus transfer started, task ID: %s", taskID)
 		}
@@ -156,7 +156,7 @@ func recordTransfers(ctx context.Context, persistentId string, transfers map[str
 	for nodeId, t := range transfers {
 		b, err := json.Marshal(t)
 		if err != nil {
-			logging.Logger.Printf("%v: recording globus transfer of %v failed: %v\n", persistentId, nodeId, err)
+			logging.Logger.Printf("recording Globus transfer failed")
 			continue
 		}
 		config.GetRedis().Set(ctx, types.GlobusTransferKey(persistentId, nodeId), string(b), config.LockMaxDuration)
@@ -212,10 +212,10 @@ func getPrincipal(ctx context.Context, pluginId, sessionId string) (string, erro
 	response := UserInfo{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return "", fmt.Errorf("globus error: UserInfo could not be unmarshalled from %v", string(b))
+		return "", fmt.Errorf("globus user information could not be parsed")
 	}
 	if response.Principal == "" {
-		return "", fmt.Errorf("globus error: principal not found in %v", string(b))
+		return "", fmt.Errorf("globus principal was missing from the response")
 	}
 	return response.Principal, nil
 }
@@ -228,10 +228,10 @@ func getSubmissionId(ctx context.Context, token string) (string, error) {
 	response := SubmissionId{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return "", fmt.Errorf("globus error: SubmissionId could not be unmarshalled from %v", string(b))
+		return "", fmt.Errorf("globus submission ID could not be parsed")
 	}
 	if response.Value == "" {
-		return "", fmt.Errorf("globus error: submission id not found in %v", string(b))
+		return "", fmt.Errorf("globus submission ID was missing from the response")
 	}
 	return response.Value, nil
 }
@@ -245,10 +245,10 @@ func transfer(ctx context.Context, token string, transferRequest TransferRequest
 	response := TransferResponse{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return "", fmt.Errorf("globus error: transfer response could not be unmarshalled from %v", string(b))
+		return "", fmt.Errorf("globus transfer response could not be parsed")
 	}
 	if response.Code != "Accepted" || response.TaskId == "" {
-		return "", fmt.Errorf("globus error: transfer failed to start: %v", string(b))
+		return "", fmt.Errorf("globus transfer failed to start")
 	}
 	return response.TaskId, nil
 }
@@ -273,7 +273,7 @@ func RequestGlobusUploadPaths(ctx context.Context, persistentId, token, user, pr
 		return nil, err
 	}
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("requesting Globus upload paths failed: %+v", res)
+		return nil, fmt.Errorf("requesting Globus upload paths failed")
 	}
 	pathsWithIds := []Path{}
 	for k, v := range res.Data {
@@ -297,7 +297,7 @@ func addGlobusFiles(ctx context.Context, persistentId, token, user string, reque
 		return err
 	}
 	if res["status"] != "OK" {
-		return fmt.Errorf("globus error: adding globus files failed: %+v", res)
+		return fmt.Errorf("adding Globus files failed")
 	}
 	return nil
 }
@@ -347,13 +347,13 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	for k, f := range in {
 		sourcePath, ok := paths[fmt.Sprint(f.Attributes.DestinationFile.Id)]
 		if !ok {
-			return "", fmt.Errorf("globus download path for %v unknown", k)
+			return "", fmt.Errorf("globus download path was missing")
 		}
 		firstSlashAfterEndpointAddr := strings.Index(sourcePath, "/")
 		bucketSeparatorIndex := strings.Index(sourcePath, ":")
 		lastSlashBeforeBucketNameIndex := strings.LastIndex(sourcePath[:bucketSeparatorIndex], "/")
 		if firstSlashAfterEndpointAddr < 0 || bucketSeparatorIndex < 0 || lastSlashBeforeBucketNameIndex < 0 {
-			return "", fmt.Errorf("unexpected path format: %v", sourcePath)
+			return "", fmt.Errorf("unexpected Globus download path format")
 		}
 		sourcePath = sourcePath[firstSlashAfterEndpointAddr+1:lastSlashBeforeBucketNameIndex+1] + sourcePath[bucketSeparatorIndex+1:]
 		transferRequest.Data = append(transferRequest.Data, TransferRequestData{
@@ -369,7 +369,7 @@ func Download(ctx context.Context, p types.StreamParams, in map[string]tree.Node
 	}
 	err = monitorGlobusDownloadAtDV(pId, taskId, dvToken, user, ctx)
 	if err != nil {
-		logging.Logger.Println("monitoring globus download at DV failed: " + err.Error())
+		logging.Logger.Println("monitoring Globus download at Dataverse failed")
 	}
 	return taskId, nil
 }
@@ -387,7 +387,7 @@ func requestGlobusDownload(ctx context.Context, persistentId, token, user, princ
 	}
 	receivedData, ok := res["data"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("requesting Globus download paths failed: %+v", res)
+		return nil, fmt.Errorf("requesting Globus download paths failed")
 	}
 	params := map[string]string{}
 	for k, v := range receivedData {
@@ -411,7 +411,7 @@ func monitorGlobusDownloadAtDV(persistentId, taskId string, token, user string, 
 		return err
 	}
 	if res["status"] != "OK" {
-		return fmt.Errorf("globus error: requsting globus monitoring at DV failed: %+v", res)
+		return fmt.Errorf("requesting Globus monitoring at Dataverse failed")
 	}
 	return nil
 }
@@ -481,21 +481,21 @@ func GetDownloadFileIds(ctx context.Context, persistentId, dvToken, user, downlo
 	}
 	data, ok := res["data"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("globus error: unexpected globusDownloadParameters response: %+v", res)
+		return nil, fmt.Errorf("unexpected Globus download-parameter response")
 	}
 	queryParams, ok := data["queryParameters"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("globus error: queryParameters not found in globusDownloadParameters response: %+v", data)
+		return nil, fmt.Errorf("Globus query parameters were missing from the response")
 	}
 	filesRaw, ok := queryParams["files"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("globus error: files map not found in globusDownloadParameters response: %+v", queryParams)
+		return nil, fmt.Errorf("Globus file list was missing from the response")
 	}
 	ids := make([]int64, 0, len(filesRaw))
 	for k := range filesRaw {
 		id, err := strconv.ParseInt(k, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("globus error: non-numeric file id %q in download files map", k)
+			return nil, fmt.Errorf("Globus file list contained an invalid file ID")
 		}
 		ids = append(ids, id)
 	}
@@ -516,7 +516,7 @@ func getDatasetFileEntries(ctx context.Context, persistentId, dvToken, user stri
 		return nil, err
 	}
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("globus error: listing dataset files failed: %+v", res)
+		return nil, fmt.Errorf("listing dataset files failed")
 	}
 	return res.Data, nil
 }

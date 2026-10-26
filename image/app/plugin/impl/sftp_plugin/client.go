@@ -21,19 +21,22 @@ func getClient(sftpUrl, user, pass string) (*client, error) {
 
 	conn, err := ssh.Dial("tcp", sftpUrl, &config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connecto to [%s]: %v", sftpUrl, err)
+		return nil, fmt.Errorf("SFTP connection failed")
 	}
 	cl, err := sftp.NewClient(conn)
 	if err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("unable to start SFTP subsystem: %v", err)
+		return nil, fmt.Errorf("unable to start SFTP subsystem")
 	}
 
 	return &client{
 		SftpClient: cl,
 		Close: func() error {
-			err := cl.Close()
+			if err := cl.Close(); err != nil {
+				conn.Close()
+				return fmt.Errorf("SFTP client close failed")
+			}
 			conn.Close()
-			return err
+			return nil
 		}}, nil
 }

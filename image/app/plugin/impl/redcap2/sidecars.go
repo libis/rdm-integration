@@ -908,7 +908,7 @@ func addSidecars(m sidecarModel, basePath string, files map[string][]byte, mime 
 	warnings := []string{}
 
 	if data, err := buildCroissant(m); err != nil {
-		warnings = append(warnings, fmt.Sprintf("croissant generation failed: %v", err))
+		warnings = append(warnings, "croissant generation failed")
 	} else {
 		path := basePath + "/croissant.json"
 		files[path] = data
@@ -916,7 +916,7 @@ func addSidecars(m sidecarModel, basePath string, files map[string][]byte, mime 
 	}
 
 	if data, err := buildROCrate(m); err != nil {
-		warnings = append(warnings, fmt.Sprintf("ro-crate generation failed: %v", err))
+		warnings = append(warnings, "ro-crate generation failed")
 	} else {
 		path := basePath + "/ro-crate-metadata.json"
 		files[path] = data
@@ -924,7 +924,7 @@ func addSidecars(m sidecarModel, basePath string, files map[string][]byte, mime 
 	}
 
 	if data, err := buildDDICDI(m); err != nil {
-		warnings = append(warnings, fmt.Sprintf("ddi-cdi generation failed: %v", err))
+		warnings = append(warnings, "ddi-cdi generation failed")
 	} else {
 		path := basePath + "/ddi-cdi.jsonld"
 		files[path] = data

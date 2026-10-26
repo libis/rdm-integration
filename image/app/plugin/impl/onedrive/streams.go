@@ -21,7 +21,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	for k, v := range in {
 		request, err := http.NewRequestWithContext(ctx, "GET", v.Attributes.URL, nil)
 		if err != nil {
-			return types.StreamsType{}, err
+			return types.StreamsType{}, fmt.Errorf("OneDrive download request could not be created")
 		}
 		request.Header.Add("Accept", "application/json")
 		request.Header.Add("Authorization", "Bearer "+token)
@@ -31,12 +31,11 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 			Open: func() (io.Reader, error) {
 				r, err = http.DefaultClient.Do(request)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("OneDrive file download failed")
 				}
 				if r.StatusCode != 200 {
-					b, _ := io.ReadAll(r.Body)
 					r.Body.Close()
-					return nil, fmt.Errorf("getting file failed: %s", string(b))
+					return nil, fmt.Errorf("OneDrive file download failed")
 				}
 				return r.Body, nil
 			},

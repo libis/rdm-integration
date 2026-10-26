@@ -92,7 +92,7 @@ func GetDownloadableFiles(w http.ResponseWriter, r *http.Request) {
 	if req.DownloadId != "" {
 		ids, err := globus.GetDownloadFileIds(r.Context(), req.PersistentId, req.DataverseKey, user, req.DownloadId)
 		if err != nil {
-			logging.Logger.Printf("warning: resolving downloadId %s failed: %v", req.DownloadId, err)
+			logging.Logger.Printf("warning: resolving Globus download selection failed")
 		} else {
 			preSelectedIds = ids
 		}

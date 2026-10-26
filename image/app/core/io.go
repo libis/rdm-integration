@@ -164,7 +164,7 @@ func write(ctx context.Context, dbId int64, dataverseKey, user string, fileStrea
 		err_close := f.Close()
 		wg.Wait()
 		if err_copy != nil || err_close != nil || async_err.Err != nil {
-			return nil, nil, 0, fmt.Errorf("writing failed: %v: %v: %v", err_close, err_copy, async_err.Err)
+			return nil, nil, 0, fmt.Errorf("writing failed")
 		}
 	} else if s.driver == "s3" {
 		client, err := newS3Client(ctx)

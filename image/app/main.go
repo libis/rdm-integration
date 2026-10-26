@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"integration/app/destination"
 	"integration/app/frontend"
 	"integration/app/logging"
@@ -35,7 +34,7 @@ func main() {
 	if len(os.Args) > 1 && (oidcArgIdx < 0 || oidcArgIdx > 1) {
 		numberWorkers, err = strconv.Atoi(os.Args[1])
 		if err != nil {
-			panic(fmt.Errorf("failed to parse number of workers from %v: %v", numberWorkers, err))
+			panic("failed to parse number of workers")
 		}
 	}
 	if numberWorkers > 0 {
@@ -44,8 +43,9 @@ func main() {
 		go server.Start()
 		if oidcArgIdx > 0 {
 			go spinner.SpinWorkers(numberWorkers, queue)
-			err := exec.Command("/bin/oauth2-proxy", oidcArgs...).Run()
-			fmt.Println(err)
+			if err := exec.Command("/bin/oauth2-proxy", oidcArgs...).Run(); err != nil {
+				logging.Logger.Println("OAuth proxy exited")
+			}
 		} else {
 			spinner.SpinWorkers(numberWorkers, queue)
 		}
@@ -53,8 +53,9 @@ func main() {
 		logging.Logger.Println("http server only")
 		if oidcArgIdx > 0 {
 			go server.Start()
-			err := exec.Command("/bin/oauth2-proxy", oidcArgs...).Run()
-			fmt.Println(err)
+			if err := exec.Command("/bin/oauth2-proxy", oidcArgs...).Run(); err != nil {
+				logging.Logger.Println("OAuth proxy exited")
+			}
 		} else {
 			server.Start()
 		}

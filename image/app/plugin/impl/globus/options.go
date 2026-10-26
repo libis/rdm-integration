@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"integration/app/logging"
 	"integration/app/plugin/types"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -15,7 +16,7 @@ import (
 
 func Options(ctx context.Context, params types.OptionsRequest) ([]types.SelectItem, error) {
 	if params.Url == "" || params.Token == "" {
-		return nil, fmt.Errorf("options: missing parameters: expected url, token, got: %+v", params)
+		return nil, fmt.Errorf("options: missing required parameters")
 	}
 	return listFolderItems(ctx, params)
 }
@@ -71,16 +72,16 @@ func resolveAndBuildInitialTree(ctx context.Context, params types.OptionsRequest
 	endpoint, endpointErr := getEndpoint(ctx, params)
 	if endpointErr != nil && isNotFoundError(endpointErr) {
 		// Frontend placeholders (e.g. "start") should not surface as HTTP 500.
-		logging.Logger.Printf("globus options: endpoint %q not found, returning empty list", params.RepoName)
+		logging.Logger.Printf("globus options: endpoint not found, returning empty list")
 		return []types.SelectItem{}, nil
 	}
 	if endpointErr != nil {
 		// Don't fail — log and try the listing fallbacks anyway.
-		logging.Logger.Printf("globus options: getEndpoint error for %q: %v (continuing with fallback candidates)", params.RepoName, endpointErr)
+		logging.Logger.Printf("globus options: getEndpoint failed; continuing with fallback candidates")
 	}
 
 	candidates := buildCandidatePaths(endpoint)
-	logging.Logger.Printf("globus options: candidate starting paths for %q: %v (defaultDirectory=%q)", params.RepoName, candidates, endpoint.DefaultDirectory)
+	logging.Logger.Printf("globus options: candidate starting paths resolved")
 
 	var bestFallback *attemptResult
 	var lastErr error
@@ -88,14 +89,14 @@ func resolveAndBuildInitialTree(ctx context.Context, params types.OptionsRequest
 		attempt, err := tryListPath(ctx, params, candidate)
 		if err != nil {
 			if isNotFoundError(err) {
-				logging.Logger.Printf("globus options: candidate %q for %q returned not-found, trying next", candidate, params.RepoName)
+				logging.Logger.Printf("globus options: candidate returned not-found, trying next")
 				continue
 			}
 			lastErr = err
-			logging.Logger.Printf("globus options: candidate %q for %q failed (%v), trying next", candidate, params.RepoName, err)
+			logging.Logger.Printf("globus options: candidate failed, trying next")
 			continue
 		}
-		logging.Logger.Printf("globus options: candidate %q for %q listed: items=%d responseAbsolutePath=%q resolvedDir=%q meaningful=%v", candidate, params.RepoName, len(attempt.items), attempt.responseAbsolutePath, attempt.resolvedDir, attempt.meaningful)
+		logging.Logger.Printf("globus options: candidate listed items=%d meaningful=%v", len(attempt.items), attempt.meaningful)
 		if attempt.meaningful {
 			return withRoot("/", buildHierarchy(attempt.resolvedDir, attempt.items)), nil
 		}
@@ -113,7 +114,7 @@ func resolveAndBuildInitialTree(ctx context.Context, params types.OptionsRequest
 		// under the directory Globus resolved, which may itself be root.
 		// Do NOT mark any node as selected: we don't want to nudge the user
 		// to upload into "/" or another unresolved path.
-		logging.Logger.Printf("globus options: %q — no candidate produced a meaningful resolved path; returning flat listing of %q (%d items)", params.RepoName, firstSuccessful.candidate, len(firstSuccessful.items))
+		logging.Logger.Printf("globus options: no candidate produced a meaningful resolved path; returning a flat listing (%d items)", len(firstSuccessful.items))
 		return withRoot(firstSuccessful.resolvedDir, firstSuccessful.items), nil
 	}
 
@@ -367,7 +368,7 @@ func getEndpoint(ctx context.Context, params types.OptionsRequest) (Response, er
 		return Response{}, err
 	}
 	if response.Code != "" && response.Message != "" {
-		return response, fmt.Errorf("%v: %v", response.Code, response.Message)
+		return response, safeGlobusErrorCode(http.StatusBadRequest, response.Code)
 	}
 	return response, nil
 }

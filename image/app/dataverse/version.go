@@ -62,13 +62,13 @@ func getVersion() dvVersion {
 	url := fmt.Sprintf("%s/api/v1/info/version", config.GetConfig().DataverseServer)
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		logging.Logger.Println("error when getting version:", err)
+		logging.Logger.Println("error when getting Dataverse version")
 		logging.Logger.Println("using default " + defaultVersion + " version")
 		return defaultVersion
 	}
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		logging.Logger.Println("error when getting version:", err)
+		logging.Logger.Println("error when getting Dataverse version")
 		logging.Logger.Println("using default " + defaultVersion + " version")
 		return defaultVersion
 	}
@@ -76,7 +76,7 @@ func getVersion() dvVersion {
 	b, _ := io.ReadAll(r.Body)
 	res := api.VersionResponse{}
 	if r.StatusCode != 200 {
-		logging.Logger.Println("error when getting version:", res.Message)
+		logging.Logger.Println("Dataverse version request failed")
 	}
 	json.Unmarshal(b, &res)
 	logging.Logger.Println("Dataverse version:", res.Data.Version)

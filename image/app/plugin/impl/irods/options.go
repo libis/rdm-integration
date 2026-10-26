@@ -15,7 +15,7 @@ func Options(_ context.Context, params types.OptionsRequest) ([]types.SelectItem
 	server := params.Url
 	zone := params.RepoName
 	if user == "" || password == "" || server == "" || zone == "" {
-		return nil, fmt.Errorf("folders: missing parameters: expected server, zone, user and password, got: %+v", params)
+		return nil, fmt.Errorf("folders: missing required parameters")
 	}
 	cl, err := NewIrodsClient(server, zone, user, password)
 	if err != nil {

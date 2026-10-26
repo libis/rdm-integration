@@ -17,7 +17,7 @@ func Streams(ctx context.Context, in map[string]tree.Node, streamParams types.St
 	zone := streamParams.RepoName
 	folder := streamParams.Option
 	if user == "" || password == "" || server == "" || zone == "" || folder == "" {
-		return types.StreamsType{}, fmt.Errorf("folders: missing parameters: expected server, zone, folder, user and password, got: %+v", streamParams)
+		return types.StreamsType{}, fmt.Errorf("folders: missing required parameters")
 	}
 	cl, clientErr := NewIrodsClient(server, zone, user, password)
 	if clientErr != nil {

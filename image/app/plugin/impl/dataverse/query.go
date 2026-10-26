@@ -17,10 +17,10 @@ func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node
 	res := api.ListResponse{}
 	err := api.Do(ctx, request, &res)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing Dataverse repository files failed")
 	}
 	if res.Status != "OK" {
-		return nil, fmt.Errorf("listing files for %s failed: %+v", req.RepoName, res)
+		return nil, fmt.Errorf("listing Dataverse repository files failed")
 	}
 	return mapToNodes(res.Data), nil
 }

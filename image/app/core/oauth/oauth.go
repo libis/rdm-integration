@@ -26,7 +26,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 	redirectUri := RedirectUri
 	clientSecret, resource, postUrl, err := config.ClientSecret(clientId)
 	if err != nil {
-		return res, err
+		return res, fmt.Errorf("OAuth client configuration is unavailable")
 	}
 	grantType := "authorization_code"
 	if code == "" && refreshToken != "" {
@@ -38,16 +38,15 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 	request.Header.Add("Accept", "application/json")
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return res, fmt.Errorf("getting API token failed: %v", err)
+		return res, fmt.Errorf("OAuth token request failed")
 	}
 	defer r.Body.Close()
 	if r.StatusCode != 200 {
-		b, _ := io.ReadAll(r.Body)
-		return res, fmt.Errorf("getting API token failed: %d - %s", r.StatusCode, string(b))
+		return res, fmt.Errorf("OAuth token request failed with status %d", r.StatusCode)
 	}
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
-		return res, fmt.Errorf("getting token response failed: %v", err)
+		return res, fmt.Errorf("OAuth token response could not be read")
 	}
 	result := types.OauthTokenResponse{}
 	err = json.Unmarshal(b, &result)
@@ -72,7 +71,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 		}
 		params, err := url.ParseQuery(str)
 		if err != nil {
-			return res, fmt.Errorf("getting API token failed: %v", err)
+			return res, fmt.Errorf("OAuth token response could not be parsed")
 		}
 		exp, _ := strconv.Atoi(params.Get("expires_in"))
 		exp2, _ := strconv.Atoi(params.Get("refresh_token_expires_in"))
@@ -86,7 +85,7 @@ func GetOauthToken(ctx context.Context, pluginId, code, refreshToken, sessionId 
 		}
 	}
 	if result.Error != "" {
-		return res, fmt.Errorf("getting API token failed: %s - %s", result.Error, result.Error_description)
+		return res, fmt.Errorf("OAuth token request was rejected")
 	}
 	result.Issued = time.Now()
 	tokenBytes, err := json.Marshal(result)
@@ -108,7 +107,7 @@ func GetTokenFromCache(ctx context.Context, token, sessionId, pluginId string) s
 	if expired {
 		_, err := GetOauthToken(ctx, pluginId, "", res.RefreshToken, sessionId)
 		if err != nil {
-			logging.Logger.Println("token refresh failed:", err)
+			logging.Logger.Println("token refresh failed")
 			return res.AccessToken
 		}
 		res, ok = GetTokenFromCacheRaw(ctx, pluginId, sessionId)

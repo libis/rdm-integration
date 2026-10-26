@@ -70,31 +70,30 @@ func listEntries(ctx context.Context, folderId int64, path, url, token string, r
 	}
 	request, err := http.NewRequestWithContext(ctx, "POST", url, encode(data))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("REDCap request could not be created")
 	}
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Add("Accept", "application/json")
 
 	r, err := getHTTPClient().Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("HTTP request failed: %w", err)
+		return nil, fmt.Errorf("REDCap request failed")
 	}
 	defer r.Body.Close()
 
 	if r.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(r.Body)
-		return nil, fmt.Errorf("API request failed with status %d: %s", r.StatusCode, string(body))
+		return nil, fmt.Errorf("REDCap request failed with status %d", r.StatusCode)
 	}
 
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("REDCap response could not be read")
 	}
 
 	response := []RedCapResponseEntry{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
+		return nil, fmt.Errorf("REDCap response could not be parsed")
 	}
 
 	res := []Entry{}

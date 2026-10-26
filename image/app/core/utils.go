@@ -59,7 +59,7 @@ func getValueFromHeader(h http.Header, hn string) string {
 
 func SendMail(msg string, to []string) error {
 	if config.GetConfig().Options.SmtpConfig.Host == "" {
-		logging.Logger.Println("smtp is not configured: message could not be sent:", msg)
+		logging.Logger.Println("smtp is not configured: message could not be sent")
 		return nil
 	}
 	conf := config.GetConfig().Options.SmtpConfig

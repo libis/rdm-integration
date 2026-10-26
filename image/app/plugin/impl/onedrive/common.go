@@ -126,26 +126,26 @@ func getResponse(ctx context.Context, url string, token string) ([]GraphItem, er
 func getPartialResponse(ctx context.Context, url string, token string) (Response, error) {
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return Response{}, err
+		return Response{}, fmt.Errorf("OneDrive request could not be created")
 	}
 	request.Header.Add("Accept", "application/json")
 	request.Header.Add("Authorization", "Bearer "+token)
 	r, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return Response{}, err
+		return Response{}, fmt.Errorf("OneDrive request failed")
 	}
 	defer r.Body.Close()
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
-		return Response{}, err
+		return Response{}, fmt.Errorf("OneDrive response could not be read")
 	}
 	response := Response{}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
-		return Response{}, fmt.Errorf("%s", string(b))
+		return Response{}, fmt.Errorf("OneDrive response could not be parsed")
 	}
 	if response.Error.Message != "" {
-		return response, fmt.Errorf("%v: %v", response.Error.Code, response.Error.Message)
+		return response, fmt.Errorf("OneDrive request failed")
 	}
 	return response, nil
 }

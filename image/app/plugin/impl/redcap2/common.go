@@ -296,21 +296,21 @@ func redcapRequest(ctx context.Context, baseURL string, form url.Values) ([]byte
 
 	resp, err := getHTTPClient().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("redcap request failed: %w", err)
+		return nil, fmt.Errorf("redcap request failed")
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read redcap response: %w", err)
+		return nil, fmt.Errorf("redcap response could not be read")
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("redcap request failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("redcap request failed with status %d", resp.StatusCode)
 	}
 
 	trimmed := strings.TrimSpace(string(body))
 	if strings.HasPrefix(strings.ToUpper(trimmed), "ERROR") {
-		return nil, fmt.Errorf("redcap error: %s", trimmed)
+		return nil, fmt.Errorf("redcap API reported an error")
 	}
 	return body, nil
 }
@@ -1131,13 +1131,12 @@ func redcapRequestHeaderOnly(ctx context.Context, baseURL string, form url.Value
 
 	resp, err := getHTTPClient().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("redcap request failed: %w", err)
+		return nil, fmt.Errorf("redcap request failed")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("redcap request failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("redcap request failed with status %d", resp.StatusCode)
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -1148,7 +1147,7 @@ func redcapRequestHeaderOnly(ctx context.Context, baseURL string, form url.Value
 	line := scanner.Text()
 	trimmed := strings.TrimSpace(line)
 	if strings.HasPrefix(strings.ToUpper(trimmed), "ERROR") {
-		return nil, fmt.Errorf("redcap error: %s", trimmed)
+		return nil, fmt.Errorf("redcap API reported an error")
 	}
 	reader := csv.NewReader(strings.NewReader(line))
 	reader.Comma = delimiter
