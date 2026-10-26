@@ -4,6 +4,8 @@ package plugin
 
 import (
 	"context"
+	"fmt"
+	"integration/app/logging"
 	"integration/app/plugin/impl/dataverse"
 	"integration/app/plugin/impl/github"
 	"integration/app/plugin/impl/gitlab"
@@ -17,6 +19,7 @@ import (
 	"integration/app/plugin/impl/sftp_plugin"
 	"integration/app/plugin/types"
 	"integration/app/tree"
+	"sync"
 )
 
 type Plugin struct {
@@ -27,6 +30,8 @@ type Plugin struct {
 	Metadata func(ctx context.Context, streamParams types.StreamParams) (types.MetadataStruct, error)
 }
 
+// pluginMap holds every plugin built into this binary. Requests and jobs only
+// reach the ones that Configure keeps.
 var pluginMap map[string]Plugin = map[string]Plugin{
 	"github": {
 		Query:    github.Query,
@@ -100,6 +105,50 @@ var pluginMap map[string]Plugin = map[string]Plugin{
 	},
 }
 
-func GetPlugin(p string) Plugin {
-	return pluginMap[p]
+var (
+	mu        sync.RWMutex
+	available = map[string]Plugin{}
+)
+
+// Configure filters the registry: it keeps the built-in plugins whose types
+// are listed and drops every other plugin. Each binary calls it once its
+// configuration is loaded; until then no plugin is available.
+func Configure(pluginTypes []string) {
+	mu.Lock()
+	defer mu.Unlock()
+	available = map[string]Plugin{}
+	kept := []string{}
+	for _, t := range pluginTypes {
+		p, ok := pluginMap[t]
+		if !ok {
+			logging.Logger.Printf("configured plugin type %q is not built in, ignoring it\n", t)
+			continue
+		}
+		if _, dup := available[t]; !dup {
+			available[t] = p
+			kept = append(kept, t)
+		}
+	}
+	logging.Logger.Printf("available plugins: %v\n", kept)
+}
+
+// Register adds p to the built-in plugins under the type name, replacing any
+// plugin of that name. Configure still decides whether it is available; tests
+// use this to install fakes.
+func Register(name string, p Plugin) {
+	mu.Lock()
+	defer mu.Unlock()
+	pluginMap[name] = p
+}
+
+// GetPlugin returns the plugin of the given type when the configuration
+// enables it, and an error naming the type otherwise.
+func GetPlugin(name string) (Plugin, error) {
+	mu.RLock()
+	defer mu.RUnlock()
+	p, ok := available[name]
+	if !ok {
+		return Plugin{}, fmt.Errorf("plugin %q is not configured", name)
+	}
+	return p, nil
 }

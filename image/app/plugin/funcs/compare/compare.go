@@ -94,8 +94,14 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("500 - bad request"))
 		return
 	}
+	p, err := plugin.GetPlugin(req.Plugin)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - " + err.Error()))
+		return
+	}
 	key := uuid.New().String()
-	go doCompare(req, key, user)
+	go doCompare(req, p, key, user)
 	res := common.Key{Key: key}
 	b, err = json.Marshal(res)
 	if err != nil {
@@ -106,7 +112,7 @@ func Compare(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func doCompare(req types.CompareRequest, key, user string) {
+func doCompare(req types.CompareRequest, p plugin.Plugin, key, user string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 	defer cancel()
 	cachedRes := common.CachedResponse{
@@ -143,7 +149,7 @@ func doCompare(req types.CompareRequest, key, user string) {
 	}
 	req.SessionId = req.Token
 	req.Token = oauth.GetTokenFromCache(ctx, req.Token, req.SessionId, req.PluginId)
-	repoNm, err := plugin.GetPlugin(req.Plugin).Query(ctx, req, nmCopy)
+	repoNm, err := p.Query(ctx, req, nmCopy)
 	if err != nil {
 		cachedRes.ErrorMessage = err.Error()
 		common.CacheResponse(cachedRes)

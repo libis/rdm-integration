@@ -5,7 +5,9 @@ package main
 import (
 	"fmt"
 	"integration/app/destination"
+	"integration/app/frontend"
 	"integration/app/logging"
+	"integration/app/plugin"
 	"integration/app/server"
 	"integration/app/workers/spinner"
 	"os"
@@ -14,6 +16,7 @@ import (
 )
 
 func main() {
+	plugin.Configure(frontend.Config.PluginTypes())
 	// spin workers if required (otherwise the workers are run independently, see also workers/main.go)
 	numberWorkers := 0
 	queue := "ALL"

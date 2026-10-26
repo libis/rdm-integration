@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"integration/app/logging"
 	"os"
+	"slices"
 )
 
 //go:embed default_frontend_config.json
@@ -81,6 +82,18 @@ func LoadFrontendConfig() Configuration {
 	res := Configuration{}
 	if err := json.Unmarshal(b, &res); err != nil {
 		panic(fmt.Errorf("could not unmarshal config: %v", err))
+	}
+	return res
+}
+
+// PluginTypes returns the plugin type of each configured plugin, once, in
+// configuration order. The backend serves only these plugin types.
+func (c Configuration) PluginTypes() []string {
+	res := []string{}
+	for _, p := range c.Plugins {
+		if p.Plugin != "" && !slices.Contains(res, p.Plugin) {
+			res = append(res, p.Plugin)
+		}
 	}
 	return res
 }

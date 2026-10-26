@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -71,5 +72,25 @@ func TestLoadFrontendConfigFallsBackToTheEmbeddedDefault(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("embedded default not used: %+v", c.Plugins)
+	}
+}
+
+func TestPluginTypesListsEachConfiguredTypeOnce(t *testing.T) {
+	c := Configuration{Plugins: []RepoPlugin{
+		{Id: "kulgitlab", Plugin: "gitlab"},
+		{Id: "gitlab.com", Plugin: "gitlab"},
+		{Id: "github", Plugin: "github"},
+		{Id: "broken", Plugin: ""},
+	}}
+	if got, want := c.PluginTypes(), []string{"gitlab", "github"}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestDefaultFrontendConfigDoesNotEnableLocal(t *testing.T) {
+	t.Setenv("FRONTEND_CONFIG_FILE", filepath.Join(t.TempDir(), "missing.json"))
+	pluginTypes := LoadFrontendConfig().PluginTypes()
+	if slices.Contains(pluginTypes, "local") || !slices.Contains(pluginTypes, "github") {
+		t.Errorf("unexpected plugin types in the default configuration: %v", pluginTypes)
 	}
 }

@@ -285,6 +285,10 @@ Example: [conf/frontend_config.json](conf/frontend_config.json)
 
 **Plugin Instance Configuration:**
 
+The backend serves only the plugin types named in the `plugin` fields of this list (the local
+binary adds `local`); a request for any other plugin gets a 400 answer, and a queued job for one
+fails. A separately run `workers` binary reads the same file, so give it `FRONTEND_CONFIG_FILE` too.
+
 Each entry in `plugins` can contain:
 
 | Field | Description |

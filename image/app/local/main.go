@@ -10,6 +10,7 @@ import (
 	"integration/app/destination"
 	"integration/app/frontend"
 	"integration/app/logging"
+	"integration/app/plugin"
 	"integration/app/server"
 	"integration/app/testutil"
 	"integration/app/workers/spinner"
@@ -61,14 +62,7 @@ func main() {
 	config.SetConfig(DataverseServer, RootDataverseId, DefaultHash, roles, true, int64(mfs))
 	dataverse.Init()
 	frontend.Config.DataverseHeader = DataverseServerName
-	frontend.Config.Plugins = append([]config.RepoPlugin{{
-		Id:                        "local",
-		Name:                      "Local filesystem",
-		Plugin:                    "local",
-		PluginName:                "Local filesystem",
-		SourceUrlFieldName:        "Directory",
-		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",
-	}}, frontend.Config.Plugins...)
+	configurePlugins()
 	go server.Start()
 	fr := testutil.NewFakeRedis()
 	config.SetRedis(fr)
@@ -90,6 +84,20 @@ func main() {
 	spinner.SpinWorkers(1, "ALL")
 	ticker.Stop()
 	done <- true
+}
+
+// configurePlugins offers the local filesystem plugin first and makes the
+// configured plugins available, the local one included.
+func configurePlugins() {
+	frontend.Config.Plugins = append([]config.RepoPlugin{{
+		Id:                        "local",
+		Name:                      "Local filesystem",
+		Plugin:                    "local",
+		PluginName:                "Local filesystem",
+		SourceUrlFieldName:        "Directory",
+		SourceUrlFieldPlaceholder: "Path to a directory on your filesystem",
+	}}, frontend.Config.Plugins...)
+	plugin.Configure(frontend.Config.PluginTypes())
 }
 
 func openBrowser(url string) {

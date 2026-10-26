@@ -31,12 +31,18 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("500 - bad request"))
 		return
 	}
+	p, err := plugin.GetPlugin(params.Plugin)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - " + err.Error()))
+		return
+	}
 
 	params.Token = oauth.GetTokenFromCache(r.Context(), params.Token, params.Token, params.PluginId)
 	if params.User == "" {
 		params.User = core.GetUserFromHeader(r.Header)
 	}
-	res, err := plugin.GetPlugin(params.Plugin).Search(r.Context(), params)
+	res, err := p.Search(r.Context(), params)
 	if err != nil {
 		reauth.WriteError(w, err)
 		return

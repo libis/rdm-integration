@@ -4,8 +4,10 @@ package main
 
 import (
 	"crypto/tls"
+	"integration/app/config"
 	"integration/app/destination"
 	"integration/app/logging"
+	"integration/app/plugin"
 	"integration/app/workers/spinner"
 	"net/http"
 	"os"
@@ -14,6 +16,7 @@ import (
 
 func main() {
 	destination.SetDataverseAsDestination()
+	plugin.Configure(config.LoadFrontendConfig().PluginTypes())
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	numberWorkers := -1
 	queue := "ALL"

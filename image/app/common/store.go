@@ -8,6 +8,7 @@ import (
 	"integration/app/config"
 	"integration/app/core"
 	"integration/app/core/reauth"
+	"integration/app/plugin"
 	"integration/app/plugin/impl/globus"
 	"integration/app/plugin/types"
 	"integration/app/tree"
@@ -50,6 +51,11 @@ func Store(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - bad request"))
+		return
+	}
+	if _, err := plugin.GetPlugin(req.Plugin); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - " + err.Error()))
 		return
 	}
 

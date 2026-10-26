@@ -41,10 +41,16 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 		logging.Logger.Println("metadata request unmarshal error", err)
 		return
 	}
+	p, err := plugin.GetPlugin(req.Plugin)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - " + err.Error()))
+		return
+	}
 
 	user := core.GetUserFromHeader(r.Header)
 	sessionId := core.GetSessionId(r.Header)
-	metadata, err := getMetadata(r.Context(), req, user, sessionId)
+	metadata, err := getMetadata(r.Context(), req, p, user, sessionId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - matadata retrieval failed: " + err.Error()))
@@ -63,7 +69,7 @@ func GetMetadata(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataRequest, user, sessionId string) (types.Metadata, error) {
+func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataRequest, p plugin.Plugin, user, sessionId string) (types.Metadata, error) {
 	if getMetadataRequest.Plugin == "dataverse" {
 		from := "/api/v1/datasets/:persistentId/versions/:latest?persistentId=" + getMetadataRequest.RepoName
 		fromClient := dv.NewClient(getMetadataRequest.PluginId, getMetadataRequest.Url, user, getMetadataRequest.Token)
@@ -92,8 +98,6 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 	for _, v := range getMetadataRequest.CompareResult.Data {
 		nodemap[v.Id] = v
 	}
-	p := plugin.GetPlugin(getMetadataRequest.Plugin)
-
 	streamParams := types.StreamParams{}
 	streamParams.PluginId = getMetadataRequest.PluginId
 	streamParams.RepoName = getMetadataRequest.RepoName
