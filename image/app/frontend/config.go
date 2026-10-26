@@ -3,34 +3,19 @@
 package frontend
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
 	"integration/app/core/oauth"
 	"integration/app/logging"
 	"net/http"
-	"os"
 	"strings"
 )
-
-//go:embed default_frontend_config.json
-var configBytes []byte
 
 var Config config.Configuration
 
 func init() {
-	// read configuration
-	configFile := os.Getenv("FRONTEND_CONFIG_FILE")
-	b, err := os.ReadFile(configFile)
-	if err == nil {
-		logging.Logger.Printf("using frontend configuration from %v\n", configFile)
-		configBytes = b
-	}
-	err = json.Unmarshal(configBytes, &Config)
-	if err != nil {
-		panic(fmt.Errorf("could not unmarshal config: %v", err))
-	}
+	Config = config.LoadFrontendConfig()
 	for _, v := range Config.Plugins {
 		oauth.PluginConfig[v.Id] = v
 	}

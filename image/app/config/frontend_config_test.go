@@ -4,6 +4,8 @@ package config
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -44,5 +46,30 @@ func TestTokenGetterLegacyConfigSerializesUnchanged(t *testing.T) {
 		if strings.Contains(string(out), banned) {
 			t.Fatalf("omitempty violated, legacy config gained %s: %s", banned, out)
 		}
+	}
+}
+
+func TestLoadFrontendConfigReadsTheConfiguredFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "frontend_config.json")
+	content := `{"dataverseHeader":"From file","plugins":[{"id":"only","plugin":"gitlab"}]}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("FRONTEND_CONFIG_FILE", path)
+	c := LoadFrontendConfig()
+	if c.DataverseHeader != "From file" || len(c.Plugins) != 1 || c.Plugins[0].Plugin != "gitlab" {
+		t.Fatalf("configured file not used: %+v", c)
+	}
+}
+
+func TestLoadFrontendConfigFallsBackToTheEmbeddedDefault(t *testing.T) {
+	t.Setenv("FRONTEND_CONFIG_FILE", filepath.Join(t.TempDir(), "missing.json"))
+	c := LoadFrontendConfig()
+	found := false
+	for _, p := range c.Plugins {
+		found = found || p.Plugin == "github"
+	}
+	if !found {
+		t.Fatalf("embedded default not used: %+v", c.Plugins)
 	}
 }

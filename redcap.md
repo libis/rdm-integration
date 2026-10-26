@@ -458,7 +458,7 @@ Additional Phase 5 items:
 3. `image/app/plugin/impl/redcap2/query.go`
 4. `image/app/plugin/impl/redcap2/streams.go`
 5. `image/app/plugin/registry.go` with `redcap2`
-6. `image/app/frontend/default_frontend_config.json` add `redcap2` entry
+6. `image/app/config/default_frontend_config.json` add `redcap2` entry
 7. `conf/frontend_config.json` add `redcap2` entry
 8. plugin request structs now include `pluginOptions`:
    - `OptionsRequest`

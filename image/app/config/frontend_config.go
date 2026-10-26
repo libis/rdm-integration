@@ -2,6 +2,17 @@
 
 package config
 
+import (
+	_ "embed"
+	"encoding/json"
+	"fmt"
+	"integration/app/logging"
+	"os"
+)
+
+//go:embed default_frontend_config.json
+var defaultFrontendConfig []byte
+
 type RepoPlugin struct {
 	Id                        string      `json:"id"`
 	Name                      string      `json:"name"`
@@ -55,4 +66,21 @@ type Queue struct {
 	Label          string   `json:"label"`
 	Value          string   `json:"value"`
 	FileExtensions []string `json:"fileExtensions"`
+}
+
+// LoadFrontendConfig reads the frontend configuration from the file named by
+// FRONTEND_CONFIG_FILE, or uses the embedded default when that file cannot be
+// read.
+func LoadFrontendConfig() Configuration {
+	b := defaultFrontendConfig
+	configFile := os.Getenv("FRONTEND_CONFIG_FILE")
+	if fromFile, err := os.ReadFile(configFile); err == nil {
+		logging.Logger.Printf("using frontend configuration from %v\n", configFile)
+		b = fromFile
+	}
+	res := Configuration{}
+	if err := json.Unmarshal(b, &res); err != nil {
+		panic(fmt.Errorf("could not unmarshal config: %v", err))
+	}
+	return res
 }

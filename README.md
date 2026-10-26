@@ -263,7 +263,7 @@ cp -r conf/customizations/* image/app/frontend/dist/datasync/
 
 #### 2. Configuration File
 
-Default: [image/app/frontend/default_frontend_config.json](image/app/frontend/default_frontend_config.json)
+Default: [image/app/config/default_frontend_config.json](image/app/config/default_frontend_config.json)
 Custom: Set `FRONTEND_CONFIG_FILE` environment variable
 Example: [conf/frontend_config.json](conf/frontend_config.json)
 
