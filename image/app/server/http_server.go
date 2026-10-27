@@ -73,7 +73,8 @@ func Start() {
 	// allow bad certificates
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
-	safeMux := safeErrorResponses(srvMux)
+	originMux := sameOriginOnly(config.GetExternalDestinationURL(), srvMux)
+	safeMux := safeErrorResponses(originMux)
 	timeoutHandler := http.TimeoutHandler(safeMux, timeout, fmt.Sprintf("processing the request took longer than %v: cancelled", timeout))
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +83,7 @@ func Start() {
 				safeMux.ServeHTTP(w, r)
 				return
 			}
-			srvMux.ServeHTTP(w, r)
+			originMux.ServeHTTP(w, r)
 			return
 		}
 		timeoutHandler.ServeHTTP(w, r)
