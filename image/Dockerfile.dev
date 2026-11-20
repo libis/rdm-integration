@@ -1,5 +1,5 @@
 # Author: Eryk Kulikowski @ KU Leuven (2023). Apache 2.0 License
-ARG OAUTH2_POXY_VERSION=v7.15.2
+ARG OAUTH2_POXY_VERSION=v7.15.6
 ARG NODE_VERSION=26-alpine
 ARG GO_VERSION=1.27.4-alpine
 
