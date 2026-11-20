@@ -1093,8 +1093,8 @@ func TestRedcapRequestErrorBody(t *testing.T) {
 
 	form := baseForm("tok", "record", "csv")
 	_, err := redcapRequest(context.Background(), server.URL, form)
-	if err == nil || !strings.Contains(err.Error(), "redcap error") {
-		t.Fatalf("expected redcap error for ERROR body, got %v", err)
+	if err == nil || err.Error() != "redcap API reported an error" {
+		t.Fatalf("expected the fixed redcap error for an ERROR body, got %v", err)
 	}
 }
 
