@@ -58,15 +58,15 @@ func TestDvObjectsRealFailureStillErrors(t *testing.T) {
 	if err == nil {
 		t.Error("a real mydata failure must be reported as an error")
 	}
-	if err != nil && !strings.Contains(err.Error(), "temporarily unavailable") {
-		t.Errorf("the error must carry the Dataverse message for the logs, got: %v", err)
+	if err != nil && strings.Contains(err.Error(), "temporarily unavailable") {
+		t.Errorf("the Dataverse message leaked into the error: %v", err)
 	}
 }
 
 // A standard Dataverse API error ({"status":"ERROR","message":...}) has no
-// success/error_message fields, so it used to surface as "was not successful: "
-// with the cause lost. The raw response must be preserved in the error.
-func TestDvObjectsStandardApiErrorKeepsRawBody(t *testing.T) {
+// success/error_message fields; it must still be an error, without the
+// Dataverse response in it.
+func TestDvObjectsStandardApiErrorHidesRawBody(t *testing.T) {
 	_, err := dvObjectsAgainstServer(t, "anything", "", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
@@ -75,14 +75,14 @@ func TestDvObjectsStandardApiErrorKeepsRawBody(t *testing.T) {
 	if err == nil {
 		t.Fatal("a standard API error must be reported as an error")
 	}
-	if !strings.Contains(err.Error(), "Bad signed URL") {
-		t.Errorf("the error must include the raw Dataverse response, got: %v", err)
+	if strings.Contains(err.Error(), "Bad signed URL") {
+		t.Errorf("the Dataverse response leaked into the error: %v", err)
 	}
 }
 
-// A non-JSON response (e.g. an HTML error page from a proxy) must not vanish
-// into a bare unmarshal error: the error must show what was actually received.
-func TestDvObjectsHtmlErrorKeepsRawBody(t *testing.T) {
+// A non-JSON response (e.g. an HTML error page from a proxy) must be an
+// error, without the page in it.
+func TestDvObjectsHtmlErrorHidesRawBody(t *testing.T) {
 	_, err := dvObjectsAgainstServer(t, "anything", "", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusBadGateway)
@@ -91,8 +91,8 @@ func TestDvObjectsHtmlErrorKeepsRawBody(t *testing.T) {
 	if err == nil {
 		t.Fatal("an HTML error response must be reported as an error")
 	}
-	if !strings.Contains(err.Error(), "502 Bad Gateway") {
-		t.Errorf("the error must include the raw response body, got: %v", err)
+	if strings.Contains(err.Error(), "502 Bad Gateway") {
+		t.Errorf("the response body leaked into the error: %v", err)
 	}
 }
 

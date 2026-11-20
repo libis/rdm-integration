@@ -53,8 +53,11 @@ func TestSaveAfterDirectUploadReportsPartialFailureUnrecoverable(t *testing.T) {
 	if !types.IsUnrecoverable(err) {
 		t.Error("a per-file server rejection must be unrecoverable so the job fails fast instead of grinding retries")
 	}
-	if !strings.Contains(err.Error(), "failed-file") || !strings.Contains(err.Error(), "exceeds the size limit") {
-		t.Errorf("expected the failed identifier and server message in the error, got: %v", err)
+	if !strings.Contains(err.Error(), "1 out of 2 files were not registered") {
+		t.Errorf("expected the count of unregistered files, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "failed-file") || strings.Contains(err.Error(), "exceeds the size limit") {
+		t.Errorf("the storage identifier or server message leaked into the error: %v", err)
 	}
 	if !registered["s3://bucket:ok-file"] {
 		t.Error("the successfully registered file must not be reported as failed")

@@ -48,8 +48,8 @@ func TestVerifyBatchResultsPartialFailure(t *testing.T) {
 	if !strings.Contains(err.Error(), "2 out of 3") {
 		t.Errorf("expected the error to report 2 out of 3 failed files, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "storage object not found") {
-		t.Errorf("expected the error to contain the server error message, got: %v", err)
+	if strings.Contains(err.Error(), "storage object not found") {
+		t.Errorf("the server message leaked into the error: %v", err)
 	}
 }
 
