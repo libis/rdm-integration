@@ -335,7 +335,7 @@ test-go: ## Run Go tests only
 	cd image && go test -v ./app/...
 
 test-python: ## Run Python tests only
-	cd image && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt && python test_csv_to_cdi.py
+	cd image && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt && python test_cdi_generator_jsonld.py
 
 benchmark: ## Run benchmarks
 	cd image && go test -bench=. -benchmem ./app/...
