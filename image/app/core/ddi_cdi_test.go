@@ -407,15 +407,18 @@ func TestCreateManifestFile_IgnoresJsonErrorDDI(t *testing.T) {
 	if len(warnings) == 0 {
 		t.Fatalf("expected warnings when JSON error is returned for DDI")
 	}
+	// The warning is fixed text; the Dataverse message stays on the server
 	found := false
 	for _, warning := range warnings {
 		if strings.Contains(warning, "This type of metadata is only available for tabular files") {
+			t.Fatalf("the Dataverse message leaked into the warnings: %v", warnings)
+		}
+		if warning == "no DDI metadata from Dataverse; ingestion may be disabled" {
 			found = true
-			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected warning about tabular metadata error, got %v", warnings)
+		t.Fatalf("expected the no-DDI-metadata warning, got %v", warnings)
 	}
 
 	t.Cleanup(func() {
