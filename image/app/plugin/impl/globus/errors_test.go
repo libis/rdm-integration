@@ -78,16 +78,17 @@ func TestInterpretGlobusError(t *testing.T) {
 			wantDomains: []string{"sydney.edu.au"},
 		},
 		{
-			name:      "not_found_keeps_code_message_format",
+			// The folder-landing loop needs the code; the message stays out
+			name:      "not_found_keeps_only_the_code",
 			status:    404,
 			body:      notFoundBody,
-			wantPlain: "ClientError.NotFound: Directory not found",
+			wantPlain: "ClientError.NotFound",
 		},
 		{
-			name:      "non_json_body_keeps_status_and_body",
+			name:      "non_json_body_keeps_only_the_status",
 			status:    502,
 			body:      "<html>bad gateway</html>",
-			wantPlain: "globus request failed: 502 - <html>bad gateway</html>",
+			wantPlain: "globus request failed with status 502",
 		},
 	}
 	for _, tt := range tests {

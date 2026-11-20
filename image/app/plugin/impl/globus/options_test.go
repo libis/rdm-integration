@@ -3,6 +3,7 @@ package globus
 import (
 	"context"
 	"encoding/json"
+	"integration/app/core/reauth"
 	"integration/app/plugin/types"
 	"net/http"
 	"net/http/httptest"
@@ -107,8 +108,12 @@ func TestOptionsReturnsErrorWhenPermissionDenied(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected PermissionDenied error, got nil")
 	}
-	if !strings.Contains(err.Error(), "PermissionDenied") {
-		t.Fatalf("expected PermissionDenied in error, got: %v", err)
+	// Not a reauth demand, and the Globus message stays out of the error
+	if reauth.FromError(err) != nil {
+		t.Fatalf("PermissionDenied must not become a reauth demand: %v", err)
+	}
+	if strings.Contains(err.Error(), "No effective ACL rules") {
+		t.Fatalf("the Globus message leaked into the error: %v", err)
 	}
 }
 
