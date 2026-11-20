@@ -29,6 +29,46 @@ func TestErrorMarkerRoundTrip(t *testing.T) {
 	}
 }
 
+// The ConsentRequired example from the Globus Transfer API docs: one scope
+// whose data_access dependencies, one per collection, are separated by spaces.
+const twoCollectionScope = "urn:globus:auth:scope:transfer.api.globus.org:all" +
+	"[*https://auth.globus.org/scopes/ea4c8cf2-d3a2-4c1a-92c2-59925fe7ac5b/data_access" +
+	" *https://auth.globus.org/scopes/0357da44-c908-47e5-8351-ba5c695d11a7/data_access]"
+
+func TestSanitizeKeepsAScopeForTwoCollections(t *testing.T) {
+	safe := Sanitize(&Error{RequiredScopes: []string{twoCollectionScope}})
+	if len(safe.RequiredScopes) != 1 || safe.RequiredScopes[0] != twoCollectionScope {
+		t.Fatalf("two-collection scope was dropped: %+v", safe)
+	}
+}
+
+func TestWriteErrorKeepsAScopeForTwoCollections(t *testing.T) {
+	w := httptest.NewRecorder()
+	WriteError(w, &Error{RequiredScopes: []string{twoCollectionScope}})
+	if w.Code != 401 {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+	body, _ := io.ReadAll(w.Result().Body)
+	if !strings.Contains(string(body), "0357da44-c908-47e5-8351-ba5c695d11a7/data_access]") {
+		t.Fatalf("body %s lost the second collection", body)
+	}
+}
+
+func TestSanitizeRejectsSpacesOutsideTheDependencies(t *testing.T) {
+	for _, s := range []string{
+		"urn:globus:auth:scope:transfer.api.globus.org:all extra",
+		"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/a/data_access] extra",
+		"urn:globus:auth:scope:transfer.api.globus.org:all[ *https://auth.globus.org/scopes/a/data_access]",
+		"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/a/data_access  *https://auth.globus.org/scopes/b/data_access]",
+		"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/a/data_access",
+		"urn:globus:auth:scope:transfer.api.globus.org:all]",
+	} {
+		if safe := Sanitize(&Error{RequiredScopes: []string{s}}); len(safe.RequiredScopes) != 0 {
+			t.Fatalf("Sanitize kept %q", s)
+		}
+	}
+}
+
 func TestFromErrorFindsWrappedTypedError(t *testing.T) {
 	orig := &Error{RequiredDomains: []string{"sydney.edu.au"}}
 	wrapped := fmt.Errorf("globus transfer failed: %w", orig)

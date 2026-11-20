@@ -22,6 +22,16 @@ const gridFtpEmbeddedBody = `{"code":"ExternalError.DirListingFailed.LoginFailed
 
 const notFoundBody = `{"code":"ClientError.NotFound","message":"Directory not found"}`
 
+// From the Globus Transfer API docs: a transfer that needs consent for two
+// collections gets one scope with both data_access dependencies.
+const twoCollectionScope = "urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/ea4c8cf2-d3a2-4c1a-92c2-59925fe7ac5b/data_access *https://auth.globus.org/scopes/0357da44-c908-47e5-8351-ba5c695d11a7/data_access]"
+
+const twoCollectionConsentBody = `{"code":"ConsentRequired","message":"Missing required data_access consent","request_id":"WmMV97A1w","required_scopes":["` + twoCollectionScope + `"],"resource":"/transfer"}`
+
+// The Globus Auth Requirements Error form (as in the Globus CLI tests): the
+// scopes are repeated under authorization_parameters.
+const gareConsentBody = `{"authorization_parameters":{"required_scopes":["urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/00000000-0000-0000-0000-000000000001/data_access]"],"session_message":"Missing required data_access consent"},"code":"ConsentRequired","message":"Missing required data_access consent","request_id":"m8RfX3cES","required_scopes":["urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/00000000-0000-0000-0000-000000000001/data_access]"],"resource":"/operation/endpoint/00000000-0000-0000-0000-000000000001/ls"}`
+
 func TestInterpretGlobusError(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -36,6 +46,18 @@ func TestInterpretGlobusError(t *testing.T) {
 			status:     403,
 			body:       consentRequiredBody,
 			wantScopes: []string{"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/82c495cc-aef8-40ad-88df-f9c92bee82d3/data_access]"},
+		},
+		{
+			name:       "consent_for_two_collections_keeps_both",
+			status:     403,
+			body:       twoCollectionConsentBody,
+			wantScopes: []string{twoCollectionScope},
+		},
+		{
+			name:       "gare_consent_required_becomes_scopes",
+			status:     403,
+			body:       gareConsentBody,
+			wantScopes: []string{"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/00000000-0000-0000-0000-000000000001/data_access]"},
 		},
 		{
 			name:        "authorization_parameters_array_becomes_domains",

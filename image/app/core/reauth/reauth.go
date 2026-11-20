@@ -18,10 +18,43 @@ const marker = "*reauth*"
 
 const safeFailureMessage = "operation failed"
 
+// maxScopeLength leaves room for a transfer scope with several collection
+// dependencies; one data_access dependency is about 75 characters.
+const maxScopeLength = 2048
+
 var (
-	safeScope  = regexp.MustCompile(`^urn:globus:auth:scope:[A-Za-z0-9][A-Za-z0-9:./*\[\]@+_-]{0,511}$`)
+	safeScope  = regexp.MustCompile(`^urn:globus:auth:scope:[A-Za-z0-9][A-Za-z0-9:./*\[\] @+_-]*$`)
 	safeDomain = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$`)
 )
+
+// isSafeScope accepts Globus scope strings: Globus separates the dependencies
+// inside brackets with single spaces (one data_access dependency per
+// collection), so spaces are allowed there and nowhere else, and the brackets
+// must balance.
+func isSafeScope(scope string) bool {
+	if len(scope) > maxScopeLength || !safeScope.MatchString(scope) {
+		return false
+	}
+	depth := 0
+	prev := rune(0)
+	for _, c := range scope {
+		switch c {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth < 0 || prev == ' ' {
+				return false
+			}
+		case ' ':
+			if depth == 0 || prev == ' ' || prev == '[' {
+				return false
+			}
+		}
+		prev = c
+	}
+	return depth == 0
+}
 
 // Error describes what the new login must include.
 type Error struct {
@@ -46,7 +79,7 @@ func Sanitize(e *Error) *Error {
 	}
 	safe := &Error{}
 	for _, scope := range e.RequiredScopes {
-		if safeScope.MatchString(scope) {
+		if isSafeScope(scope) {
 			safe.RequiredScopes = append(safe.RequiredScopes, scope)
 		}
 		if len(safe.RequiredScopes) == 32 {
