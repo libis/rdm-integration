@@ -23,9 +23,19 @@ func TestErrorMarkerRoundTrip(t *testing.T) {
 		t.Fatal("expected parsed error, got nil")
 	}
 	if parsed.RequiredScopes[0] != orig.RequiredScopes[0] ||
-		parsed.RequiredDomains[0] != "sydney.edu.au" ||
-		parsed.Message != orig.Message {
+		parsed.RequiredDomains[0] != "sydney.edu.au" {
 		t.Fatalf("round trip mismatch: %+v", parsed)
+	}
+	// Provider messages can echo request data, so they are dropped
+	if parsed.Message != "" {
+		t.Fatalf("message survived the round trip: %q", parsed.Message)
+	}
+}
+
+func TestSanitizeDropsScopesThatAreNotGlobusScopes(t *testing.T) {
+	safe := Sanitize(&Error{RequiredScopes: []string{"scope-a", "https://example.org/x token=abc"}})
+	if len(safe.RequiredScopes) != 0 {
+		t.Fatalf("kept %v", safe.RequiredScopes)
 	}
 }
 
@@ -78,11 +88,13 @@ func TestFromErrorFindsWrappedTypedError(t *testing.T) {
 	}
 }
 
+const dataAccessScope = "urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/82c495cc-aef8-40ad-88df-f9c92bee82d3/data_access]"
+
 func TestFromErrorFindsMarkerInsideLargerString(t *testing.T) {
-	orig := &Error{RequiredScopes: []string{"scope-a"}}
+	orig := &Error{RequiredScopes: []string{dataAccessScope}}
 	stringified := errors.New("Job failed: " + orig.Error())
 	parsed := FromError(stringified)
-	if parsed == nil || parsed.RequiredScopes[0] != "scope-a" {
+	if parsed == nil || parsed.RequiredScopes[0] != dataAccessScope {
 		t.Fatalf("expected scopes from marker-embedded error, got %+v", parsed)
 	}
 }
@@ -127,7 +139,7 @@ func TestWriteErrorReauth(t *testing.T) {
 
 func TestWriteErrorMarkerEmbedded(t *testing.T) {
 	w := httptest.NewRecorder()
-	inner := &Error{RequiredScopes: []string{"scope-a"}}
+	inner := &Error{RequiredScopes: []string{dataAccessScope}}
 	WriteError(w, errors.New("Job failed: "+inner.Error()))
 	if w.Code != 401 {
 		t.Fatalf("status = %d, want 401", w.Code)
@@ -140,8 +152,9 @@ func TestWriteErrorPlain(t *testing.T) {
 	if w.Code != 500 {
 		t.Fatalf("status = %d, want 500", w.Code)
 	}
+	// Error details stay on the server
 	body, _ := io.ReadAll(w.Result().Body)
-	if !strings.HasPrefix(string(body), "500 - boom") {
-		t.Fatalf("body = %q, want prefix \"500 - boom\"", body)
+	if string(body) != "500 - request failed" {
+		t.Fatalf("body = %q, want \"500 - request failed\"", body)
 	}
 }
