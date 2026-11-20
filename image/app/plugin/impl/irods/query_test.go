@@ -89,12 +89,12 @@ func TestHashUnknownListingAlgorithmFallsBack(t *testing.T) {
 }
 
 func TestClassifyOpenError(t *testing.T) {
-	if classifyOpenError("/zone/f.bin", nil) != nil {
+	if classifyOpenError(nil) != nil {
 		t.Error("expected nil to stay nil")
 	}
 
 	locked := irodstypes.NewIRODSError(common.HIERARCHY_ERROR)
-	classified := classifyOpenError("/zone/f.bin", locked)
+	classified := classifyOpenError(locked)
 	if !types.IsUnrecoverable(classified) {
 		t.Error("expected HIERARCHY_ERROR to be classified as unrecoverable")
 	}
@@ -103,12 +103,16 @@ func TestClassifyOpenError(t *testing.T) {
 	}
 
 	notFound := irodstypes.NewFileNotFoundError("/zone/f.bin")
-	if !types.IsUnrecoverable(classifyOpenError("/zone/f.bin", notFound)) {
+	if !types.IsUnrecoverable(classifyOpenError(notFound)) {
 		t.Error("expected file-not-found to be classified as unrecoverable")
 	}
 
 	transient := errors.New("connection reset by peer")
-	if types.IsUnrecoverable(classifyOpenError("/zone/f.bin", transient)) {
+	classified = classifyOpenError(transient)
+	if types.IsUnrecoverable(classified) {
 		t.Error("expected an unclassified error to stay retryable")
+	}
+	if strings.Contains(classified.Error(), "connection reset") {
+		t.Errorf("the iRODS error text leaked into the error: %v", classified)
 	}
 }
