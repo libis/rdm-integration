@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # ----------------------------- requirements.txt -----------------------------
-# rdflib==7.0.0
-# chardet==5.2.0
-# datasketch==1.5.9
-# python-dateutil==2.9.0.post0
+# chardet==7.7.0
+# datasketch==2.0.0
+# python-dateutil==4.0.0
 # ---------------------------------------------------------------------------
 
 """
