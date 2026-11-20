@@ -28,8 +28,8 @@ func TestOnlyConfiguredPluginsAreAvailable(t *testing.T) {
 		}
 	}
 	_, err := plugin.GetPlugin("local")
-	if err == nil || !strings.Contains(err.Error(), `"local"`) {
-		t.Errorf("expected an error that names the unconfigured plugin, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "plugin is not configured") {
+		t.Errorf("expected an error that says the plugin is not configured, got %v", err)
 	}
 }
 

@@ -54,8 +54,8 @@ func queuedJob(fr *testutil.FakeRedis) (core.Job, bool) {
 func TestStoreRejectsAnUnconfiguredPluginBeforeQueueing(t *testing.T) {
 	plugintest.Install(t, "local", "github", "gitlab")
 	rec, fr := postStore(t, "local")
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"local"`) {
-		t.Errorf("expected a 400 that names the plugin, got %d %q", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "plugin is not configured") {
+		t.Errorf("expected a 400 that says the plugin is not configured, got %d %q", rec.Code, rec.Body.String())
 	}
 	if _, ok := queuedJob(fr); ok {
 		t.Error("a job was queued for the unconfigured plugin")
@@ -128,8 +128,8 @@ func TestMetadataRejectsAnUnconfiguredPlugin(t *testing.T) {
 	fakeDataverse(t)
 	fake := plugintest.Install(t, "local", "github", "gitlab")
 	rec := postMetadata(t, types.GetMetadataRequest{Plugin: "local", PluginId: "local", Url: "/", Token: "token"})
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"local"`) {
-		t.Errorf("expected a 400 that names the plugin, got %d %q", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "plugin is not configured") {
+		t.Errorf("expected a 400 that says the plugin is not configured, got %d %q", rec.Code, rec.Body.String())
 	}
 	if fake.Calls() != 0 {
 		t.Errorf("the unconfigured plugin ran %d times", fake.Calls())
@@ -147,8 +147,8 @@ func TestMetadataRejectsAnUnconfiguredDataverseSource(t *testing.T) {
 	defer source.Close()
 	plugintest.Install(t, "fake", "fake")
 	rec := postMetadata(t, types.GetMetadataRequest{Plugin: "dataverse", PluginId: "dataverse", Url: source.URL, RepoName: "doi:10.5072/FK2/SRC", Token: "token"})
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"dataverse"`) {
-		t.Errorf("expected a 400 that names the plugin, got %d %q", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "plugin is not configured") {
+		t.Errorf("expected a 400 that says the plugin is not configured, got %d %q", rec.Code, rec.Body.String())
 	}
 	if hits.Load() != 0 {
 		t.Errorf("the source was contacted %d times", hits.Load())

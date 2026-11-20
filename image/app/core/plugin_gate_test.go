@@ -47,8 +47,8 @@ func TestJobWithAnUnconfiguredPluginFailsWithoutRetry(t *testing.T) {
 	stopAtPermissionCheck(t)
 	fake := plugintest.Install(t, "local", "github", "gitlab")
 	_, err := DoWork(jobFor("local"))
-	if !types.IsUnrecoverable(err) || !strings.Contains(err.Error(), `"local"`) {
-		t.Errorf("expected an unrecoverable error that names the plugin, got %v", err)
+	if !types.IsUnrecoverable(err) || !strings.Contains(err.Error(), "plugin is not configured") {
+		t.Errorf("expected an unrecoverable error that says the plugin is not configured, got %v", err)
 	}
 	if fake.Calls() != 0 {
 		t.Errorf("the unconfigured plugin ran %d times", fake.Calls())

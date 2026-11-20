@@ -29,8 +29,8 @@ func postOptions(t *testing.T, pluginName string) *httptest.ResponseRecorder {
 func TestOptionsRejectsAnUnconfiguredPlugin(t *testing.T) {
 	fake := plugintest.Install(t, "local", "github", "gitlab")
 	rec := postOptions(t, "local")
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"local"`) {
-		t.Errorf("expected a 400 that names the plugin, got %d %q", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "plugin is not configured") {
+		t.Errorf("expected a 400 that says the plugin is not configured, got %d %q", rec.Code, rec.Body.String())
 	}
 	if fake.Calls() != 0 {
 		t.Errorf("the unconfigured plugin ran %d times", fake.Calls())
