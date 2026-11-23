@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"integration/app/config"
 	"integration/app/core"
+	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 	"io"
@@ -44,9 +45,11 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
+		logging.Reason("listing Dataverse files failed", err)
 		return nil, fmt.Errorf("listing Dataverse files failed")
 	}
 	if res.Status != "OK" {
+		logging.Reason("listing Dataverse files failed", fmt.Sprintf("status %s: %v", res.Status, res.Message))
 		return nil, fmt.Errorf("listing Dataverse files failed")
 	}
 	mapped := mapToNodes(res.Data)
@@ -56,8 +59,9 @@ func GetNodeMap(ctx context.Context, persistentId, token, user string) (map[stri
 }
 
 type datasetMetadataResponse struct {
-	Status string          `json:"status"`
-	Data   json.RawMessage `json:"data"`
+	Status  string          `json:"status"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data"`
 }
 
 func GetDatasetMetadata(ctx context.Context, persistentId, token, user string) ([]byte, error) {
@@ -69,9 +73,11 @@ func GetDatasetMetadata(ctx context.Context, persistentId, token, user string) (
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
+		logging.Reason("retrieving Dataverse metadata failed", err)
 		return nil, fmt.Errorf("retrieving Dataverse metadata failed")
 	}
 	if res.Status != "OK" {
+		logging.Reason("retrieving Dataverse metadata failed", fmt.Sprintf("status %s: %v", res.Status, res.Message))
 		return nil, fmt.Errorf("retrieving Dataverse metadata failed")
 	}
 	return res.Data, nil
@@ -87,11 +93,13 @@ func GetDataFileDDI(ctx context.Context, token, user string, fileID int64) ([]by
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	stream, err := api.DoStream(shortContext, req)
 	if err != nil {
+		logging.Reason("retrieving DDI metadata failed", err)
 		return nil, fmt.Errorf("retrieving DDI metadata failed")
 	}
 	defer stream.Close()
 	body, err := io.ReadAll(stream)
 	if err != nil {
+		logging.Reason("reading DDI metadata failed", err)
 		return nil, fmt.Errorf("reading DDI metadata failed")
 	}
 	if len(body) == 0 {
@@ -151,9 +159,11 @@ func CheckPermission(ctx context.Context, token, user, persistentId string) erro
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
+		logging.Reason("checking Dataverse permissions failed", err)
 		return fmt.Errorf("checking Dataverse permissions failed")
 	}
 	if res.Status != "OK" {
+		logging.Reason("checking Dataverse permissions failed", fmt.Sprintf("status %s: %v", res.Status, res.Message))
 		return fmt.Errorf("checking Dataverse permissions failed")
 	}
 	for _, v := range res.Data.Permissions {
@@ -161,6 +171,7 @@ func CheckPermission(ctx context.Context, token, user, persistentId string) erro
 			return nil
 		}
 	}
+	logging.Reason("user does not have permission to edit the Dataverse dataset", fmt.Sprintf("user %v, dataset %v", res.Data.User, persistentId))
 	return fmt.Errorf("user does not have permission to edit the Dataverse dataset")
 }
 
@@ -178,10 +189,12 @@ func noSlashPermissionUrl(ctx context.Context, persistentId, token, user string)
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
+		logging.Reason("retrieving Dataverse dataset information failed", err)
 		return "", fmt.Errorf("retrieving Dataverse dataset information failed")
 	}
 	id := res.Id
 	if id == 0 {
+		logging.Reason("Dataverse dataset was not found", persistentId)
 		return "", fmt.Errorf("Dataverse dataset was not found")
 	}
 	return fmt.Sprintf("/api/v1/admin/permissions/%v?&unblock-key=%s", id, config.UnblockKey), nil
@@ -204,6 +217,7 @@ func DownloadFile(ctx context.Context, token, user string, id int64) (io.ReadClo
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	stream, err := api.DoStream(ctx, req)
 	if err != nil {
+		logging.Reason("downloading Dataverse file failed", err)
 		return nil, fmt.Errorf("downloading Dataverse file failed")
 	}
 	return stream, nil
@@ -298,14 +312,18 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 		req := GetRequest(path, "GET", user, token, nil, nil)
 		stream, err := api.DoStream(ctx, req)
 		if err != nil {
+			logging.Reason("listing Dataverse objects failed", err)
 			return nil, fmt.Errorf("listing Dataverse objects failed")
 		}
 		body, err := io.ReadAll(stream)
 		stream.Close()
 		if err != nil {
+			logging.Reason("reading Dataverse object response failed", err)
 			return nil, fmt.Errorf("reading Dataverse object response failed")
 		}
 		if err := json.Unmarshal(body, &retrieveResponse); err != nil {
+			// e.g. an HTML error page from a proxy
+			logging.Reason("listing Dataverse objects failed: unexpected response", body)
 			return nil, fmt.Errorf("listing Dataverse objects failed: unexpected response")
 		}
 
@@ -314,7 +332,10 @@ func listDvObjects(ctx context.Context, objectType, collection, searchTermFirstP
 				return res, nil
 			}
 			if retrieveResponse.ErrorMessage == "" {
-				return nil, fmt.Errorf("listing Dataverse objects was not successful")
+				// not the mydata format, e.g. a standard {"status":"ERROR"} response
+				logging.Reason("listing Dataverse objects was not successful", body)
+			} else {
+				logging.Reason("listing Dataverse objects was not successful", retrieveResponse.ErrorMessage)
 			}
 			return nil, fmt.Errorf("listing Dataverse objects was not successful")
 		}
@@ -364,10 +385,12 @@ func searchPublicDatasets(ctx context.Context, searchTerm, token, user string) (
 		req := GetRequest(path, "GET", user, token, nil, nil)
 		err := api.Do(ctx, req, &searchResponse)
 		if err != nil {
+			logging.Reason("searching public Dataverse datasets failed", err)
 			return nil, fmt.Errorf("searching public Dataverse datasets failed")
 		}
 
 		if searchResponse.Status != "OK" {
+			logging.Reason("searching public Dataverse datasets failed", fmt.Sprintf("status %s: %v", searchResponse.Status, searchResponse.Message))
 			return nil, fmt.Errorf("searching public Dataverse datasets failed")
 		}
 
@@ -383,8 +406,9 @@ func searchPublicDatasets(ctx context.Context, searchTerm, token, user string) (
 
 // searchAPIResponse wraps the /api/search response format
 type searchAPIResponse struct {
-	Status string        `json:"status"`
-	Data   searchAPIData `json:"data"`
+	Status  string        `json:"status"`
+	Message string        `json:"message"`
+	Data    searchAPIData `json:"data"`
 }
 
 type searchAPIData struct {
@@ -398,6 +422,7 @@ func GetUser(ctx context.Context, token, user string) (res api.User, err error) 
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err = api.Do(ctx, req, &res)
 	if err != nil {
+		logging.Reason("retrieving Dataverse user information failed", err)
 		return res, fmt.Errorf("retrieving Dataverse user information failed")
 	}
 	return res, nil
@@ -429,6 +454,7 @@ func GetDatasetVersion(ctx context.Context, datasetDbId, token, userName string)
 	req := GetRequest(path, "GET", userName, token, nil, api.JsonContentHeader())
 	err := api.Do(ctx, req, &res)
 	if err != nil {
+		logging.Reason("retrieving Dataverse dataset version failed", err)
 		return "", fmt.Errorf("retrieving Dataverse dataset version failed")
 	}
 	return res.Data.DatasetPersistentId, nil
@@ -444,8 +470,9 @@ type DatasetUserPermissions struct {
 }
 
 type datasetUserPermissionsResponse struct {
-	Status string                 `json:"status"`
-	Data   DatasetUserPermissions `json:"data"`
+	Status  string                 `json:"status"`
+	Message string                 `json:"message"`
+	Data    DatasetUserPermissions `json:"data"`
 }
 
 // GetDatasetUserPermissions retrieves the user's permissions on a dataset
@@ -459,9 +486,11 @@ func GetDatasetUserPermissions(ctx context.Context, persistentId, token, user st
 	req := GetRequest(path, "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
+		logging.Reason("retrieving Dataverse user permissions failed", err)
 		return DatasetUserPermissions{}, fmt.Errorf("retrieving Dataverse user permissions failed")
 	}
 	if res.Status != "OK" {
+		logging.Reason("retrieving Dataverse user permissions failed", fmt.Sprintf("status %s: %v", res.Status, res.Message))
 		return DatasetUserPermissions{}, fmt.Errorf("retrieving Dataverse user permissions failed")
 	}
 	return res.Data, nil

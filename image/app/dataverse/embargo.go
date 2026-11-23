@@ -115,9 +115,11 @@ func fetchDatasetFileEntries(ctx context.Context, persistentId, token, user stri
 	req := GetRequest(datasetFilesPath(persistentId), "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
+		logging.Reason("retrieving Dataverse file access information failed", err)
 		return nil, fmt.Errorf("retrieving Dataverse file access information failed")
 	}
 	if res.Status != "OK" {
+		logging.Reason("retrieving Dataverse file access information failed", fmt.Sprintf("status %s: %v", res.Status, res.Message))
 		return nil, fmt.Errorf("retrieving Dataverse file access information failed")
 	}
 	return res.Data, nil
@@ -134,9 +136,11 @@ func fetchDatasetEmbargoDate(ctx context.Context, persistentId, token, user stri
 	req := GetRequest(datasetVersionPath(persistentId), "GET", user, token, nil, nil)
 	err := api.Do(shortContext, req, &res)
 	if err != nil {
+		logging.Reason("retrieving Dataverse dataset version failed", err)
 		return "", fmt.Errorf("retrieving Dataverse dataset version failed")
 	}
 	if res.Status != "OK" {
+		logging.Reason("retrieving Dataverse dataset version failed", fmt.Sprintf("status %s: %v", res.Status, res.Message))
 		return "", fmt.Errorf("retrieving Dataverse dataset version failed")
 	}
 	if res.Data.DatasetVersion.MetadataBlocks == nil {

@@ -99,3 +99,20 @@ func TestAddReplaceBatchResponseUnmarshal(t *testing.T) {
 		t.Errorf("expected the error to report 1 out of 2 failed files, got: %v", err)
 	}
 }
+
+// The client only gets the count; the server log keeps which files Dataverse
+// refused and why (e.g. a file over the size limit).
+func TestVerifyBatchResultsLogsTheServerReasons(t *testing.T) {
+	logs := captureLog(t)
+	identifiers := []string{"s3://dataverse:aaa-111", "s3://dataverse:bbb-222"}
+	files := []addReplaceBatchFileResult{
+		{StorageIdentifier: "s3://dataverse:aaa-111", SuccessMessage: "Added successfully to the dataset"},
+		{StorageIdentifier: "s3://dataverse:bbb-222", ErrorMessage: "file exceeds the size limit"},
+	}
+	if _, err := verifyBatchResults(files, identifiers); err == nil {
+		t.Fatal("expected an error for the refused file")
+	}
+	if !strings.Contains(logs.String(), "s3://dataverse:bbb-222") || !strings.Contains(logs.String(), "file exceeds the size limit") {
+		t.Fatalf("log = %q", logs.String())
+	}
+}

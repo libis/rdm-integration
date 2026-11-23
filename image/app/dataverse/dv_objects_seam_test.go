@@ -117,3 +117,32 @@ func TestDvObjectsSearchTermCombinesWithCollection(t *testing.T) {
 		t.Errorf("the collection filter must be part of the mydata query, got: %q", decoded)
 	}
 }
+
+// The error stays generic; the server log keeps what Dataverse answered.
+func TestDvObjectsLogsTheDataverseReason(t *testing.T) {
+	for _, tc := range []struct {
+		name, contentType, body string
+		status                  int
+	}{
+		{"mydata message", "application/json", `{"success":false,"error_message":"Sorry, the search service is temporarily unavailable."}`, 200},
+		{"standard API error", "application/json", `{"status":"ERROR","message":"Bad signed URL"}`, 401},
+		{"html page", "text/html", `<html><body><h1>502 Bad Gateway</h1></body></html>`, 502},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logs := captureLog(t)
+			_, err := dvObjectsAgainstServer(t, "anything", "", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", tc.contentType)
+				w.WriteHeader(tc.status)
+				w.Write([]byte(tc.body))
+			})
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			for _, want := range []string{"temporarily unavailable", "Bad signed URL", "502 Bad Gateway"} {
+				if strings.Contains(tc.body, want) && !strings.Contains(logs.String(), want) {
+					t.Fatalf("log = %q, want it to contain %q", logs.String(), want)
+				}
+			}
+		})
+	}
+}
