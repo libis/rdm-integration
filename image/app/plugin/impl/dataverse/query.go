@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/libis/rdm-dataverse-go-api/api"
+	"integration/app/logging"
 	"integration/app/plugin/types"
 	"integration/app/tree"
 )
@@ -17,9 +18,11 @@ func Query(ctx context.Context, req types.CompareRequest, _ map[string]tree.Node
 	res := api.ListResponse{}
 	err := api.Do(ctx, request, &res)
 	if err != nil {
+		logging.Reason("listing Dataverse repository files failed", err)
 		return nil, fmt.Errorf("listing Dataverse repository files failed")
 	}
 	if res.Status != "OK" {
+		logging.Reason("listing Dataverse repository files failed", fmt.Sprintf("status %s: %v", res.Status, res.Message))
 		return nil, fmt.Errorf("listing Dataverse repository files failed")
 	}
 	return mapToNodes(res.Data), nil

@@ -79,6 +79,7 @@ func getMetadata(ctx context.Context, getMetadataRequest types.GetMetadataReques
 			return nil, err
 		}
 		if res["status"] != "OK" {
+			logging.Reason("metadata copy failed", res["message"])
 			return nil, fmt.Errorf("metadata copy failed")
 		}
 		metadataBlocks := map[string]interface{}{}
