@@ -3,12 +3,15 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"integration/app/config"
+	"integration/app/logging"
 	"integration/app/testutil"
 	"integration/app/tree"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -400,12 +403,22 @@ func TestCreateManifestFile_IgnoresJsonErrorDDI(t *testing.T) {
 		PersistentId: "doi:test",
 	}
 
+	logs := &bytes.Buffer{}
+	prevLogger := logging.Logger
+	logging.Logger = log.New(logs, "", 0)
+	t.Cleanup(func() { logging.Logger = prevLogger })
+
 	manifestPath, cleanups, warnings, err := createManifestFile(ctx, job, []string{fileName}, linkedDir, nodeMap, workspaceDir)
 	if err != nil {
 		t.Fatalf("createManifestFile returned error: %v", err)
 	}
 	if len(warnings) == 0 {
 		t.Fatalf("expected warnings when JSON error is returned for DDI")
+	}
+	// The server log keeps which file and what Dataverse said
+	if !strings.Contains(logs.String(), fileName) ||
+		!strings.Contains(logs.String(), "This type of metadata is only available for tabular files") {
+		t.Fatalf("log = %q", logs.String())
 	}
 	// The warning is fixed text; the Dataverse message stays on the server
 	found := false

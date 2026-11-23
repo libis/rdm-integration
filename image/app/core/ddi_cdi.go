@@ -282,7 +282,7 @@ func createManifestFile(
 			// DDI fetch failed - this is expected when ingestion is disabled
 			// Allow xconvert for syntax files or direct processing for CSV/TSV/TAB
 			warnings = append(warnings, "no DDI metadata from Dataverse; ingestion may be disabled")
-			logging.Logger.Printf("DDI-CDI [%s]: DDI fetch failed; will try xconvert or direct processing", job.Key)
+			logging.Reason(fmt.Sprintf("DDI-CDI [%s]: DDI fetch failed for %s; will try xconvert or direct processing", job.Key, fileName), ddiErr)
 			allowXconvert = true
 		} else if ddiPath != "" {
 			entry["ddi_path"] = ddiPath
@@ -348,7 +348,7 @@ func fetchDataFileDDI(ctx context.Context, job Job, node tree.Node, workDir stri
 			if err == nil {
 				logging.Logger.Printf("DDI-CDI [%s]: GetDataFileDDI returned %d bytes in %v", job.Key, len(ddiBytes), duration)
 				if err := validateDDIResponse(fileID, ddiBytes); err != nil {
-					logging.Logger.Printf("DDI-CDI [%s]: DDI validation failed for fileID %d", job.Key, fileID)
+					logging.Reason(fmt.Sprintf("DDI-CDI [%s]: DDI validation failed for fileID %d", job.Key, fileID), err)
 					return "", nil, err
 				}
 				tmpFile, tmpErr := os.CreateTemp(workDir, fmt.Sprintf("ddi-%d-*.xml", fileID))
@@ -400,6 +400,8 @@ func validateDDIResponse(fileID int64, payload []byte) error {
 			Message string `json:"message"`
 		}
 		if err := json.Unmarshal([]byte(trimmed), &dvResp); err == nil && (dvResp.Status != "" || dvResp.Message != "") {
+			logging.Reason(fmt.Sprintf("Dataverse DDI request for file %d failed", fileID),
+				fmt.Sprintf("status %s, code %d: %s", dvResp.Status, dvResp.Code, dvResp.Message))
 			return fmt.Errorf("Dataverse DDI request failed")
 		}
 		return fmt.Errorf("file %d: unexpected JSON DDI response", fileID)
