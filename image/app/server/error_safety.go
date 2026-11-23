@@ -83,8 +83,7 @@ func safeErrorBody(status int, body []byte, tooLarge bool) ([]byte, string) {
 			Reauth *reauth.Error `json:"reauth"`
 		}
 		if json.Unmarshal(body, &payload) == nil {
-			if safe := reauth.Sanitize(payload.Reauth); safe != nil &&
-				(len(safe.RequiredScopes) > 0 || len(safe.RequiredDomains) > 0) {
+			if safe := reauth.Sanitize(payload.Reauth); safe.Actionable() {
 				safeBody, err := json.Marshal(struct {
 					Reauth *reauth.Error `json:"reauth"`
 				}{Reauth: safe})

@@ -25,6 +25,8 @@ const maxScopeLength = 2048
 var (
 	safeScope  = regexp.MustCompile(`^urn:globus:auth:scope:[A-Za-z0-9][A-Za-z0-9:./*\[\] @+_-]*$`)
 	safeDomain = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$`)
+	// Globus policy and identity ids are UUIDs
+	safeID = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`)
 )
 
 // isSafeScope accepts Globus scope strings: Globus separates the dependencies
@@ -58,9 +60,18 @@ func isSafeScope(scope string) bool {
 
 // Error describes what the new login must include.
 type Error struct {
-	RequiredScopes  []string `json:"required_scopes,omitempty"`
-	RequiredDomains []string `json:"required_domains,omitempty"`
-	Message         string   `json:"message,omitempty"`
+	RequiredScopes     []string `json:"required_scopes,omitempty"`
+	RequiredDomains    []string `json:"required_domains,omitempty"`
+	RequiredPolicies   []string `json:"required_policies,omitempty"`
+	RequiredIdentities []string `json:"required_identities,omitempty"`
+	RequiredMFA        bool     `json:"required_mfa,omitempty"`
+	Message            string   `json:"message,omitempty"`
+}
+
+// Actionable reports whether a new login has something to satisfy.
+func (e *Error) Actionable() bool {
+	return e != nil && (len(e.RequiredScopes) > 0 || len(e.RequiredDomains) > 0 ||
+		len(e.RequiredPolicies) > 0 || len(e.RequiredIdentities) > 0 || e.RequiredMFA)
 }
 
 // Error serializes the value between markers so it survives string
@@ -95,11 +106,27 @@ func Sanitize(e *Error) *Error {
 			break
 		}
 	}
+	safe.RequiredPolicies = safeIDs(e.RequiredPolicies)
+	safe.RequiredIdentities = safeIDs(e.RequiredIdentities)
+	safe.RequiredMFA = e.RequiredMFA
 	return safe
 }
 
+func safeIDs(ids []string) []string {
+	var res []string
+	for _, id := range ids {
+		if id = strings.TrimSpace(id); safeID.MatchString(id) {
+			res = append(res, id)
+		}
+		if len(res) == 32 {
+			break
+		}
+	}
+	return res
+}
+
 // Parse extracts a marker-embedded Error from s. Returns nil when no
-// well-formed, actionable (scopes or domains present) marker is found.
+// well-formed, actionable marker is found.
 func Parse(s string) *Error {
 	first := strings.Index(s, marker)
 	if first < 0 {
@@ -115,7 +142,7 @@ func Parse(s string) *Error {
 		return nil
 	}
 	res = Sanitize(res)
-	if len(res.RequiredScopes) == 0 && len(res.RequiredDomains) == 0 {
+	if !res.Actionable() {
 		return nil
 	}
 	return res
@@ -130,7 +157,7 @@ func FromError(err error) *Error {
 	var typed *Error
 	if errors.As(err, &typed) {
 		safe := Sanitize(typed)
-		if len(safe.RequiredScopes) == 0 && len(safe.RequiredDomains) == 0 {
+		if !safe.Actionable() {
 			return nil
 		}
 		return safe

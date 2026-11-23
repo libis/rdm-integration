@@ -79,6 +79,54 @@ func TestSanitizeRejectsSpacesOutsideTheDependencies(t *testing.T) {
 	}
 }
 
+const (
+	policyID   = "6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b"
+	identityID = "11111111-2222-4333-8444-555555555555"
+)
+
+func TestSanitizeKeepsPoliciesIdentitiesAndMFA(t *testing.T) {
+	safe := Sanitize(&Error{
+		RequiredPolicies:   []string{policyID, "not-a-policy", " " + policyID + " "},
+		RequiredIdentities: []string{identityID, "u0012345@kuleuven.be"},
+		RequiredMFA:        true,
+	})
+	if len(safe.RequiredPolicies) != 2 || safe.RequiredPolicies[0] != policyID || safe.RequiredPolicies[1] != policyID {
+		t.Fatalf("policies = %v", safe.RequiredPolicies)
+	}
+	if len(safe.RequiredIdentities) != 1 || safe.RequiredIdentities[0] != identityID {
+		t.Fatalf("identities = %v", safe.RequiredIdentities)
+	}
+	if !safe.RequiredMFA {
+		t.Fatal("MFA demand was dropped")
+	}
+}
+
+func TestPoliciesIdentitiesOrMFAAloneAreActionable(t *testing.T) {
+	for _, e := range []*Error{
+		{RequiredPolicies: []string{policyID}},
+		{RequiredIdentities: []string{identityID}},
+		{RequiredMFA: true},
+	} {
+		if FromError(e) == nil {
+			t.Fatalf("FromError(%+v) = nil", e)
+		}
+		if Parse("Job failed: "+e.Error()) == nil {
+			t.Fatalf("Parse lost %+v", e)
+		}
+	}
+}
+
+func TestWriteErrorPolicies(t *testing.T) {
+	w := httptest.NewRecorder()
+	WriteError(w, &Error{RequiredPolicies: []string{policyID}})
+	if w.Code != 401 {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `"required_policies":["`+policyID+`"]`) {
+		t.Fatalf("body = %s", w.Body.String())
+	}
+}
+
 func TestFromErrorFindsWrappedTypedError(t *testing.T) {
 	orig := &Error{RequiredDomains: []string{"sydney.edu.au"}}
 	wrapped := fmt.Errorf("globus transfer failed: %w", orig)

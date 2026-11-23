@@ -53,3 +53,22 @@ func TestErrorBoundaryHidesErrorDetails(t *testing.T) {
 		t.Fatalf("body = %q, want the fixed message", w.Body.String())
 	}
 }
+
+// A collection with an authentication policy demands a session that satisfies
+// it; that demand must pass the boundary like scopes and domains do.
+func TestErrorBoundaryKeepsAPolicyDemand(t *testing.T) {
+	policy := "6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b"
+	w := serveThroughBoundary(func(w http.ResponseWriter, r *http.Request) {
+		reauth.WriteError(w, &reauth.Error{RequiredPolicies: []string{policy}})
+	})
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+	var payload struct {
+		Reauth *reauth.Error `json:"reauth"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil || payload.Reauth == nil ||
+		len(payload.Reauth.RequiredPolicies) != 1 || payload.Reauth.RequiredPolicies[0] != policy {
+		t.Fatalf("body %q lost the policy demand", w.Body.String())
+	}
+}
