@@ -22,6 +22,23 @@ const gridFtpEmbeddedBody = `{"code":"ExternalError.DirListingFailed.LoginFailed
 
 const notFoundBody = `{"code":"ClientError.NotFound","message":"Directory not found"}`
 
+// Globus CLI tests: a collection with an authentication policy answers ls
+// with AuthPolicyFailed and the policy ids as a comma-separated string.
+const authPolicyFailedBody = `{"authorization_parameters":{"session_message":"Failing collection authentication policy","session_required_policies":"6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b,7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d"},"code":"AuthPolicyFailed","message":"Failing collection authentication policy","request_id":"MSbPbMR9n","resource":"/operation/endpoint/x/ls"}`
+
+const policiesListBody = `{"code":"AuthPolicyFailed","message":"policy","authorization_parameters":{"session_required_policies":["6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b"]}}`
+
+const requiredIdentitiesBody = `{"code":"permission_denied","message":"identity","authorization_parameters":{"session_required_identities":["11111111-2222-4333-8444-555555555555"]}}`
+
+const domainWithMFABody = `{"code":"permission_denied","message":"mfa","authorization_parameters":{"session_required_single_domain":["kuleuven.be"],"session_required_mfa":true}}`
+
+const gareOnlyConsentBody = `{"code":"ConsentRequired","message":"Missing required data_access consent","authorization_parameters":{"required_scopes":["urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/00000000-0000-0000-0000-000000000002/data_access]"]}}`
+
+// A cut-off embedded result is not valid JSON; the domain is still found.
+const gridFtpTruncatedBody = `{"code":"ExternalError.DirListingFailed.LoginFailed","message":"Login Failed\n530-GridFTP-JSON-Result: {\"authorization_parameters\": {\"session_required_single_domain\": [\"sydney.edu.au\"]","request_id":"xyz"}`
+
+const gridFtpEmbeddedPoliciesBody = `{"code":"ExternalError.DirListingFailed.LoginFailed","message":"Login Failed\n530-Login incorrect. : GlobusError: v=1 c=LOGIN_DENIED\n530-GridFTP-JSON-Result: {\"DATA_TYPE\": \"result#1.1.0\", \"authorization_parameters\": {\"session_required_policies\": [\"6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b\"]}, \"code\": \"permission_denied\", \"http_response_code\": 403}\n530 End.","request_id":"xyz"}`
+
 // From the Globus Transfer API docs: a transfer that needs consent for two
 // collections gets one scope with both data_access dependencies.
 const twoCollectionScope = "urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/ea4c8cf2-d3a2-4c1a-92c2-59925fe7ac5b/data_access *https://auth.globus.org/scopes/0357da44-c908-47e5-8351-ba5c695d11a7/data_access]"
@@ -37,9 +54,12 @@ func TestInterpretGlobusError(t *testing.T) {
 		name        string
 		status      int
 		body        string
-		wantScopes  []string
-		wantDomains []string
-		wantPlain   string // expected error text when no reauth expected
+		wantScopes     []string
+		wantDomains    []string
+		wantPolicies   []string
+		wantIdentities []string
+		wantMFA        bool
+		wantPlain      string // expected error text when no reauth expected
 	}{
 		{
 			name:       "consent_required_becomes_scopes",
@@ -58,6 +78,49 @@ func TestInterpretGlobusError(t *testing.T) {
 			status:     403,
 			body:       gareConsentBody,
 			wantScopes: []string{"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/00000000-0000-0000-0000-000000000001/data_access]"},
+		},
+		{
+			name:         "auth_policy_failed_becomes_policies",
+			status:       403,
+			body:         authPolicyFailedBody,
+			wantPolicies: []string{"6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b", "7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d"},
+		},
+		{
+			name:         "policies_list_becomes_policies",
+			status:       403,
+			body:         policiesListBody,
+			wantPolicies: []string{"6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b"},
+		},
+		{
+			name:           "required_identities_become_identities",
+			status:         403,
+			body:           requiredIdentitiesBody,
+			wantIdentities: []string{"11111111-2222-4333-8444-555555555555"},
+		},
+		{
+			name:        "domain_with_mfa_keeps_both",
+			status:      403,
+			body:        domainWithMFABody,
+			wantDomains: []string{"kuleuven.be"},
+			wantMFA:     true,
+		},
+		{
+			name:       "gare_only_consent_uses_authorization_parameters_scopes",
+			status:     403,
+			body:       gareOnlyConsentBody,
+			wantScopes: []string{"urn:globus:auth:scope:transfer.api.globus.org:all[*https://auth.globus.org/scopes/00000000-0000-0000-0000-000000000002/data_access]"},
+		},
+		{
+			name:        "gridftp_truncated_json_still_finds_domains",
+			status:      502,
+			body:        gridFtpTruncatedBody,
+			wantDomains: []string{"sydney.edu.au"},
+		},
+		{
+			name:         "gridftp_embedded_policies_become_policies",
+			status:       502,
+			body:         gridFtpEmbeddedPoliciesBody,
+			wantPolicies: []string{"6f5a1e2b-3c4d-4e5f-8a9b-0c1d2e3f4a5b"},
 		},
 		{
 			name:        "authorization_parameters_array_becomes_domains",
@@ -98,7 +161,8 @@ func TestInterpretGlobusError(t *testing.T) {
 				t.Fatal("expected error, got nil")
 			}
 			re := reauth.FromError(err)
-			if len(tt.wantScopes) == 0 && len(tt.wantDomains) == 0 {
+			if len(tt.wantScopes) == 0 && len(tt.wantDomains) == 0 && len(tt.wantPolicies) == 0 &&
+				len(tt.wantIdentities) == 0 && !tt.wantMFA {
 				if re != nil {
 					t.Fatalf("expected plain error, got reauth %+v", re)
 				}
@@ -122,6 +186,15 @@ func TestInterpretGlobusError(t *testing.T) {
 						t.Fatalf("domains = %v, want %v", re.RequiredDomains, tt.wantDomains)
 					}
 				}
+			}
+			if strings.Join(re.RequiredPolicies, ",") != strings.Join(tt.wantPolicies, ",") {
+				t.Fatalf("policies = %v, want %v", re.RequiredPolicies, tt.wantPolicies)
+			}
+			if strings.Join(re.RequiredIdentities, ",") != strings.Join(tt.wantIdentities, ",") {
+				t.Fatalf("identities = %v, want %v", re.RequiredIdentities, tt.wantIdentities)
+			}
+			if re.RequiredMFA != tt.wantMFA {
+				t.Fatalf("mfa = %v, want %v", re.RequiredMFA, tt.wantMFA)
 			}
 		})
 	}
