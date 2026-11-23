@@ -51,9 +51,9 @@ const gareConsentBody = `{"authorization_parameters":{"required_scopes":["urn:gl
 
 func TestInterpretGlobusError(t *testing.T) {
 	tests := []struct {
-		name        string
-		status      int
-		body        string
+		name           string
+		status         int
+		body           string
 		wantScopes     []string
 		wantDomains    []string
 		wantPolicies   []string
